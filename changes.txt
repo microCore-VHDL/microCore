@@ -1,0 +1,70 @@
+*** XP2_2200  21-Jan-2021 ks
+
+First release on GitHub.
+
+New Version number structure:
+<4 digit version>_<2 digit data_width>
+<major_release><functionality_added><HW_fix><SW_fix>_<data_width>
+Use .version to display while debugging.
+
+In architecture_pkg.vhd and architecture_pkg_sim.vhd:
+- Simplification and re-arrangment of the architecture Constants.
+- Additional number formats implemented in vhdl.fs e.g. 16#C00#.
+- data_nibbles renamed octetts.
+- dcache_addr_width renamed cache_addr_width.
+- pcache_addr_width deleted, its now always equal to prog_addr_width.
+  The notion that there may be external program memory available has
+  been given up.
+
+In uCntrl.vhd:
+- The return stack may now reside in external memory.
+  Its base address is defined by constant addr_rstack.
+- op_WLOCAL and op_RLOCAL have been abandoned for op_LOCAL, which
+  only computes the absolute memory address from a relative return
+  stack addr.
+- Overflow bugfix in op_SDIVS.
+
+In constants.fs: Compound names in uForth did use the _ character as
+separator. This has been replaced by the - character unless a name has
+been imported from VHDL verbatim. Example: #c_bitout renamed #c-bitout.
+
+Library.fs: New file that implements uForth's library mechanism.
+See uForth.pdf chapter 9.6 "Libraries". Library code integrated into
+microcross.fs.
+
+*** uCore 2.10  17-Jun-2020 ks
+
+First release (CERN and DESY).
+
+During documentation, several changes have been made to the design.
+And a new version identification when displaying
+
+.version: 2<2-digit-design#>_<data_width> e.g. 210_32
+
+*** uCore 2.02  07-Jan-2020 ks
+
+Shift instructions unified:
+WITH_MULT: MSHIFT, MASHIFT, WITHOUT_MULT: SHIFT, ASHIFT, C2/, C2*
+WITH_TASKS, TASK_REG, tld, t@, tst, and t! eliminated.
+Upload bug fixed.
+status, dsp, rsp became registers. Special purpose instructions
+status@/!, dsp@/!, and rsp@/! eliminated.
++sat instruction added.
+
+*** uCore 2.01  09-Aug-2019 ks
+
+Changes made in A3PE_1500_1003 ported back to uCore_2
+Floating point ported and included in coretest.fs
+
+*** uCore 2.00  06-Jun-2019 ks
+
+Float not yet ported to 2.00
+Debugger revisited: Temporary code sequences (without reset) transferred
+with program memory cycle stealing.
+>FOR <NEXT removed, replaced by ?FOR ... NEXT
+Starting uCore 2.00.
+At first producing a minimum code version of uCore 1.98.
+
+*** uCore 1.98  29-Dec-2018 ks
+
+Changes ported from Merlin Project

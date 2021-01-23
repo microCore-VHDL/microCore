@@ -1,0 +1,23 @@
+-- ---------------------------------------------------------------------
+-- @file : .vhd
+-- ---------------------------------------------------------------------
+--
+-- Last change: KS 13.06.2020 19:05:38
+-- Project : microCore
+-- Language : VHDL-2008
+-- Last check in : $Rev: 511 $ $Date:: 2020-04-15 #$
+-- @copyright (c): Klaus Schleisiek, All Rights Reserved.
+--
+-- Do not use this file except in compliance with the License. You may
+-- obtain a copy of the License at http://www.microcore.org/License/.
+-- Software distributed under the License is distributed on an "AS IS"
+-- basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.
+-- See the License for the specific language governing rights and
+-- limitations under the License.
+--
+-- @brief:
+--
+-- Version Author   Date       Changes
+--           ks    8-Jun-2020  initial version
+-- ---------------------------------------------------------------------
+
