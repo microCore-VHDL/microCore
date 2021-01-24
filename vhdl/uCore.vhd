@@ -2,14 +2,15 @@
 -- @file : uCore.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 15.12.2020 16:13:29
+-- Last change: KS 24.01.2021 19:50:19
 -- Project : microCore
 -- Language : VHDL-2008
 -- Last check in : $Rev: 613 $ $Date:: 2020-12-16 #$
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
 --
--- Do not use this file except in compliance with the License. You may
--- obtain a copy of the License at http://www.microcore.org/License/.
+-- Do not use this file except in compliance with the License.
+-- You may obtain a copy of the License at
+-- https://github.com/microCore-VHDL/microCore/tree/master/documents
 -- Software distributed under the License is distributed on an "AS IS"
 -- basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.
 -- See the License for the specific language governing rights and
