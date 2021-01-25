@@ -13,7 +13,7 @@ uForth.pdf: description of uCore's assembler and cross-compiler/debugger.<BR>
 Getting_started.pdf: necessary steps for a first uCore simulation.<BR>
 uCore_Exploratory_License.pdf: free license for research and development.
 
-![uCore_architecture](https://user-images.githubusercontent.com/77505995/105731480-bfbf0280-5f2f-11eb-993e-15f7fc798007.jpg)
+![uCore_architecture](https://user-images.githubusercontent.com/77505995/105734708-36113400-5f33-11eb-819f-f72972bb19c1.jpg)
 
 License:
 
