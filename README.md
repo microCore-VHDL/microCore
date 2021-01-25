@@ -14,4 +14,10 @@ uForth.pdf		          description of uCore's assembler and cross-compiler/debugg
 Getting_started.pdf	    necessary steps for a first uCore simulation.
 uCore_Exploratory_License.pdf free license for research and development.
 
-A commercial license for saleable products with an embedded microCore will follow.
+License:
+
+There will be two types of licenses, an exploratory and a commercial license.
+
+Under the exploratory license, you can freely use microCore for research and development.
+
+A commercial license for saleable products with an embedded microCore will follow soon.
