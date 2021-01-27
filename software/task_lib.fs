@@ -283,8 +283,8 @@ Target
 \ ----------------------------------------------------------------------
 \ During debugging:
 \
-\ TASKS prints the status of all tasks.
-\ SEMAS prints the status of all semaphors.
+\ .tasks prints the status of all tasks.
+\ .semas prints the status of all semaphors.
 \
 \ please note that the status of single tasks changes, while
 \ they are printed. Only the sequence of tasks is a momentary
@@ -441,7 +441,7 @@ Target
             r@ = IF  rdrop  EXIT THEN  #t-link + @
      REPEAT
   ;
-~ : cancel  ( task -- )
+  : cancel  ( task -- )
      dup previous-task
      over #t-link + @ swap #t-link + !                  \ link task out of task list
      dup RRLink @ = IF  dup #t-link + @ RRLink !  THEN  \ Move RoundRobin Pointer as well
