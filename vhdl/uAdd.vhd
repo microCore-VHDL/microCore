@@ -23,7 +23,7 @@
 -- ---------------------------------------------------------------------
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
-USE IEEE.STD_LOGIC_unsigned.ALL; -- NUMERIC_STD too cumbersome
+USE IEEE.numeric_std.ALL;
 USE work.architecture_pkg.ALL;
 USE work.functions_pkg.ALL;
 
@@ -36,8 +36,14 @@ ENTITY uAdd IS PORT (
 
 ARCHITECTURE inference OF uAdd IS
 
+	signal add_ladd_x : unsigned(ladd_out'range);
+	signal add_ladd_y : unsigned(ladd_out'range);
+
 BEGIN
 
-ladd_out <= ('0' & ladd_x) + ('0' & ladd_y) + cin;
+add_ladd_x <= resize(unsigned(ladd_x), add_ladd_x'length);
+add_ladd_y <= resize(unsigned(ladd_y), add_ladd_y'length);
+
+ladd_out <= std_logic_vector(add_ladd_x + add_ladd_y + cin);
 
 END inference;
