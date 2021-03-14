@@ -19,6 +19,7 @@ uCore_Exploratory_License.pdf | free license for research and development.
 
 License:
 
-There will be two types of licenses, an exploratory and a commercial license.<BR>
+There will be two types of licenses, an exploratory and a public license.<BR>
 Under the exploratory license, you can freely use microCore for research and development.<BR>
-A commercial license for saleable products with an embedded microCore will follow soon.
+A commercial licenses will be granted on a case by case basis free of charge when support can be assured. Please get in touch with me thru microcore(at)freenet.de.<BR>
+The public license that allows the creation, manufacture and sale of products in general using microCore will be offered as soon as a "sufficient basis" for support has been established.
