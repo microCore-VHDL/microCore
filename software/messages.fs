@@ -2,10 +2,10 @@
 \ @file : messages.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 14.11.2020 16:17:16
+\ Last change: KS 14.02.2021 23:02:52
 \ Project : microCore
 \ Language : gforth_0.6.2
-\ Last check in : $Rev: 588 $ $Date:: 2020-11-14 #$
+\ Last check in : $Rev: 645 $ $Date:: 2021-02-17 #$
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
 \
@@ -24,7 +24,7 @@
 \ @brief : Definition of warnings, errors, and execution tokens on the host.
 \
 \ Version Author   Date       Changes
-\           ks   14-Jun-2020  initial version
+\   210     ks   14-Jun-2020  initial version
 \ ----------------------------------------------------------------------
 Forth definitions
 
@@ -32,7 +32,7 @@ Forth definitions
 \ Message# defines target signals for target/host interaction.
 \ ----------------------------------------------------------------------
 
-: Message#     ( n -- )   #datamask and
+: Message#     ( n -- )  #datamask and
    source> Target definitions over T Constant H
    >source Forth  definitions Constant
 ;
@@ -53,7 +53,7 @@ Forth definitions
    #task-not-linked             case? IF  ." task-not-linked "              EXIT THEN
    #catch-not-initialized       case? IF  ." catch-not-initialized "        EXIT THEN
    #not-my-semaphore            case? IF  ." not-my-semaphore "             EXIT THEN
-   ." error: " .
+   ." error: " signextend .
 ;
 : .warning  ( +n -- )  cr ." warning: "
    #string-overflow case? IF  ." string-overflow " EXIT THEN
@@ -94,18 +94,18 @@ Forth definitions
    $108 Message# #allot
    $109 Message# #emit
 
-   : do-messages  ( n -- )   signextend                          
-      dup 0<         IF  State off cr .error                       EXIT THEN
-      #dot     case? IF  target> signextend .                      EXIT THEN
-      #udot    case? IF  target> tu.                               EXIT THEN
-      #dotr    case? IF  target> target> signextend swap .r space  EXIT THEN
-      #ddot    case? IF  target> target> dtarget d.                EXIT THEN
-      #uddot   case? IF  target> target> udtarget ud.              EXIT THEN
-      #cret    case? IF  cr                                        EXIT THEN
-      #here    case? IF  Tdp @ >target                             EXIT THEN
-      #allot   case? IF  target> Tdp +!                            EXIT THEN
-      #emit    case? IF  target> emit                              EXIT THEN
-      dup $3FFF >    IF  .warning                                  EXIT THEN
+   : do-messages  ( n -- )
+      dup #signbit and IF  State off cr .error                       EXIT THEN
+      #dot       case? IF  target> signextend .                      EXIT THEN
+      #udot      case? IF  target> tu.                               EXIT THEN
+      #dotr      case? IF  target> target> signextend swap .r space  EXIT THEN
+      #ddot      case? IF  target> target> dtarget d.                EXIT THEN
+      #uddot     case? IF  target> target> udtarget ud.              EXIT THEN
+      #cret      case? IF  cr                                        EXIT THEN
+      #here      case? IF  Tdp @ >target                             EXIT THEN
+      #allot     case? IF  target> Tdp +!                            EXIT THEN
+      #emit      case? IF  target> emit                              EXIT THEN
+      dup $3FFF >      IF  .warning                                  EXIT THEN
       cr ." message: " .hex
    ;
 

@@ -10,7 +10,7 @@ add wave -noupdate /bench/myFPGA/uCore/uBus
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/s
 add wave -noupdate /bench/myFPGA/flags
-add wave -noupdate /bench/myFPGA/ctrl(0)
+add wave -noupdate /bench/bitout
 add wave -noupdate -divider Sequencer
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/s.lit
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.chain
@@ -51,7 +51,7 @@ add wave -noupdate /bench/myFPGA/uCore/uCntrl/interrupt
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/s.iis
 TreeUpdate [SetDefaultTree]
 WaveRestoreCursors {{Cursor 1} {93700 ns} 0} {{Cursor 2} {977 ns} 0}
-quietly wave cursor active 1
+quietly wave cursor active 2
 configure wave -namecolwidth 111
 configure wave -valuecolwidth 68
 configure wave -justifyvalue left
@@ -66,4 +66,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {0 ns} {99750 ns}
+WaveRestoreZoom {0 ns} {315 us}

@@ -2,10 +2,10 @@
 \ @file : microcross.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 18.01.2021 11:19:20
+\ Last change: KS 14.03.2021 00:43:14
 \ Project : microCore
 \ Language : gforth_0.6.2
-\ Last check in : $Rev: 619 $ $Date:: 2021-01-20 #$
+\ Last check in : $Rev: 667 $ $Date:: 2021-03-14 #$
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
 \
@@ -24,28 +24,31 @@
 \ @brief : The microCore cross-compiler.
 \
 \ Version Author   Date       Changes
-\     1     ks   14-Jun-2020  initial version
-\     2     ks   19-Oct-2020  Library mechanism integrated
+\   210     ks   14-Jun-2020  initial version
+\   2200    ks   19-Oct-2020  Library mechanism integrated
+\   2300    ks   18-Feb-2021  OOP mechanism integrated
 \ ----------------------------------------------------------------------
 Forth definitions
 
 : $Rev:         &36 parse s, postpone \ ; immediate
 : $Date::  [char] # parse s, postpone \ ; immediate
 
-Create revision $Rev: 619 $           \ Subversion revision number
-Create datum    $Date:: 2021-01-20 #$ \ Subversion check in date
+Create revision $Rev: 667 $           \ Subversion revision number
+Create datum    $Date:: 2021-03-14 #$ \ Subversion check in date
 
 : .revision ( -- )  revision count type ;
 : .date     ( -- )  datum count type ;
 : .version  ( -- )  temp-decimal Version u. #BS emit [char] _ emit data_width . ;
 
 \ Debugger forward references
-Defer t_execute    :noname  true abort" t_execute not initialized" ;  IS t_execute
-Defer >t           :noname  true abort" >t not initialized" ;         IS >t
-Defer t>           :noname  true abort" t> not initialized" ;         IS t>
-Defer >target      :noname  true abort" >target not initialized" ;    IS >target
-Defer target>      :noname  true abort" target> not initialized" ;    IS target>
-Defer send-image   :noname  true abort" send-image not initialized" ; IS send-image
+Defer t_execute    :noname  true abort" t_execute not initialized" ;    IS t_execute
+Defer >t           :noname  true abort" >t not initialized" ;           IS >t
+Defer t>           :noname  true abort" t> not initialized" ;           IS t>
+Defer >target      :noname  true abort" >target not initialized" ;      IS >target
+Defer target>      :noname  true abort" target> not initialized" ;      IS target>
+Defer send-image   :noname  true abort" send-image not initialized" ;   IS send-image
+Defer find-methods :noname  true abort" find-methods not initialized" ; IS find-methods
+
 Defer mark-target        ( -- )     ' noop IS mark-target         \ for loading libraries
 Defer advance-libsource  ( xt -- )  ' drop IS advance-libsource   \ for loading libraries
 
@@ -93,7 +96,7 @@ $B0B Constant #lib       \ when loading from library predefinitions
 
 prog_addr_width 2**                     Constant #maxprog
 data_addr_width 2**                     Constant #maxdata    \ size of data memory
-data_width 8 /mod swap 0= 1+ +          Constant #bytes      \ bytes per cell
+data_width 8 /mod swap 0= 1+ +          Constant #bytes/cell
 data_width 2** 1-                       Constant #datamask
 data_width 1- 2**                       Constant #signbit
 inst_width 1- 2** 1-                    Constant #opmask
@@ -120,8 +123,9 @@ Variable Libfile     Libfile off          \ pointer to library filepath string (
 Variable Libload     2 cells allot        \ | flag | host xt | target xt |
 Variable Trash                            \ Dummy countfield when not lib-loading
 Variable Countfield  1 cells allot        \ Holds countfield and countfield address during lib-loading
-Create Tmarker  ( here ) 0 , ( there ) 0 , ( depth ) 0 , ( save-input stream ) 6 cells allot
+Create Tmarker  ( here ) 0 , ( there ) 0 , ( depth ) 0 , ( Current ) 0 , ( save-input stream ) 6 cells allot
 
+Variable Class-context  Class-context off \ Momentary class context
 Variable Macro      Macro off             \ holds the current macro tag to be included in code compilation. 0 => no macro
 Variable Macro#     Macro# off            \ holds the last assigned macro number
 $FF000000         Constant #macromask     \ macro# is embedded in opcode field
@@ -306,11 +310,13 @@ Does> ( -- )   Macro @ IF  @ execute  EXIT THEN      \ another macro inside the 
 gforth_062 [IF]
 : .macros    ( -- )  Macro-link BEGIN  @ ?dup WHILE  dup 4 cells - >name .name  REPEAT ;
 : .variables ( -- )  Variables  BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
+: .constants ( -- )  Constants  BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
 : .colons            Colons     BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
 : .inits     ( -- )  Init-link  BEGIN  @ ?dup WHILE  dup 4 cells - >name .name  REPEAT ;
 [THEN] gforth_079 gforth_072 or [IF]
 : .macros    ( -- )  Macro-link BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
 : .variables ( -- )  Variables  BEGIN  @ ?dup WHILE  dup 2 cells - >name .name  REPEAT ;
+: .constants ( -- )  Constants  BEGIN  @ ?dup WHILE  dup 2 cells - >name .name  REPEAT ;
 : .colons            Colons     BEGIN  @ ?dup WHILE  dup 2 cells - >name .name  REPEAT ;
 : .inits     ( -- )  Init-link  BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
 [THEN]
@@ -395,7 +401,7 @@ Does> ( -- )
           r> >in !   dup advance-libsource   name 2drop
           cell+ doCreate over !   cell+ Tdp @ over !
           cell+ Variables @ over !   Variables !
-          Tmarker   Dp @ swap !                          \ Advance Tmarker
+          Dp @ Tmarker !                          \ Advance Tmarker
       EXIT THEN
       drop
    THEN   r> >in !
@@ -425,26 +431,29 @@ Does> @ ( -- addr )  [ here cell- (doCreate ! ]
 
 Vocabulary Target          \ Vocabulary for all Target definitions
 
+: Method ( -- )   Class-context off ;
+
 : Macro:  ( <name> -- context addr :noname # )
-   get-order get-current   [ ' parser >body ] Literal @
+   get-order   Current @   [ ' parser >body ] Literal @
    'interpreter @   'compiler @   Targeting @
-   (Macro: :noname #macro
+   (Macro: :noname #macro   postpone Method
 ;
-: Host:  ( <name> -- # )  : drop #host ;
+: Host:  ( <name> -- # )  : drop #host   postpone Method ;
 
 : ;  ( # -- )  \ redefine ; so that it can be used to terminate macro definitions
    #macro case? IF  postpone ;  ( context addr xt -- )    swap !
-                    Targeting !   'compiler !   'interpreter !   IS parser
-                    set-current   set-order
+                    Targeting !   'compiler !   'interpreter !
+                    IS parser   Current !   set-order
                 EXIT THEN
    #host  case? IF  Target  0  THEN  postpone ;
 ; immediate
 
 Root definitions
 
-' Forth  Alias H immediate \ "Host" - short-hand definition to switch context also within a definition
+' Forth  Alias H immediate \ "Host" - short-hand definition to switch context also while compiling
 ' Target Alias T immediate
 ' Root   Alias Root
+: ..  ( -- )   Method ; immediate
 
 \ ----------------------------------------------------------------------
 \ Opcodes are defined in opcodes.fs
@@ -793,6 +802,7 @@ Does> ( -- ) [ here (doGoto ! ]
 \ To be extended when the need arises
 \ ----------------------------------------------------------------------
 
+' Alias       Alias Alias
 ' 2**         Alias 2**
 ' 2//         Alias 2//
 ' immediate   Alias immediate
@@ -802,6 +812,8 @@ Does> ( -- ) [ here (doGoto ! ]
 ' include     Alias include
 ' .macros     Alias .macros
 ' .variables  Alias .variables
+' .constants  Alias .constants
+' .colons     Alias .colons
 ' .inits      Alias .inits
 ' binary      Alias binary
 ' decimal     Alias decimal
@@ -810,6 +822,7 @@ Does> ( -- ) [ here (doGoto ! ]
 ' unsigned    Alias unsigned
 ' .version    Alias .version
 ' .(          Alias .(
+' (*          Alias (*
 ' [IF]        Alias [IF]    immediate
 ' [NOTIF]     Alias [NOTIF] immediate
 ' [ELSE]      Alias [ELSE]  immediate
@@ -857,7 +870,7 @@ Does> ( -- )
                 there Transferred !
        THEN
    EXIT THEN
-\ Tmarker: | here | there | depth | 6 cells save-input stream |
+\ Tmarker: | here | there | depth | Current | 6 cells save-input stream |
    #lib  case? IF  Libload cell+ >r
                    r@ @ cell+ doColon over !           \ rewrite do xt
                    cell+   r> cell+ @ over !           \ fill in target xt
@@ -887,9 +900,15 @@ Vocabulary Command
 Command get-context Constant debugger-wordlist Forth
 
 \ ----------------------------------------------------------------------
-\ the target token compiler
+\ the host compiler
 \ ----------------------------------------------------------------------
 
+: unknown ( addr len -- )  Method unknown ;
+
+: host-classes ( addr len -- addr len | rdrop )
+   2dup find-methods ?dup 0= ?EXIT   rdrop nip nip
+   comp? IF  name>comp  ELSE  name>int  THEN  execute
+;
 : host-find ( addr len -- addr len | rdrop )
    2dup find-name ?dup 0= ?EXIT   rdrop nip nip
    comp? IF  name>comp  ELSE  name>int  THEN   execute
@@ -899,8 +918,18 @@ Command get-context Constant debugger-wordlist Forth
    comp? IF  0> IF  swap postpone Literal  THEN  postpone Literal  EXIT THEN
    drop
 ;
-: host-compiler   ( addr len -- )  host-find host-number unknown ;
+: host-compiler   ( addr len -- )
+   Class-context @ IF  host-classes ." Method " unknown  EXIT THEN
+   host-find host-number unknown
+;
+\ ----------------------------------------------------------------------
+\ the target compiler
+\ ----------------------------------------------------------------------
 
+: target-classes ( addr len -- addr len | rdrop )
+   2dup find-methods ?dup 0= ?EXIT
+   rdrop nip nip   name>int execute
+;
 : debugger-find  ( addr len -- addr len | rdrop )
    dbg? IF  2dup debugger-wordlist search-wordlist
             IF  rdrop nip nip   execute  EXIT THEN
@@ -918,8 +947,10 @@ Command get-context Constant debugger-wordlist Forth
    dbg?  IF  0> IF  d>target swap >t    THEN  >t    EXIT THEN
    drop
 ;
-: target-compiler ( addr len -- )  debugger-find target-find target-number unknown ;
-
+: target-compiler ( addr len -- )
+   Class-context @ IF  target-classes ." Method " unknown  EXIT THEN
+   debugger-find target-find target-number unknown
+;
 gforth_062 [IF]
 
    : host-compile ( -- )
@@ -927,7 +958,7 @@ gforth_062 [IF]
       Targeting off  Only Forth also
    ;
    ' host-compiler   dup 'interpreter !   dup 'compiler !   IS parser
-
+   
    : target-compile  ( -- )
       ['] target-compiler   dup 'interpreter !   dup 'compiler !  IS parser
       Targeting on   Only Target also
@@ -1003,6 +1034,17 @@ gforth_062 [IF]
 
 [THEN]
 \ ----------------------------------------------------------------------
+\ included files
+\ ----------------------------------------------------------------------
+Forth definitions
+
+include library.fs
+include messages.fs  \ Definition of warnings and errors
+include disasm.fs
+include objects.fs
+include images.fs    \ object code output files
+
+\ ----------------------------------------------------------------------
 \ Various target defining words
 \ ----------------------------------------------------------------------
 
@@ -1029,7 +1071,8 @@ Target definitions Forth
 : Macro:  ( <name> -- context addr xt :noname # )  ?exec Macro: host-compile ;
 
 : Create  ( # -- # )
-   comp? IF  postpone Hcreate  ELSE  Tcreate  THEN
+   comp? IF  postpone Hcreate  EXIT THEN
+   Tcreate   class-def? IF  Last-class @ ,  THEN
 ; immediate
 
 : Does>   ( #host -- #colon )
@@ -1048,6 +1091,7 @@ Target definitions Forth
            rdrop   if-prefix   ]   #colon
        EXIT THEN
        dup cell+ @ doLibdef =                                      \ is it a library definition?
+       Current @ cell- @ doClass - and                             \ but not during class definitions
        IF  \ cr ." Libload: "  dup >name .name
            dup >name ?dup IF  cell+ dup   dup @ swap Countfield 2!   off  THEN  \ hide name to make redefinitions possible
            dup Libload cell+   there over cell+  ! !
@@ -1059,9 +1103,9 @@ Target definitions Forth
    mark-target   Create-hide   there ,
    here Colons @ , Colons !
    |  if-prefix ] #colon                                           \ leaves #colon for ";" to recognize
-Does> ( -- ) [ here (doColon ! ]  @
+Does> ( -- ) [ here (doColon ! ]  Method   @
    comp? IF  source> swap #docall <resolve T JSR H  EXIT THEN
-   ?dbg  t_execute
+   ?dbg t_execute
 ;
 : init:  ( <name> -- # )   T : H here Init-link @ , Init-link ! ;
 
@@ -1088,16 +1132,6 @@ Does> ( -- ) [ here (doColon ! ]  @
 : Host   ( -- )  host-compile definitions ;
 
 \ ----------------------------------------------------------------------
-\ libraries
-\ ----------------------------------------------------------------------
-Forth definitions
-
-include library.fs
-include messages.fs  \ Definition of warnings and errors
-include disasm.fs
-include images.fs    \ object code output files
-
-\ ----------------------------------------------------------------------
 \ Redefining Target to start compilation in the target area.
 \ ----------------------------------------------------------------------
 Forth definitions
@@ -1122,7 +1156,6 @@ T h' Host H   Alias Host
 ' Target      Alias Target
 ' Only        Alias Only
 ' definitions Alias definitions
-' show        Alias show
 ' see         Alias see
 ' .s          Alias h.s
 
@@ -1134,11 +1167,11 @@ T definitions
 H simulation            T Version SIMULATION     \ simulating?
 H extended              T Version EXTENDED       \ extended instruction set?
 H with_mult             T Version WITH_MULT      \ hardware multiply available?
-H with_prog_rw          T Version WITH_PROG_RW   \ read/writeable program memory?
 H with_float            T Version WITH_FLOAT
 H with_up_download      T Version WITH_UP_DOWNLOAD
 
 H data_width            T Constant data_width
+H ext_data_width        T Constant ext_data_width
 H data_addr_width       T Constant data_addr_width
 H cache_addr_width      T Constant cache_addr_width
 H exp_width             T Constant exp_width
@@ -1148,7 +1181,7 @@ H rs_addr_width         T Constant rs_addr_width
 H ds_addr_width         T Constant ds_addr_width
 H tasks_addr_width      T Constant tasks_addr_width
 H #signbit              T Constant #signbit
-H #bytes                T Constant #bytes
+H #bytes/cell           T Constant #bytes/cell
 
 \ umbilical control characters
 H mark_start            T Constant mark_start

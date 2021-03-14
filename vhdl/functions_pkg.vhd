@@ -2,10 +2,10 @@
 -- @file : functions_pkg.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 24.01.2021 19:49:49
+-- Last change: KS 08.03.2021 11:10:37
 -- Project : microCore
 -- Language : VHDL-2008
--- Last check in : $Rev: 613 $ $Date:: 2020-12-16 #$
+-- Last check in : $Rev: 657 $ $Date:: 2021-03-08 #$
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
 --
 -- Do not use this file except in compliance with the License.
@@ -19,28 +19,23 @@
 -- @brief: Functions and components which are used throughout microCore.
 --
 -- Version Author   Date       Changes
---           ks    8-Jun-2020  initial version
+--   210     ks    8-Jun-2020  initial version
+--  2300     ks    8-Mar-2021  Converted to NUMERIC_STD
 -- ---------------------------------------------------------------------
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
-USE IEEE.STD_LOGIC_arith.ALL;
-USE IEEE.STD_LOGIC_signed.ALL;
+USE IEEE.NUMERIC_STD.ALL;
 USE STD.TEXTIO.ALL;
 
 PACKAGE functions_pkg IS
 
 CONSTANT async_reset : BOOLEAN := true; -- true = async reset, false = synchronous reset
 
-FUNCTION  to_NATURAL(v : IN STD_LOGIC_VECTOR) RETURN NATURAL;
-
-FUNCTION  to_vec(v : IN INTEGER;
-                 s : IN INTEGER          ) RETURN STD_LOGIC_VECTOR;
+FUNCTION  resize(slv : IN STD_LOGIC_VECTOR;
+                 s   : IN INTEGER        ) RETURN STD_LOGIC_VECTOR;
 
 FUNCTION   slice(v : IN STD_LOGIC;
-                 s : IN INTEGER          ) RETURN STD_LOGIC_VECTOR;
-
-FUNCTION     crc(d : IN STD_LOGIC_VECTOR;
-                 p : IN STD_LOGIC_VECTOR ) RETURN STD_LOGIC_VECTOR;
+                 s : IN INTEGER          ) RETURN UNSIGNED;
 
 FUNCTION     max(v : IN INTEGER;
                  w : IN INTEGER          ) RETURN INTEGER;
@@ -103,10 +98,10 @@ GENERIC (data_width  : INTEGER;
          addr_width  : INTEGER);
 PORT (clk   : IN  STD_LOGIC;
       we    : IN  STD_LOGIC;
-      waddr : IN  STD_LOGIC_VECTOR(addr_width-1 DOWNTO 0);
-      di    : IN  STD_LOGIC_VECTOR(data_width-1 DOWNTO 0);
-      raddr : IN  STD_LOGIC_VECTOR(addr_width-1 DOWNTO 0);
-      do    : OUT STD_LOGIC_VECTOR(data_width-1 DOWNTO 0));
+      waddr : IN  UNSIGNED(addr_width-1 DOWNTO 0);
+      di    : IN  UNSIGNED(data_width-1 DOWNTO 0);
+      raddr : IN  UNSIGNED(addr_width-1 DOWNTO 0);
+      do    : OUT UNSIGNED(data_width-1 DOWNTO 0));
 END COMPONENT;
 
 COMPONENT asynch_ram
@@ -114,9 +109,9 @@ GENERIC (data_width : INTEGER;
          addr_width : INTEGER);
 PORT (clk   : IN    STD_LOGIC;
       we    : IN    STD_LOGIC;
-      addr  : IN    STD_LOGIC_VECTOR;
-      di    : IN    STD_LOGIC_VECTOR;
-      do    : OUT   STD_LOGIC_VECTOR);
+      addr  : IN    UNSIGNED;
+      di    : IN    UNSIGNED;
+      do    : OUT   UNSIGNED);
 END COMPONENT;
 
 COMPONENT internal_ram GENERIC (
@@ -128,9 +123,9 @@ COMPONENT internal_ram GENERIC (
    clk   : IN    STD_LOGIC;
    en    : IN    STD_LOGIC;
    we    : IN    STD_LOGIC;
-   addr  : IN    STD_LOGIC_VECTOR;
-   di    : IN    STD_LOGIC_VECTOR;
-   do    : OUT   STD_LOGIC_VECTOR
+   addr  : IN    UNSIGNED;
+   di    : IN    UNSIGNED;
+   do    : OUT   UNSIGNED
 ); END COMPONENT;
 
 COMPONENT internal_dpram GENERIC (
@@ -142,14 +137,14 @@ COMPONENT internal_dpram GENERIC (
    clk   : IN    STD_LOGIC;
    ena   : IN    STD_LOGIC;
    wea   : IN    STD_LOGIC;
-   addra : IN    STD_LOGIC_VECTOR;
-   dia   : IN    STD_LOGIC_VECTOR;
-   doa   : OUT   STD_LOGIC_VECTOR;
+   addra : IN    UNSIGNED;
+   dia   : IN    UNSIGNED;
+   doa   : OUT   UNSIGNED;
    enb   : IN    STD_LOGIC;
    web   : IN    STD_LOGIC;
-   addrb : IN    STD_LOGIC_VECTOR;
-   dib   : IN    STD_LOGIC_VECTOR;
-   dob   : OUT   STD_LOGIC_VECTOR
+   addrb : IN    UNSIGNED;
+   dib   : IN    UNSIGNED;
+   dob   : OUT   UNSIGNED
 ); END COMPONENT;
 
 COMPONENT external_ram GENERIC (
@@ -160,8 +155,8 @@ COMPONENT external_ram GENERIC (
    ce_n   : IN    STD_LOGIC;
    oe_n   : IN    STD_LOGIC;
    we_n   : IN    STD_LOGIC;
-   addr   : IN    STD_LOGIC_VECTOR;
-   data   : INOUT STD_LOGIC_VECTOR
+   addr   : IN    UNSIGNED;
+   data   : INOUT UNSIGNED
 ); END COMPONENT;
 
 COMPONENT monoflop GENERIC (
@@ -184,8 +179,8 @@ COMPONENT fifo GENERIC (
    pop      : IN  STD_LOGIC;
    empty    : OUT STD_LOGIC;
    full     : OUT STD_LOGIC;
-   din      : IN  STD_LOGIC_VECTOR(width-1 DOWNTO 0);
-   dout     : OUT STD_LOGIC_VECTOR(width-1 DOWNTO 0)
+   din      : IN  UNSIGNED(width-1 DOWNTO 0);
+   dout     : OUT UNSIGNED(width-1 DOWNTO 0)
 ); END COMPONENT;
 
 END functions_pkg;
@@ -193,29 +188,18 @@ END functions_pkg;
 PACKAGE BODY functions_pkg IS
 
    -- ------------------------------------------------------------------
-   -- to_NATURAL
-   -- Convert STD_LOGIC_VECTOR to NATURAL number
+   -- resize
+   -- resize STD_LOGIC_VECTOR to STD_LOGIC_VECTOR, s bits long
    -- ------------------------------------------------------------------
 
-   FUNCTION to_NATURAL(v : IN STD_LOGIC_VECTOR )  RETURN NATURAL IS
-       VARIABLE temp  : NATURAL;
+   FUNCTION  resize(slv : IN STD_LOGIC_VECTOR;
+                    s   : IN INTEGER        ) RETURN STD_LOGIC_VECTOR IS
+      VARIABLE temp   : UNSIGNED(slv'range);
+      VARIABLE result : UNSIGNED(s-1 DOWNTO 0);
    BEGIN
-       temp := conv_INTEGER('0' & v);
-       RETURN temp;
-   END;
-
-   -- ------------------------------------------------------------------
-   -- to_vec
-   -- Convert INTEGER number to STD_LOGIC_VECTOR
-   -- ------------------------------------------------------------------
-
-   FUNCTION to_vec(v : IN INTEGER;
-                   s : IN INTEGER
-                  )  RETURN STD_LOGIC_VECTOR IS
-       VARIABLE temp  : STD_LOGIC_VECTOR(s-1 DOWNTO 0);
-   BEGIN
-      temp := conv_STD_LOGIC_VECTOR(v,s);
-      RETURN temp;
+      temp := unsigned(slv);
+      result := resize(temp, s);
+      RETURN std_logic_vector(result);
    END;
 
    -- ------------------------------------------------------------------
@@ -225,31 +209,10 @@ PACKAGE BODY functions_pkg IS
 
    FUNCTION slice(v : IN STD_LOGIC;
                   s : IN INTEGER
-                 )   RETURN STD_LOGIC_VECTOR IS
-      VARIABLE temp : STD_LOGIC_VECTOR (s-1 DOWNTO 0);
+                 )   RETURN UNSIGNED IS
+      VARIABLE temp : UNSIGNED (s-1 DOWNTO 0);
    BEGIN
-       temp := (OTHERS => v); -- synopsys compatibility
-      RETURN temp;
-   END;
-
-   -- ------------------------------------------------------------------
-   -- crc-function (not for synthesis)
-   -- ------------------------------------------------------------------
-
-   FUNCTION crc(d     : IN STD_LOGIC_VECTOR;
-                p     : IN STD_LOGIC_VECTOR
-               )     RETURN STD_LOGIC_VECTOR IS
-      VARIABLE temp : STD_LOGIC_VECTOR (p'HIGH DOWNTO p'LOW);
-   BEGIN
-      temp := (OTHERS => '0');
-      FOR I IN d'HIGH DOWNTO  d'LOW LOOP
-          IF   d(I) = temp(p'HIGH) THEN
-              temp := temp(p'HIGH - 1 DOWNTO p'LOW) & '0';
-          ELSE
-              temp := temp(p'HIGH - 1 DOWNTO p'LOW) & '0';
-              temp := temp XOR p;
-          END IF;
-      END LOOP;
+       temp := (OTHERS => v);
       RETURN temp;
    END;
 
@@ -260,7 +223,7 @@ PACKAGE BODY functions_pkg IS
 
    FUNCTION max(v  :  IN INTEGER;
                 w  :  IN INTEGER
-               )  RETURN INTEGER IS
+               ) RETURN INTEGER IS
    BEGIN
        IF (v > w) THEN  RETURN v;  ELSE  RETURN w;  END IF;
    END;
@@ -269,9 +232,8 @@ PACKAGE BODY functions_pkg IS
    -- logarithm dualis
    -- ------------------------------------------------------------------
 
-   FUNCTION log2(v    :  IN INTEGER
-                )    RETURN INTEGER IS
-       VARIABLE temp  :     INTEGER;
+   FUNCTION log2(v    :  IN INTEGER) RETURN INTEGER IS
+       VARIABLE temp  : INTEGER;
    BEGIN
        temp := 0;
        WHILE  2 ** temp < v  LOOP
@@ -284,9 +246,8 @@ PACKAGE BODY functions_pkg IS
    -- exponentiation dualis
    -- ------------------------------------------------------------------
 
-   FUNCTION exp2(v    :  IN INTEGER
-                )    RETURN INTEGER IS
-       VARIABLE temp  :     INTEGER;
+   FUNCTION exp2(v    :  IN INTEGER) RETURN INTEGER IS
+       VARIABLE temp  : INTEGER;
    BEGIN
        temp := 1;
        IF  v /= 0  THEN
@@ -317,7 +278,7 @@ PACKAGE BODY functions_pkg IS
    -- next length, which is a multiple of 4 (quad)
    -- ------------------------------------------------------------------
 
-   FUNCTION next_quad (width : IN NATURAL) RETURN NATURAL IS
+   FUNCTION next_quad(width : IN NATURAL) RETURN NATURAL IS
       VARIABLE len : INTEGER := 0;
    BEGIN
       len := 0;
@@ -336,6 +297,7 @@ END functions_pkg;
 
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
+USE IEEE.NUMERIC_STD.ALL;
 
 ENTITY synchronize IS
 PORT (clk      : IN    STD_LOGIC;
@@ -345,7 +307,7 @@ END synchronize;
 
 ARCHITECTURE rtl OF synchronize IS
 
-SIGNAL temp    : STD_LOGIC_VECTOR(1 DOWNTO 0) := "01";
+SIGNAL temp    : UNSIGNED(1 DOWNTO 0) := "01";
 
 BEGIN
 
@@ -366,6 +328,7 @@ END rtl;
 
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
+USE IEEE.NUMERIC_STD.ALL;
 
 ENTITY synchronize_n IS
 PORT (clk      : IN    STD_LOGIC;
@@ -375,7 +338,7 @@ END synchronize_n;
 
 ARCHITECTURE rtl OF synchronize_n IS
 
-SIGNAL temp    : STD_LOGIC_VECTOR(1 DOWNTO 0) := "10";
+SIGNAL temp    : UNSIGNED(1 DOWNTO 0) := "10";
 
 BEGIN
 
@@ -396,6 +359,7 @@ END rtl;
 
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
+USE IEEE.NUMERIC_STD.ALL;
 USE work.functions_pkg.async_reset;
 
 ENTITY debounce IS
@@ -408,9 +372,9 @@ PORT (reset    : IN    STD_LOGIC;
 END debounce;
 
 ARCHITECTURE rtl OF debounce IS
-SIGNAL temp        : STD_LOGIC_VECTOR(width-2 DOWNTO 0);
-CONSTANT allones   : STD_LOGIC_VECTOR(width-1 DOWNTO 0) := (OTHERS => '1');
-CONSTANT allzeroes : STD_LOGIC_VECTOR(width-1 DOWNTO 0) := (OTHERS => '0');
+SIGNAL temp        : UNSIGNED(width-2 DOWNTO 0);
+CONSTANT allones   : UNSIGNED(width-1 DOWNTO 0) := (OTHERS => '1');
+CONSTANT allzeroes : UNSIGNED(width-1 DOWNTO 0) := (OTHERS => '0');
 BEGIN
 
 noglitch: PROCESS(clk, reset)
@@ -443,6 +407,7 @@ END rtl;
 
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
+USE IEEE.NUMERIC_STD.ALL;
 USE work.functions_pkg.async_reset;
 
 ENTITY debounce_n IS
@@ -455,9 +420,9 @@ PORT (reset    : IN    STD_LOGIC;
 END debounce_n;
 
 ARCHITECTURE rtl OF debounce_n IS
-SIGNAL temp        : STD_LOGIC_VECTOR(width-2 DOWNTO 0);
-CONSTANT allones   : STD_LOGIC_VECTOR(width-1 DOWNTO 0) := (OTHERS => '1');
-CONSTANT allzeroes : STD_LOGIC_VECTOR(width-1 DOWNTO 0) := (OTHERS => '0');
+SIGNAL temp        : UNSIGNED(width-2 DOWNTO 0);
+CONSTANT allones   : UNSIGNED(width-1 DOWNTO 0) := (OTHERS => '1');
+CONSTANT allzeroes : UNSIGNED(width-1 DOWNTO 0) := (OTHERS => '0');
 BEGIN
 
 noglitch_n: PROCESS(clk, reset)
@@ -490,6 +455,7 @@ END rtl;
 
 Library IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
+USE IEEE.NUMERIC_STD.ALL;
 USE work.functions_pkg.async_reset;
 
 ENTITY edge IS
@@ -531,6 +497,7 @@ END rtl;
 
 Library IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
+USE IEEE.NUMERIC_STD.ALL;
 USE work.functions_pkg.async_reset;
 
 ENTITY edge_n IS
@@ -572,7 +539,7 @@ END rtl;
 
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
-USE IEEE.STD_LOGIC_unsigned.ALL;
+USE IEEE.NUMERIC_STD.ALL;
 USE work.functions_pkg.ALL;
 
 ENTITY asynch_dpram IS
@@ -580,15 +547,15 @@ GENERIC (data_width  : INTEGER;
          addr_width  : INTEGER);
 PORT (clk   : IN  STD_LOGIC;
       we    : IN  STD_LOGIC;
-      waddr : IN  STD_LOGIC_VECTOR(addr_width-1 DOWNTO 0);
-      di    : IN  STD_LOGIC_VECTOR(data_width-1 DOWNTO 0);
-      raddr : IN  STD_LOGIC_VECTOR(addr_width-1 DOWNTO 0);
-      do    : OUT STD_LOGIC_VECTOR(data_width-1 DOWNTO 0));
+      waddr : IN  UNSIGNED(addr_width-1 DOWNTO 0);
+      di    : IN  UNSIGNED(data_width-1 DOWNTO 0);
+      raddr : IN  UNSIGNED(addr_width-1 DOWNTO 0);
+      do    : OUT UNSIGNED(data_width-1 DOWNTO 0));
 END asynch_dpram;
 
 ARCHITECTURE inference_model OF asynch_dpram IS
 
-TYPE ram_type IS ARRAY (2**addr_width-1 DOWNTO 0) OF STD_LOGIC_VECTOR(data_width-1 DOWNTO 0);
+TYPE ram_type IS ARRAY (2**addr_width-1 DOWNTO 0) OF UNSIGNED(data_width-1 DOWNTO 0);
 
 SIGNAL ram : ram_type;
 
@@ -598,12 +565,12 @@ asyn_dpram: PROCESS(clk)
 BEGIN
   IF  rising_edge(clk)   THEN
      IF  we = '1'  THEN
-        ram(to_NATURAL(waddr)) <= di ;
+        ram(to_integer(waddr)) <= di ;
      END IF;
   END IF;
 END PROCESS asyn_dpram;
 
-do <= ram(to_NATURAL(raddr));
+do <= ram(to_integer(raddr));
 
 END inference_model;
 
@@ -613,7 +580,7 @@ END inference_model;
 
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
-USE IEEE.STD_LOGIC_unsigned.ALL;
+USE IEEE.NUMERIC_STD.ALL;
 USE work.functions_pkg.ALL;
 
 ENTITY asynch_ram IS
@@ -621,14 +588,14 @@ GENERIC (data_width  : INTEGER;
          addr_width  : INTEGER);
 PORT (clk   : IN  STD_LOGIC;
       we    : IN  STD_LOGIC;
-      addr  : IN  STD_LOGIC_VECTOR(addr_width-1 DOWNTO 0);
-      di    : IN  STD_LOGIC_VECTOR(data_width-1 DOWNTO 0);
-      do    : OUT STD_LOGIC_VECTOR(data_width-1 DOWNTO 0));
+      addr  : IN  UNSIGNED(addr_width-1 DOWNTO 0);
+      di    : IN  UNSIGNED(data_width-1 DOWNTO 0);
+      do    : OUT UNSIGNED(data_width-1 DOWNTO 0));
 END asynch_ram;
 
 ARCHITECTURE inference_model OF asynch_ram IS
 
-TYPE ram_type IS ARRAY (2**addr_width-1 DOWNTO 0) OF STD_LOGIC_VECTOR(data_width-1 DOWNTO 0);
+TYPE ram_type IS ARRAY (2**addr_width-1 DOWNTO 0) OF UNSIGNED(data_width-1 DOWNTO 0);
 
 SIGNAL ram : ram_type;
 
@@ -638,12 +605,12 @@ asyn_ram: PROCESS(clk)
 BEGIN
   IF  rising_edge(clk)   THEN
      IF  we = '1'  THEN
-        ram(to_NATURAL(addr)) <= di ;
+        ram(to_integer(addr)) <= di ;
      END IF;
   END IF;
 END PROCESS asyn_ram;
 
-do <= ram(to_NATURAL(addr));
+do <= ram(to_integer(addr));
 
 END inference_model;
 
@@ -657,7 +624,7 @@ END inference_model;
 
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
-USE IEEE.STD_LOGIC_unsigned.ALL;
+USE IEEE.NUMERIC_STD.ALL;
 USE STD.TEXTIO.ALL;
 USE work.functions_pkg.ALL;
 
@@ -670,16 +637,16 @@ ENTITY internal_ram IS GENERIC (
    clk   : IN    STD_LOGIC;
    en    : IN    STD_LOGIC;
    we    : IN    STD_LOGIC;
-   addr  : IN    STD_LOGIC_VECTOR(addr_width-1 DOWNTO 0);
-   di    : IN    STD_LOGIC_VECTOR(data_width-1 DOWNTO 0);
-   do    : OUT   STD_LOGIC_VECTOR(data_width-1 DOWNTO 0)
+   addr  : IN    UNSIGNED(addr_width-1 DOWNTO 0);
+   di    : IN    UNSIGNED(data_width-1 DOWNTO 0);
+   do    : OUT   UNSIGNED(data_width-1 DOWNTO 0)
 ); END internal_ram;
 
 ARCHITECTURE inference_model OF internal_ram IS
 
 ATTRIBUTE syn_ramstyle : STRING;
 
-TYPE ram_type IS ARRAY (2**addr_width-1 DOWNTO 0) OF STD_LOGIC_VECTOR(data_width-1 DOWNTO 0);
+TYPE ram_type IS ARRAY (2**addr_width-1 DOWNTO 0) OF UNSIGNED(data_width-1 DOWNTO 0);
 
 CONSTANT data_hex : INTEGER := next_quad(data_width);
 
@@ -690,10 +657,10 @@ initialized_ram: PROCESS(clk)
 	VARIABLE first   : BOOLEAN := true;
 	VARIABLE l	     : line;
 	VARIABLE char    : character;
-	VARIABLE adr     : STD_LOGIC_VECTOR(15 DOWNTO 0);
-	VARIABLE buf     : STD_LOGIC_VECTOR(data_hex-1 DOWNTO 0);
+	VARIABLE adr     : UNSIGNED(15 DOWNTO 0);
+	VARIABLE buf     : UNSIGNED(data_hex-1 DOWNTO 0);
 	VARIABLE loc     : INTEGER RANGE 0 TO 2**addr_width+1;
-   VARIABLE addr_d  : STD_LOGIC_VECTOR(addr_width-1 DOWNTO 0);
+   VARIABLE addr_d  : UNSIGNED(addr_width-1 DOWNTO 0);
    VARIABLE ram     : ram_type; ATTRIBUTE syn_ramstyle OF ram : VARIABLE IS ramstyle;
 BEGIN
 -- pragma translate_off
@@ -704,7 +671,7 @@ BEGIN
          readline(tcf, l);
       	IF  l'length > 6  THEN
 				hread(l, adr);	   -- read address
-            loc := to_NATURAL(adr);
+            loc := to_integer(adr);
             read(l, char);   -- skip : character
             read(l, char);   -- skip : character
             LOOP
@@ -725,11 +692,11 @@ BEGIN
          IF  en = '1'  THEN
             addr_d := addr;
             IF  we = '1'  THEN
-               ram(to_NATURAL(addr)) := di;
+               ram(to_integer(addr)) := di;
             END IF;
          END IF;
       END IF;
-      do <= ram(to_NATURAL(addr_d));
+      do <= ram(to_integer(addr_d));
 -- pragma translate_off
    END IF;
 -- pragma translate_on
@@ -747,7 +714,7 @@ END inference_model;
 
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
-USE IEEE.STD_LOGIC_unsigned.ALL;
+USE IEEE.NUMERIC_STD.ALL;
 USE STD.TEXTIO.ALL;
 USE work.functions_pkg.ALL;
 
@@ -760,21 +727,21 @@ ENTITY internal_dpram IS GENERIC (
    clk   : IN    STD_LOGIC;
    ena   : IN    STD_LOGIC;
    wea   : IN    STD_LOGIC;
-   addra : IN    STD_LOGIC_VECTOR(addr_width-1 DOWNTO 0);
-   dia   : IN    STD_LOGIC_VECTOR(data_width-1 DOWNTO 0);
-   doa   : OUT   STD_LOGIC_VECTOR(data_width-1 DOWNTO 0);
+   addra : IN    UNSIGNED(addr_width-1 DOWNTO 0);
+   dia   : IN    UNSIGNED(data_width-1 DOWNTO 0);
+   doa   : OUT   UNSIGNED(data_width-1 DOWNTO 0);
    enb   : IN    STD_LOGIC;
    web   : IN    STD_LOGIC;
-   addrb : IN    STD_LOGIC_VECTOR(addr_width-1 DOWNTO 0);
-   dib   : IN    STD_LOGIC_VECTOR(data_width-1 DOWNTO 0);
-   dob   : OUT   STD_LOGIC_VECTOR(data_width-1 DOWNTO 0)
+   addrb : IN    UNSIGNED(addr_width-1 DOWNTO 0);
+   dib   : IN    UNSIGNED(data_width-1 DOWNTO 0);
+   dob   : OUT   UNSIGNED(data_width-1 DOWNTO 0)
 ); END internal_dpram;
 
 ARCHITECTURE inference_model OF internal_dpram IS
 
 ATTRIBUTE syn_ramstyle : STRING;
 
-TYPE ram_type IS ARRAY (2**addr_width-1 DOWNTO 0) OF STD_LOGIC_VECTOR(data_width-1 DOWNTO 0);
+TYPE ram_type IS ARRAY (2**addr_width-1 DOWNTO 0) OF UNSIGNED(data_width-1 DOWNTO 0);
 
 CONSTANT data_hex : INTEGER := next_quad(data_width);
 
@@ -785,11 +752,11 @@ initialized_ram: PROCESS(clk)
 	VARIABLE first	  : BOOLEAN := true;
 	VARIABLE l	     : line;
 	VARIABLE char    : character;
-	VARIABLE adr     : STD_LOGIC_VECTOR(15 DOWNTO 0);
-	VARIABLE buf     : STD_LOGIC_VECTOR(data_hex-1 DOWNTO 0);
+	VARIABLE adr     : UNSIGNED(15 DOWNTO 0);
+	VARIABLE buf     : UNSIGNED(data_hex-1 DOWNTO 0);
 	VARIABLE loc     : INTEGER RANGE 0 TO 2**addr_width+1;
-   VARIABLE addra_d : STD_LOGIC_VECTOR(addr_width-1 DOWNTO 0);
-   VARIABLE addrb_d : STD_LOGIC_VECTOR(addr_width-1 DOWNTO 0);
+   VARIABLE addra_d : UNSIGNED(addr_width-1 DOWNTO 0);
+   VARIABLE addrb_d : UNSIGNED(addr_width-1 DOWNTO 0);
    VARIABLE ram     : ram_type; ATTRIBUTE syn_ramstyle OF ram : VARIABLE IS ramstyle;
 BEGIN
 -- pragma translate_off
@@ -800,7 +767,7 @@ BEGIN
          readline(tcf, l);
       	IF  l'length > 6  THEN
 				hread(l, adr);	   -- read address
-            loc := to_NATURAL(adr);
+            loc := to_integer(adr);
             read(l, char);   -- skip space
             read(l, char);   -- skip :
             LOOP
@@ -821,18 +788,18 @@ BEGIN
          IF  ena = '1'  THEN
             addra_d := addra;
             IF  wea = '1'  THEN
-               ram(to_NATURAL(addra)) := dia;
+               ram(to_integer(addra)) := dia;
             END IF;
          END IF;
          IF  enb = '1'  THEN
             addrb_d := addrb;
             IF  web = '1'  THEN
-               ram(to_NATURAL(addrb)) := dib;
+               ram(to_integer(addrb)) := dib;
             END IF;
          END IF;
       END IF;
-      doa <= ram(to_NATURAL(addra_d));
-      dob <= ram(to_NATURAL(addrb_d));
+      doa <= ram(to_integer(addra_d));
+      dob <= ram(to_integer(addrb_d));
 -- pragma translate_off
    END IF;
 -- pragma translate_on
@@ -849,7 +816,7 @@ END inference_model;
 
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
-USE IEEE.STD_LOGIC_unsigned.ALL;
+USE IEEE.NUMERIC_STD.ALL;
 USE STD.TEXTIO.ALL;
 USE work.functions_pkg.ALL;
 
@@ -860,18 +827,18 @@ GENERIC (data_width  : INTEGER;
 PORT (ce_n   : IN    STD_LOGIC;
       oe_n   : IN    STD_LOGIC;
       we_n   : IN    STD_LOGIC;
-      addr   : IN    STD_LOGIC_VECTOR(addr_width-1 DOWNTO 0);
-      data   : INOUT STD_LOGIC_VECTOR(data_width-1 DOWNTO 0));
+      addr   : IN    UNSIGNED(addr_width-1 DOWNTO 0);
+      data   : INOUT UNSIGNED(data_width-1 DOWNTO 0));
 END external_ram;
 
 ARCHITECTURE sim_model OF external_ram IS
 
-TYPE ram_type IS ARRAY (2**addr_width-1 DOWNTO 0) OF STD_LOGIC_VECTOR(data_width-1 DOWNTO 0);
+TYPE ram_type IS ARRAY (2**addr_width-1 DOWNTO 0) OF UNSIGNED(data_width-1 DOWNTO 0);
 
 CONSTANT data_hex : INTEGER := next_quad(data_width);
-SIGNAL addr_i     : STD_LOGIC_VECTOR(addr_width-1 DOWNTO 0);
+SIGNAL addr_i     : UNSIGNED(addr_width-1 DOWNTO 0);
 SIGNAL ce         : STD_LOGIC;
-SIGNAL din        : STD_LOGIC_VECTOR(data_width-1 DOWNTO 0);
+SIGNAL din        : UNSIGNED(data_width-1 DOWNTO 0);
 
 BEGIN
 
@@ -884,8 +851,8 @@ initialized_ram: PROCESS(ce, oe_n, we_n, addr_i, din)
 	VARIABLE first	: BOOLEAN := true;
 	VARIABLE l	   : line;
 	VARIABLE char  : character;
-	VARIABLE adr   : STD_LOGIC_VECTOR(15 DOWNTO 0);
-	VARIABLE buf   : STD_LOGIC_VECTOR(data_hex-1 DOWNTO 0);
+	VARIABLE adr   : UNSIGNED(15 DOWNTO 0);
+	VARIABLE buf   : UNSIGNED(data_hex-1 DOWNTO 0);
 	VARIABLE loc   : INTEGER RANGE 0 TO 2**addr_width+1;
    VARIABLE ram   : ram_type;
 BEGIN
@@ -897,7 +864,7 @@ BEGIN
          readline(tcf, l);
       	IF  l'length > 6  THEN
 				hread(l, adr);	   -- read address
-            loc := to_NATURAL(adr);
+            loc := to_integer(adr);
             read(l, char);   -- skip space
             read(l, char);   -- skip :
             LOOP
@@ -918,10 +885,10 @@ BEGIN
       data <= (OTHERS => 'Z');
       IF  ce = '1'  THEN
          IF  rising_edge(we_n)  THEN
-            ram(to_NATURAL(addr_i)) := din;
+            ram(to_integer(addr_i)) := din;
          END IF;
          IF  we_n = '1' AND oe_n = '0'  THEN
-            data <= ram(to_NATURAL(addr_i));
+            data <= ram(to_integer(addr_i));
          END IF;
       END IF;
 -- pragma translate_off
@@ -1011,7 +978,7 @@ END behavior;
 
 LIBRARY IEEE;
 USE ieee.std_logic_1164.all;
-USE ieee.std_logic_unsigned.all;
+USE ieee.NUMERIC_STD.all;
 USE work.functions_pkg.async_reset;
 
 ENTITY fifo IS GENERIC (
@@ -1025,15 +992,15 @@ ENTITY fifo IS GENERIC (
    pop      : IN  STD_LOGIC;
    empty    : OUT STD_LOGIC;
    full     : OUT STD_LOGIC;
-   din      : IN  STD_LOGIC_VECTOR(width-1 DOWNTO 0);
-   dout     : OUT STD_LOGIC_VECTOR(width-1 DOWNTO 0)
+   din      : IN  UNSIGNED(width-1 DOWNTO 0);
+   dout     : OUT UNSIGNED(width-1 DOWNTO 0)
 ); END fifo;
 
 ARCHITECTURE rtl OF fifo IS
 
 ATTRIBUTE syn_ramstyle : STRING;
 
-TYPE fifoarr IS ARRAY (NATURAL RANGE 0 TO depth-1) OF STD_LOGIC_VECTOR(width-1 DOWNTO 0);
+TYPE fifoarr IS ARRAY (NATURAL RANGE 0 TO depth-1) OF UNSIGNED(width-1 DOWNTO 0);
 
 SIGNAL fifomem   : fifoarr; ATTRIBUTE syn_ramstyle OF fifomem : SIGNAL IS ramstyle;
 SIGNAL write_ptr : NATURAL RANGE 0 TO depth-1;

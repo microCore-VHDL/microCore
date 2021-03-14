@@ -2,10 +2,10 @@
 -- @file : debugger.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 24.01.2021 19:49:27
+-- Last change: KS 07.03.2021 11:49:14
 -- Project : microCore
 -- Language : VHDL-2008
--- Last check in : $Rev: 613 $ $Date:: 2020-12-16 #$
+-- Last check in : $Rev: 662 $ $Date:: 2021-03-10 #$
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
 --
 -- Do not use this file except in compliance with the License.
@@ -22,11 +22,12 @@
 --         set of state machines.
 --
 -- Version Author   Date       Changes
---           ks    8-Jun-2020  initial version
+--   210     ks    8-Jun-2020  initial version
+--  2300     ks    8-Mar-2021  STD_LOGIC_(UN)SiGNED replaced by NUMERIC_STD.
 -- ---------------------------------------------------------------------
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
-USE IEEE.STD_LOGIC_signed.ALL;
+USE IEEE.NUMERIC_STD.ALL;
 USE work.functions_pkg.ALL;
 USE work.architecture_pkg.ALL;
 
@@ -89,27 +90,29 @@ SIGNAL uart_break  : STD_LOGIC;  -- break from uart
 SIGNAL host_break  : STD_LOGIC;  -- break via umbilical
 
 -- umbilical
-CONSTANT all_nibbles : STD_LOGIC_VECTOR(log2(octetts)-1 DOWNTO 0) := to_vec(octetts-1, log2(octetts));
+CONSTANT all_nibbles : NATURAL := octetts-1;
 
 -- umbilical uart input
 TYPE in_states     IS (idle, getaddr, getlength, loading, rx_debug, full, ack, uploading, downloading);
 
 SIGNAL in_state    : in_states;
-SIGNAL in_ctr      : STD_LOGIC_VECTOR(log2(octetts)-1 DOWNTO 0); -- #nibbles to receive from host
-SIGNAL in_reg      : STD_LOGIC_VECTOR(octetts*8-1 DOWNTO 0);
+SIGNAL in_ctr      : NATURAL RANGE 0 TO all_nibbles; -- #nibbles to receive from host
+SIGNAL in_reg      : UNSIGNED(octetts*8-1 DOWNTO 0);
+SIGNAL new_inreg   : UNSIGNED(in_reg'range);
 SIGNAL in_rd       : STD_LOGIC;  -- target reads in_reg
 SIGNAL upload      : STD_LOGIC;
 SIGNAL download    : STD_LOGIC;
-SIGNAL addr_ptr    : STD_LOGIC_VECTOR(addr_width-1 DOWNTO 0);
-SIGNAL addr_ctr    : STD_LOGIC_VECTOR(addr_width-1 DOWNTO 0);
+SIGNAL addr_ptr    : UNSIGNED(addr_width-1 DOWNTO 0);
+SIGNAL addr_ctr    : UNSIGNED(addr_width-1 DOWNTO 0);
 
 -- umbilical uart output
 TYPE out_states    IS (start, idle, mark, tx_debug, wait_ack, readmem, downloading);
 
 SIGNAL out_state   : out_states;
-SIGNAL out_ctr     : STD_LOGIC_VECTOR(log2(octetts)-1 DOWNTO 0); -- #nibbles to receive from host
+SIGNAL out_ctr     : NATURAL RANGE 0 TO all_nibbles; -- #nibbles to receive from host
 SIGNAL out_wr      : STD_LOGIC;  -- target writes out_reg
-SIGNAL out_reg     : STD_LOGIC_VECTOR(octetts*8-1 DOWNTO 0);
+SIGNAL out_reg     : UNSIGNED(octetts*8-1 DOWNTO 0);
+SIGNAL new_outreg  : UNSIGNED(out_reg'range);
 SIGNAL send_ack    : STD_LOGIC;
 
 -- memory control
@@ -134,13 +137,13 @@ out_written <= '0' WHEN  out_state /= idle OR in_state /= idle  ELSE out_wr; -- 
 umbilical.enable <= deb_penable;
 umbilical.write  <= write;
 umbilical.read   <= '0';
-umbilical.addr   <= addr_ptr(prog_addr_width-1 DOWNTO 0);
+umbilical.addr   <= addr_ptr(umbilical.addr'range);
 umbilical.wdata  <= rx_data;
 
 debugmem.enable  <= deb_denable WHEN  with_up_download  ELSE '0';
 debugmem.write   <= write;
-debugmem.addr    <= addr_ptr(data_addr_width-1 DOWNTO 0);
-debugmem.wdata   <= in_reg(data_width-1 DOWNTO 0);
+debugmem.addr    <= addr_ptr(debugmem.addr'range);
+debugmem.wdata   <= in_reg(debugmem.wdata'range);
 
 in_rd  <= '1' WHEN  uReg_read (uBus, DEBUG_REG)  ELSE '0';
 out_wr <= '1' WHEN  uReg_write(uBus, DEBUG_REG)  ELSE '0';
@@ -158,6 +161,9 @@ tx_data <= mark_ack   WHEN  send_ack = '1'     ELSE
            mark_debug WHEN  out_state = mark   ELSE
            mark_nack  WHEN  out_state = start  ELSE
            out_reg(out_reg'high DOWNTO out_reg'high-7);
+
+new_inreg  <= in_reg(in_reg'high-8 DOWNTO 0) & rx_data;
+new_outreg <= resize(debugmem_rdata , out_reg'length);
 
 umbilical_proc: PROCESS(clk, reset)
 
@@ -177,6 +183,7 @@ umbilical_proc: PROCESS(clk, reset)
    END tx_start;
 
 BEGIN
+
    IF  reset = '1' AND async_reset  THEN
          out_ctr <= all_nibbles;
        out_state <= start;
@@ -239,21 +246,21 @@ BEGIN
                            END IF;
 
          WHEN getaddr   => IF  rx_full = '1'  THEN
-                              in_reg <= in_reg(in_reg'high-8 DOWNTO 0) & rx_data;
-                              in_ctr <= in_ctr - 1;
+                              in_reg <= new_inreg;
                               IF  in_ctr = 0  THEN
                                  in_ctr <= all_nibbles;
-                                 addr_ptr <= in_reg(addr_width-9 DOWNTO 0) & rx_data;
+                                 addr_ptr <= unsigned(new_inreg(addr_ptr'range));
                                  in_state <= getlength;
+                              ELSE
+                                 in_ctr <= in_ctr - 1;
                               END IF;
                            END IF;
 
          WHEN getlength => IF  rx_full = '1'  THEN
-                              in_reg <= in_reg(in_reg'high-8 DOWNTO 0) & rx_data;
-                              in_ctr <= in_ctr - 1;
+                              in_reg <= new_inreg;
                               IF  in_ctr = 0  THEN
                                  in_ctr <= all_nibbles;
-                                 addr_ctr <= in_reg(addr_width-9 DOWNTO 0) & rx_data;
+                                 addr_ctr <= unsigned(new_inreg(addr_ctr'range));
                                  in_state <= loading;
                                  IF  upload = '1' AND with_up_download  THEN
                                     in_state <= uploading;
@@ -261,6 +268,8 @@ BEGIN
                                  IF  download = '1' AND with_up_download  THEN
                                     in_state <= downloading;
                                  END IF;
+                              ELSE
+                                 in_ctr <= in_ctr - 1;
                               END IF;
                            END IF;
 
@@ -278,11 +287,12 @@ BEGIN
                            END IF;
 
          WHEN rx_debug  => IF  rx_full = '1'  THEN
-                              in_reg <= in_reg(in_reg'high-8 DOWNTO 0) & rx_data;
-                              in_ctr <= in_ctr - 1;
+                              in_reg <= new_inreg;
                               IF  in_ctr = 0  THEN
                                  in_ctr <= all_nibbles;
                                  in_state <= full;
+                              ELSE
+                                 in_ctr <= in_ctr - 1;
                               END IF;
                            END IF;
 
@@ -304,7 +314,7 @@ BEGIN
                                     in_state <= idle;
                                  END IF;
                               ELSIF  rx_full = '1'  THEN
-                                 in_reg <= in_reg(in_reg'high-8 DOWNTO 0) & rx_data;
+                                 in_reg <= new_inreg;
                                  IF  in_ctr = 0  THEN
                                     in_ctr <= all_nibbles;
                                     deb_drequest <= '1';
@@ -344,7 +354,7 @@ BEGIN
 
          WHEN idle      => out_ctr <= all_nibbles;
                            IF  out_wr = '1' AND in_state = idle AND send_ack = '0'  THEN   -- send a new word
-                              out_reg <= to_vec(0, out_reg'length - data_width) & wdata;
+                              out_reg <= to_unsigned(0, out_reg'length - data_width) & wdata;
                               out_state <= mark;
                            END IF;
 
@@ -369,10 +379,20 @@ BEGIN
                            END IF;
 
          WHEN readmem   => IF  with_up_download  THEN
-                              IF  dread = '1'  THEN
-                                 out_reg <= to_vec(0, out_reg'length - data_width) & debugmem_rdata;
-                                 out_ctr <= all_nibbles;
-                                 out_state <= downloading;
+                              IF  addr_extern <= to_INTEGER(addr_ptr(debugmem.addr'range))
+                                 AND data_addr_width > cache_addr_width
+                              THEN -- external memory
+                                 IF  deb_denable = '1'  THEN
+                                    out_reg <= new_outreg;
+                                    out_ctr <= all_nibbles;
+                                    out_state <= downloading;
+                                 END IF;
+                              ELSE -- internal memory
+                                 IF  dread = '1'  THEN
+                                    out_reg <= new_outreg;
+                                    out_ctr <= all_nibbles;
+                                    out_state <= downloading;
+                                 END IF;
                               END IF;
                            END IF;
 

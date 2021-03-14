@@ -2,7 +2,7 @@
 \ @file : forth.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 28.11.2020 17:10:46
+\ Last change: KS 15.02.2021 17:09:52
 \ Project : microCore
 \ Language : gforth_0.6.2
 \ Last check in : $Rev: 573 $ $Date:: 2020-07-08 #$
@@ -24,7 +24,7 @@
 \ @brief : Standard Forth words composed of microCore instructions.
 \
 \ Version Author   Date       Changes
-\     1     ks   14-Jun-2020  initial version
+\   210     ks   14-Jun-2020  initial version
 \ ----------------------------------------------------------------------
 Target
 
@@ -198,25 +198,23 @@ Target
          1 - swap  1 -  r> ?FOR  1+ ld -rot  swap 1+ st  swap  NEXT
      THEN  2drop
   ;
+~ : place   ( addr len to -- )  over swap st 1+ swap move ;
+
 ~ : sleep    ( n -- )           ahead | ; noexit   \ fall into continue
   : continue ( time -- )        BEGIN  dup time? UNTIL drop ;
-
 ~ : elapsed  ( time -- ticks )  time swap - ;
-
 ~ : ms ; noexit   Host: ms ( msec -- ticks )
      ticks_per_ms
      comp? IF  lit, T * H EXIT THEN
      dbg? IF  t> * >t  EXIT THEN
      *
   ; immediate
-
 ~ : sec ; noexit   Host: sec  ( sec -- ticks )
      [ ticks_per_ms &1000 * ] Literal
      comp? IF  lit, T * H EXIT THEN
      dbg? IF  t> * >t  EXIT THEN
      *
   ; immediate
-
 \ ----------------------------------------------------------------------
 \ Catch and throw, no multitasking
 \ ----------------------------------------------------------------------

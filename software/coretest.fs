@@ -2,10 +2,10 @@
 \ @file : coretest.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 21.01.2021 22:19:27
+\ Last change: KS 06.03.2021 17:50:31
 \ Project : microCore
 \ Language : gforth_0.6.2
-\ Last check in : $Rev: 629 $ $Date:: 2021-01-21 #$
+\ Last check in : $Rev: 656 $ $Date:: 2021-03-06 #$
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
 \
@@ -27,7 +27,8 @@
 \          and "Message <errno>" on the first error.
 \
 \ Version Author   Date       Changes
-\           ks   14-Jun-2020  initial version
+\   210     ks   14-Jun-2020  initial version
+\   2300    ks   18-Feb-2021  compiler switch WITH_PROG_RW eliminated
 \ ----------------------------------------------------------------------
 SIMULATION [IF]  \ simulating
 
@@ -217,6 +218,11 @@ $5A5 Constant ovfl-pattern
    0 Location !
    1 Location +!  Location @ 1-          IF  $32 finis THEN
    -1 Location +! Location @             IF  $33 finis THEN
+[ H data_addr_width cache_addr_width u> T ] [IF]
+   #8001 #extern st @ #8001 -            IF  $34 finis THEN
+   -1 #extern +!   #extern @ #8000 -     IF  $35 finis THEN
+    1 #extern +!   #extern @ #8001 -     IF  $36 finis THEN
+[THEN]
 ;
 : modify  ( n -- /n )  0= ;
 
@@ -279,10 +285,10 @@ $5A5 Constant ovfl-pattern
 : dsp-task! ( u -- )  ds_addr_width shift  dsp-reg or dup Dsp ! drop ;
 
 : test-van-neumann ( -- )
-[ WITH_PROG_RW SIMULATION and ] [IF]
-   $10 pld  over >r   \ internal blockRAM
-   $11 swap  pst  pld
-   rot swap  pst
+[ SIMULATION ] [IF]
+   $10 pLD  over >r   \ internal blockRAM
+   $11 swap  pST  pLD
+   rot swap  pST
    p@ r> -                               IF  $A0 finis THEN
    $11 -                                 IF  $A1 finis THEN
 [THEN]

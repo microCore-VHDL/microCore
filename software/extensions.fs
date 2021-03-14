@@ -2,10 +2,10 @@
 \ @file : extensions.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 12.01.2021 15:23:21
+\ Last change: KS 13.03.2021 19:47:10
 \ Project : microCore
 \ Language : gforth_0.6.2
-\ Last check in : $Rev: 619 $ $Date:: 2021-01-20 #$
+\ Last check in : $Rev: 667 $ $Date:: 2021-03-14 #$
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
 \
@@ -24,7 +24,7 @@
 \ @brief : Compatibility layer loads on top of gforth.
 \
 \ Version Author   Date       Changes
-\           ks   14-Jun-2020  initial version
+\   210     ks   14-Jun-2020  initial version
 \ ----------------------------------------------------------------------
 Only Forth also definitions
 
@@ -95,10 +95,10 @@ cr .( gforth ) version-string type .(  not supported)  abort
 \ Number input
 \ ----------------------------------------------------------------------
 
-Base @ hex   Create Prefixes  10 , 2 , A ,   Base !
-\                              $   %    &  base prefix character
+Base @ hex   Create Prefixes  A , 10 , 2 , A ,   Base !
+\                             #    $   %   &  base prefix character
 : ?base ( caddr u -- caddr' u' )
-   over c@ [char] $ - dup 4 u<
+   over c@ [char] # - dup 4 u<
    IF  cells Prefixes + @   base !  1 /string  EXIT THEN
    drop
 ;

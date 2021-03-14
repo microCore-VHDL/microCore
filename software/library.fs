@@ -2,7 +2,7 @@
 \ @file : library.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 28.11.2020 17:09:07
+\ Last change: KS 12.03.2021 18:12:17
 \ Project : microCore
 \ Language : gforth_0.6.2
 \ Last check in : $Rev: 573 $ $Date:: 2020-07-08 #$
@@ -26,7 +26,9 @@
 \ interpreted in the target while debugging.
 \
 \ Version Author   Date      Changes
-\     1     ks   24-Oct-2020 initial version
+\   2200    ks   24-Oct-2020 initial version
+\   2300    ks   12-Mar-2021 compiler switch WITH_PROG_RW eliminated
+\                            Bugfix in exec-libdef
 \ ----------------------------------------------------------------------
 Forth definitions
 
@@ -51,13 +53,13 @@ Root definitions
 Forth definitions
 
 : context>  ( -- addr )
-   get-order dup >r   get-current   Targeting @
+   get-order dup >r   Current @   Targeting @
    'interpreter @   'compiler @   State @   Libload @
    [ ' parser >body ] Literal @   r> 8 + mem-save
 ;
 : >context  ( addr -- )
-   mem-restore drop   IS parser   Libload !   State !
-   'compiler !   'interpreter !   Targeting !   set-current   set-order
+   mem-restore drop   IS parser   Libload !   State !   'compiler !
+   'interpreter !   Targeting !   Current !   set-order
 ;
 : source-position  ( -- udpos )  \ current-sourceposX \ gforth: Loadfile #fill-bytes
    source-id 0= IF  >in @ 0  EXIT THEN
@@ -83,16 +85,16 @@ Forth definitions
    cell+ cell+ dup @ current !
    cell+ dup @ dup >r cells + r> 1+ 0 DO  dup @ swap cell-  LOOP drop   set-order
 ;
-: load-libgroup  ( pfa -- )
+: load-libgroup  ( pfa -- )  Current @ >r
    Libload on   push-file   @ >libgroup   ['] read-loop catch
-   Loadfile @ close-file pop-file throw   Libload off  throw
+   Loadfile @ close-file   pop-file throw   Libload off  throw
+   r> Current !
 ;
-\ Tmarker: | here | there | depth | 6 cells save-input stream | \ defined in microcross.fs
-
+\ Tmarker: | here | there | depth | current | 6 cells save-input stream | \ defined in microcross.fs
 :noname  ( -- )
-   Tmarker   here over !  cell+ there over !
-   cell+ depth 1- over !  cell+ >r
-   -2 >in +!  save-input  2 >in +!                           \ back up to re-interpret : after restore-target
+   Tmarker   here over !  cell+ there over !                 
+   cell+ depth 1- over !  cell+ Current @ over !
+   cell+ >r   -2 >in +!  save-input  2 >in +!                \ back up to re-interpret : after restore-target
    r> over 1+ 0 DO  tuck ! cell+  LOOP  drop
 ; IS mark-target
 
@@ -100,8 +102,9 @@ Forth definitions
    postpone [   Countfield 2@ !                              \ restore smudged countfield
    Tmarker   dup @ Dp !   cell+ dup @ Tcp !                  \ restore here, there
    cell+ @ >r BEGIN  depth r@ u> WHILE  drop  REPEAT  rdrop  \ restore depth
-   Tmarker 3 cells + dup @ dup cells rot +
-   swap 1+ 0 DO  dup @ swap cell-  LOOP  drop
+   Tmarker 3 cells + dup @ Current !
+   cell+ dup @ dup cells rot +
+   swap 1+ 0 DO  dup @ swap cell- LOOP  drop
    restore-input throw                                       \ restore input stream
    here Init-link @ u<
    IF  -4 >in +!  Init-link @ @ Init-link !  THEN            \ restore init: source definition
@@ -114,7 +117,6 @@ Variable Rsave
        Loadfile @ close-file throw
    EXIT THEN
    comp? IF  Colons @ @ Colons !  THEN
-\   comp? IF  ."  colons-link " Colons @ @ Colons !  THEN
 ;
 Variable Tcp-last  0 Tcp-last !
 
@@ -124,8 +126,8 @@ Variable Tcp-last  0 Tcp-last !
    dbg? IF  Tcp-last @ 0= IF  there Tcp-last !  THEN THEN   \ Tcp-last in case of nested library loads
    dup 2 cells - >name name>string nip 1+ >in @ min         \ Determine length of token+1
    Tmarker   here over !   cell+   there over !             \ Update here and there in Tmarker
-   cell+   depth 3 - over !   cell+ >r   >r                 \ Update depth in Tmarker
-   r@ negate >in +!  save-input   r> >in +!                 \ Save input beginning at token
+   cell+   depth 3 - over !   cell+ Current @ over !        \ update depth and Current in Tmarker
+   cell+ >r >r r@ negate >in +!  save-input   r> >in +!     \ Save input beginning at token
    r> over 1+ 0 DO  tuck ! cell+ LOOP  drop                 \ Update input stream in Tmarker
    dup load-libgroup
    dbg? IF  Tcp-last @ there over - false send-image   0 Tcp-last !  THEN  \ Transfer into the target
@@ -136,12 +138,14 @@ Variable Tcp-last  0 Tcp-last !
 ;
 : .loaded  ( -- )  Verbose @ 0= ?EXIT  ." loaded " ;
 
+: .current    Current @ .voc ;
+
 : Libdef  ( <name> -- )
    Create   Libgroup @ ,   0 , ( will link into e.g. colons when actually loaded )
 Does> ( -- )  [ here (doLibdef ! ]
    ?libloading   exec? IF  exec-libdef  EXIT THEN
    Verbose @ IF  cr ." libload   " dup cell- cell- >name .name  THEN
-   >r restore-target r>   rdepth Rsave !   load-libgroup   .loaded
+   >r restore-target r>   rdepth Rsave !   load-libgroup .loaded
 ;
 \ ----------------------------------------------------------------------
 \ Library loading
@@ -187,17 +191,16 @@ Predefined definitions Forth
 ' simulation         Alias SIMULATION     \ simulating?
 ' extended           Alias EXTENDED       \ extended instruction set?
 ' with_mult          Alias WITH_MULT      \ hardware multiply available?
-' with_prog_rw       Alias WITH_PROG_RW   \ read/writeable program memory?
 ' with_float         Alias WITH_FLOAT
 ' with_up_download   Alias WITH_UP_DOWNLOAD
 
 : ~   ( -- )   libgroup-start ;
 
 : Version  ( n -- )
-   get-current >r
+   Current @ >r
    source> >r   Predefined definitions dup Constant immediate
    r> >source       Target definitions Constant immediate
-   r> set-current
+   r> Current !
 ;
 : :      ( -- )   Libdef scan-for-; ;
 
@@ -226,7 +229,7 @@ Target definitions Forth
    context> >r   ['] pre-compiler IS parser
    Libfile @ count ['] included catch
    r> >context   Libfile off
-   dup IF  cr ." libload error " dup . THEN  throw
+   dup IF  cr ." libload error " dup .  THEN  throw
 ;
 : ~  ( -- )   \ skip the rest of the input file when compiling from a library
    Libload @ IF  BEGIN  refill 0= UNTIL  THEN

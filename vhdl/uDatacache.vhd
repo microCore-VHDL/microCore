@@ -5,7 +5,7 @@
 -- Last change: KS 24.01.2021 19:50:24
 -- Project : microCore
 -- Language : VHDL-2008
--- Last check in : $Rev: 619 $ $Date:: 2021-01-20 #$
+-- Last check in : $Rev: 662 $ $Date:: 2021-03-10 #$
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
 --
 -- Do not use this file except in compliance with the License.
@@ -20,10 +20,12 @@
 --         Here fpga specific dual port memory IP can be included.
 --
 -- Version Author   Date       Changes
---           ks    8-Jun-2020  initial version
+--   210     ks    8-Jun-2020  initial version
+--  2300     ks    8-Mar-2021  Conversion to NUMERIC_STD
 -- ---------------------------------------------------------------------
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
+USE IEEE.NUMERIC_STD.ALL;
 USE work.functions_pkg.ALL;
 USE work.architecture_pkg.ALL;
 

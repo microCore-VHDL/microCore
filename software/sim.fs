@@ -1,6 +1,6 @@
 \ 
-\ Last change: KS 29.07.2020 16:25:44
-\ Last check in : $Rev: 597 $ $Date:: 2020-11-29 #$
+\ Last change: KS 07.03.2021 23:01:30
+\ Last check in : $Rev: 657 $ $Date:: 2021-03-08 #$
 \
 \ microCore load screen for simulation.
 \ It produces program.mem for initialization of the program memory during simulation.
@@ -28,7 +28,7 @@ library forth_lib.fs
 \ ----------------------------------------------------------------------
 
 : boot  ( -- )
-   r@ 0 l!   55 20 l!   11 -80 l!
+   #c-bitout Ctrl !  Ctrl @ 
    BEGIN REPEAT
 ;
 

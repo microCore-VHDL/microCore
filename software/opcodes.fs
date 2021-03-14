@@ -2,10 +2,10 @@
 \ @file : opcodes.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 21.01.2021 22:04:14
+\ Last change: KS 18.02.2021 18:39:34
 \ Project : microCore
 \ Language : gforth_0.6.2
-\ Last check in : $Rev: 629 $ $Date:: 2021-01-21 #$
+\ Last check in : $Rev: 647 $ $Date:: 2021-02-18 #$
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
 \
@@ -24,7 +24,8 @@
 \ @brief : Defining Forth names for instructions and macros.
 \
 \ Version Author   Date       Changes
-\     1     ks   14-Jun-2020  initial version
+\   210     ks   14-Jun-2020  initial version
+\   2300    ks   12-Feb-2021  compiler switch WITH_PROG_RW eliminated
 \ ----------------------------------------------------------------------
 Target
 
@@ -54,12 +55,10 @@ op_STORE       Op: st     ( n addr -- addr )  don't
             Macro: !      ( n addr -- )       ?comp T st drop H ;
 
 \ program memory
-WITH_PROG_RW [IF]
-   op_PLOAD       Op: pLD    ( addr -- b addr )  don't
-               Macro: p@     ( addr -- b )       ?comp T pLD drop H ;
-   op_PSTORE      Op: pST    ( b addr -- addr )  don't
-               Macro: p!     ( b addr -- )       ?comp T pST drop H ;
-[THEN]
+op_PLOAD       Op: pLD    ( addr -- b addr )  don't
+            Macro: p@     ( addr -- b )       ?comp T pLD drop H ;
+op_PSTORE      Op: pST    ( b addr -- addr )  don't
+            Macro: p!     ( b addr -- )       ?comp T pST drop H ;
 
 \ branch, call and exit
 op_BRANCH     Brn: branch     ( addr -- )     don't  \ ELSE, REPEAT

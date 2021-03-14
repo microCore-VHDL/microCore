@@ -5,7 +5,7 @@
 \ Last change: KS 14.06.2020 17:04:05
 \ Project : microCore
 \ Language : gforth_0.6.2
-\ Last check in : $Rev: 562 $ $Date:: 2020-06-15 #$
+\ Last check in : $Rev: 645 $ $Date:: 2021-02-17 #$
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
 \
@@ -24,7 +24,7 @@
 \ @brief : The bootloader for VHDL-simulation.
 \
 \ Version Author   Date       Changes
-\           ks   14-Jun-2020  initial version
+\   210     ks   14-Jun-2020  initial version
 \ ----------------------------------------------------------------------
 Only Forth also definitions 
 
@@ -35,7 +35,6 @@ Only Forth also definitions
 include extensions.fs           \ Some System word (re)definitions for a more sympathetic environment
 include ../vhdl/architecture_pkg_sim.vhd
 include microcross.fs           \ the cross-compiler
-include constants.fs            \ microCore Register addresses and bits
 
 Target new                      \ go into target compilation mode and initialize target compiler
 

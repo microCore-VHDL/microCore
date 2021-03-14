@@ -4,7 +4,7 @@
 
 LIBRARY IEEE;
 USE     IEEE.STD_LOGIC_1164.ALL;
-USE     IEEE.STD_LOGIC_unsigned.ALL;
+USE     IEEE.NUMERIC_STD.ALL;
 USE     work.architecture_pkg.ALL;
 
 ENTITY internal_program IS PORT (

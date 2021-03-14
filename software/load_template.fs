@@ -1,6 +1,6 @@
 \ 
-\ Last change: KS 13.12.2020 16:14:16
-\ Last check in : $Rev: 613 $ $Date:: 2020-12-16 #$
+\ Last change: KS 13.03.2021 19:11:57
+\ Last check in : $Rev: 667 $ $Date:: 2021-03-14 #$
 \
 \ Basic microCore load screen for execution on the target.
 \
@@ -29,7 +29,7 @@ library forth_lib.fs
 \ Booting and TRAPs
 \ ----------------------------------------------------------------------
 
-: boot  ( -- )   0 #cache erase   CALL initialization   debugService ;
+: boot  ( -- )   0 #cache erase   CALL initialization   debug-service ;
 
 #reset TRAP: rst    ( -- )            boot              ;  \ compile branch to boot at reset vector location
 #isr   TRAP: isr    ( -- )            di IRET           ;

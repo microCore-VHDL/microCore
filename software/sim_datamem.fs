@@ -1,6 +1,6 @@
 \ 
-\ Last change: KS 25.05.2020 18:46:22
-\ Last check in : $Rev: 584 $ $Date:: 2020-11-11 #$
+\ Last change: KS 15.11.2020 14:03:48
+\ Last check in : $Rev: 589 $ $Date:: 2020-11-19 #$
 \
 \ MicroCore load screen for simulating internal and external data memory.
 \ It produces program.mem for initialization of the program memory during simulation.
@@ -29,9 +29,12 @@ data_width &19 < [IF]
    $123456 Constant #data  \ >= 24 bits
 [THEN]
 
-: boot  ( -- )
+: datatest  ( -- )
    #data    0 st ld 1+ st @
-         #top st ld 1+ st @
+         #extern st ld 1+ st @
+;
+: boot  ( -- )
+   datatest
    BEGIN  REPEAT
 ;
 

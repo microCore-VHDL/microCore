@@ -5,7 +5,7 @@
 -- Last change: KS 24.01.2021 19:50:40
 -- Project : microCore
 -- Language : VHDL-2008
--- Last check in : $Rev: 597 $ $Date:: 2020-11-29 #$
+-- Last check in : $Rev: 645 $ $Date:: 2021-02-17 #$
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
 --
 -- Do not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 --         Here fpga specific single port memory IP can be included.
 --
 -- Version Author   Date       Changes
---           ks    8-Jun-2020  initial version
+--   210     ks    8-Jun-2020  initial version
 -- ---------------------------------------------------------------------
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;

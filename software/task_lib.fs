@@ -2,7 +2,7 @@
 \ @file : task_lib.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 11.12.2020 21:40:49
+\ Last change: KS 13.03.2021 19:12:00
 \ Project : microCore
 \ Language : gforth_0.6.2
 \ Last check in : $Rev: 608 $ $Date:: 2020-12-11 #$
@@ -26,8 +26,8 @@
 \ architecture_pkg.vhd
 \
 \ Version Author   Date       Changes
-\     1     ks   02-May-2020  initial version
-\     2     ks   19-Oct-2020  library version, some simplifications
+\   210     ks   02-May-2020  initial version
+\   2200    ks   19-Oct-2020  library version, some simplifications
 \ ----------------------------------------------------------------------
 Target
 
@@ -240,7 +240,7 @@ Target
      False Prioflag !
      dup @ 1+ @ dup rot !                                   \ advance pointer into the circular task list to the next task in the list
      Dsu @   #f-dsu flag?   dup Dsu !
-     IF  0= IF  Terminal ['] debugService activate  THEN    \ Break vanished, start the Terminal task
+     IF  0= IF  Terminal ['] debug-service activate  THEN    \ Break vanished, start the Terminal task
          do-next
      THEN \ #f-dsu not set
      IF  Terminal stop  THEN                                \ New break, stop the Terminal task

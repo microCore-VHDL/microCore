@@ -8,10 +8,10 @@ BEGIN
   IF  rising_edge(clk)   THEN
      IF  en='1'  THEN
         IF  we='1'  THEN
-           program(conv_integer(addr)) <= di;
+           program(to_integer(addr)) <= di;
            do <= di;
         ELSE
-           do <= program(conv_integer(addr));
+           do <= program(to_integer(addr));
         END IF;
      END IF;
   END IF;

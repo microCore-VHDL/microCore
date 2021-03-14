@@ -2,10 +2,10 @@
 \ @file : disasm.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 09.11.2020 17:46:32
+\ Last change: KS 16.02.2021 18:47:32
 \ Project : microCore
 \ Language : gforth_0.6.2
-\ Last check in : $Rev: 588 $ $Date:: 2020-11-14 #$
+\ Last check in : $Rev: 645 $ $Date:: 2021-02-17 #$
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
 \
@@ -26,7 +26,7 @@
 \          <cr> or <esc> to finish.
 \
 \ Version Author   Date       Changes
-\           ks   14-Jun-2020  initial version
+\   210     ks   14-Jun-2020  initial version
 \ ----------------------------------------------------------------------
 Only Forth also definitions 
 
@@ -159,9 +159,4 @@ Variable out     out off
    BEGIN  .instruction  break-key? UNTIL
    drop space std-output
 ;
-: show    ( <name> -- )
-   Context @ >r
-   postpone T defined 0= ?missing
-   r> Context !
-   >body @ disasm
-;
+: show    ( <name> -- )   defined 0= ?missing   >body @ disasm ;

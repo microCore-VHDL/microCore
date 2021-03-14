@@ -2,10 +2,10 @@
 \ @file : monitor.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 20.11.2020 13:54:57
+\ Last change: KS 13.03.2021 19:11:59
 \ Project : microCore
 \ Language : gforth_0.6.2
-\ Last check in : $Rev: 613 $ $Date:: 2020-12-16 #$
+\ Last check in : $Rev: 667 $ $Date:: 2021-03-14 #$
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
 \
@@ -25,7 +25,7 @@
 \          The hardware must be configured with an RS232 serial interface.
 \
 \ Version Author   Date       Changes
-\           ks   14-Jun-2020  initial version
+\   210     ks   14-Jun-2020  initial version
 \ ----------------------------------------------------------------------
 Target
 
@@ -41,7 +41,7 @@ Variable tmpStatus
 
 : rclear   ( r: ? -- )  r>   Rsp @ [ #rs-depth 1- ] Literal or Rsp !   >r ;
 
-: debugService     ( -- )  
+: debug-service     ( -- )  
    rclear  clear   host> drop
    BEGIN  #warmboot >host   host> $5F5 = UNTIL
    BEGIN  $505 >host   host> 0= UNTIL  \ synchronise Host <-> Target communication

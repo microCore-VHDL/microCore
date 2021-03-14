@@ -5,7 +5,7 @@
 
 LIBRARY IEEE;
 USE     IEEE.STD_LOGIC_1164.ALL;
-USE     IEEE.STD_LOGIC_UNSIGNED.ALL;
+USE     IEEE.NUMERIC_STD.ALL;
 USE     work.architecture_pkg.ALL;
 
 ENTITY boot_rom IS PORT (
@@ -17,7 +17,7 @@ ARCHITECTURE sim_model OF boot_rom IS
 
 SUBTYPE rom_address IS NATURAL RANGE 0 TO 2**boot_addr_width-1;
 
-FUNCTION program(addr : rom_address) RETURN STD_LOGIC_VECTOR IS
+FUNCTION program(addr : rom_address) RETURN UNSIGNED IS
 BEGIN
    CASE addr IS
       WHEN 16#0000# => RETURN "10000000";
@@ -30,6 +30,6 @@ END program;
 
 BEGIN
 
-data <= program(conv_integer(addr));
+data <= program(to_integer(addr));
 
 END sim_model;

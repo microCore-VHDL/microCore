@@ -1,6 +1,6 @@
 \ 
-\ Last change: KS 25.05.2020 18:46:25
-\ Last check in : $Rev: 584 $ $Date:: 2020-11-11 #$
+\ Last change: KS 05.03.2021 17:41:28
+\ Last check in : $Rev: 656 $ $Date:: 2021-03-06 #$
 \
 \ MicroCore load screen for simulating the debug umbilical.
 \ It produces program.mem for initialization of the program memory during simulation.
@@ -25,8 +25,9 @@ Target new                      \ go into target compilation mode and initialize
 include constants.fs            \ microCore Register addresses and bits
 
 : boot ( -- )
-   $36699 $21155 1 st 1+ !
-   Debug-reg ld st ld !
+   $6699 $1155 1 st 1+ !
+   Debug-reg ld st ld over swap !
+   $4002 = IF  #c-bitout Ctrl !  THEN
    BEGIN REPEAT
 ;
 

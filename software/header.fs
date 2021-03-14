@@ -24,6 +24,5 @@
 \ @brief :
 \
 \ Version Author   Date       Changes
-\           ks   14-Jun-2020  initial version
 \ ----------------------------------------------------------------------
 

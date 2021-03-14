@@ -2,10 +2,10 @@
 -- @file : uart.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 24.01.2021 19:50:06
+-- Last change: KS 07.03.2021 11:40:30
 -- Project : microCore
 -- Language : VHDL-2008
--- Last check in : $Rev: 559 $ $Date:: 2020-06-13 #$
+-- Last check in : $Rev: 657 $ $Date:: 2021-03-08 #$
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
 --
 -- Do not use this file except in compliance with the License.
@@ -19,19 +19,20 @@
 -- @brief: serial UART - 8N2 format with receive fifo.
 --
 -- Version Author   Date       Changes
---           ks    8-Jun-2020  initial version
+--   210     ks    8-Jun-2020  initial version
+--  2300     ks    8-Mar-2021  Converted to NUMERIC_STD
 -- ---------------------------------------------------------------------
 Library IEEE;
 USE IEEE.std_logic_1164.ALL;
-USE IEEE.STD_LOGIC_signed.ALL;
+USE IEEE.NUMERIC_STD.ALL;
 USE IEEE.MATH_REAL.ALL;
 USE work.architecture_pkg.ALL;
 USE work.functions_pkg.ALL;
 
 ENTITY uart IS GENERIC (
-   rate       : NATURAL;
-   depth      : NATURAL;
-   ramstyle   : STRING
+   rate       : NATURAL; -- baud rate
+   depth      : NATURAL; -- queue depth
+   ramstyle   : STRING   -- normally "registers", "block_ram" for large queues
 ); PORT (
    uBus       : IN  uBus_port;
    pause      : OUT STD_LOGIC; -- uart pause
@@ -61,15 +62,15 @@ CONSTANT baudcnt   : NATURAL := integer(realbaud);
 SIGNAL baud_ctr    : NATURAL RANGE 0 TO baudcnt;
 SIGNAL baud_en     : STD_LOGIC;
 SIGNAL rx_shift    : byte;
-SIGNAL rx_ctr      : STD_LOGIC_VECTOR(3 DOWNTO 0);
-SIGNAL rx_sync     : STD_LOGIC_VECTOR(1 DOWNTO 0);
+SIGNAL rx_ctr      : UNSIGNED(3 DOWNTO 0);
+SIGNAL rx_sync     : UNSIGNED(1 DOWNTO 0);
 SIGNAL rx_ready    : STD_LOGIC;
 SIGNAL rx_write    : STD_LOGIC;
 
 SIGNAL tx_buf      : byte;
-SIGNAL tx_shift    : STD_LOGIC_VECTOR(8 DOWNTO 0);
-SIGNAL tx_ctr      : STD_LOGIC_VECTOR(3 DOWNTO 0);
-SIGNAL tx_baud     : STD_LOGIC_VECTOR(1 DOWNTO 0);
+SIGNAL tx_shift    : UNSIGNED(8 DOWNTO 0);
+SIGNAL tx_ctr      : UNSIGNED(3 DOWNTO 0);
+SIGNAL tx_baud     : UNSIGNED(1 DOWNTO 0);
 
 SIGNAL q_empty     : STD_LOGIC;
 SIGNAL q_full      : STD_LOGIC;
@@ -88,7 +89,7 @@ pause <= (q_empty AND rx_read) OR (NOT tx_empty AND tx_write);
 -- ---------------------------------------------------------------------
 
 rx_full <= NOT q_empty;
-rx_write <= rx_ready AND clk_en;
+rx_write <= rx_ready;
 
 rx_fifo: fifo
 GENERIC MAP (8, depth, ramstyle)
@@ -190,14 +191,14 @@ BEGIN
             CASE  tx_ctr  IS
             WHEN "0000" =>                             -- es wird gerade nicht gesendet
                tx_busy <= '0';
-               IF  tx_empty = '0'  THEN              -- und der tx_buf voll ist...
+               IF  tx_empty = '0'  THEN                -- und der tx_buf voll ist...
                   tx_empty <= '1';
                   tx_shift <= tx_buf & '0';            -- dann geht es los.
                   tx_ctr <= tx_ctr+1;
                   tx_busy <= '1';                      -- transmitter is currently sending
                END IF;
---            WHEN "1001" => tx_ctr <= "0000";           -- alle bits und das stop bit sind gesendet, zurück in den Ruhezustand
-            WHEN "1010" => tx_ctr <= "0000";           -- alle bits und 2 stop bits sind gesendet, zurück in den Ruhezustand
+--            WHEN "1001" => tx_ctr <= "0000";           -- 1 stop bit
+            WHEN "1010" => tx_ctr <= "0000";           -- 2 stop bits
             WHEN OTHERS => tx_ctr <= tx_ctr+1;         -- noch nicht alle Bits gesendet...
             END CASE;
          END IF;

@@ -5,6 +5,7 @@ add wave -noupdate /bench/myFPGA/clk
 add wave -noupdate /bench/myFPGA/uCore/cycle_ctr
 add wave -noupdate /bench/myFPGA/uCore/clk_en
 add wave -noupdate /bench/myFPGA/uCore/uBus
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/r
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/s
 add wave -noupdate /bench/myFPGA/flags
 add wave -noupdate /bench/myFPGA/ext_memory
@@ -48,7 +49,7 @@ add wave -noupdate /bench/myFPGA/uCore/mem_rdata
 add wave -noupdate /bench/myFPGA/uCore/mem_addr
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.rsp
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {2381 ns} 0} {{Cursor 2} {2211 ns} 0}
+WaveRestoreCursors {{Cursor 1} {268800 ns} 0} {{Cursor 2} {2211 ns} 0} {{Cursor 3} {267900 ns} 0}
 quietly wave cursor active 2
 configure wave -namecolwidth 145
 configure wave -valuecolwidth 69
@@ -64,4 +65,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {0 ns} {9450 ns}
+WaveRestoreZoom {266337 ns} {270133 ns}

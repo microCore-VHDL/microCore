@@ -5,7 +5,7 @@
 \ Last change: KS 05.11.2020 16:16:53
 \ Project : microCore
 \ Language : gforth_0.6.2
-\ Last check in : $Rev: 619 $ $Date:: 2021-01-20 #$
+\ Last check in : $Rev: 645 $ $Date:: 2021-02-17 #$
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
 \
@@ -33,7 +33,7 @@
 \          data_width and exp_width.
 \
 \ Version Author   Date       Changes
-\           ks   14-Jun-2020  initial version
+\   210     ks   14-Jun-2020  initial version
 \ ----------------------------------------------------------------------
 Only Forth also definitions
 

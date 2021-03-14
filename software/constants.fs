@@ -5,7 +5,7 @@
 \ Last change: KS 15.12.2020 16:28:46
 \ Project : microCore
 \ Language : gforth_0.6.2
-\ Last check in : $Rev: 613 $ $Date:: 2020-12-16 #$
+\ Last check in : $Rev: 645 $ $Date:: 2021-02-17 #$
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
 \
@@ -26,7 +26,7 @@
 \          architecture_pkg.VHD on the Host.
 \
 \ Version Author   Date       Changes
-\           ks   14-Jun-2020  initial version
+\   210     ks   14-Jun-2020  initial version
 \ ----------------------------------------------------------------------
 Target
 

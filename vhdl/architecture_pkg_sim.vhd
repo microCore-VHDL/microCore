@@ -2,10 +2,10 @@
 -- @file : architecture_pkg_sim.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 24.01.2021 19:49:21
+-- Last change: KS 08.03.2021 12:21:19
 -- Project : uCore_2.0
 -- Language : VHDL-2008
--- Last check in : $Rev: 629 $ $Date:: 2021-01-21 #$
+-- Last check in : $Rev: 657 $ $Date:: 2021-03-08 #$
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
 --
 -- Do not use this file except in compliance with the License.
@@ -21,7 +21,8 @@
 --         This file is also used by the cross compiler.
 --
 -- Version Author   Date       Changes
---           ks    8-Jun-2020  initial version
+--   210     ks    8-Jun-2020  initial version
+--   2300    ks   12-Feb-2021  compiler switch WITH_PROG_RW eliminated.
 -- ---------------------------------------------------------------------
 --VHDL --~  \ at this point the cross compiler activates vhdl context.
 LIBRARY IEEE;
@@ -32,7 +33,7 @@ USE work.functions_pkg.ALL;
 PACKAGE architecture_pkg IS
 --~--  \ when loaded by the microForth cross-compiler, code between "--~" up to "--~--" will be skipped.
 
-CONSTANT version            : NATURAL := 2200; -- <major_release><functionality_added><HW_fix><SW_fix>
+CONSTANT version            : NATURAL := 2300; -- <major_release><functionality_added><HW_fix><SW_fix>
 
 -- ---------------------------------------------------------------------
 -- Configuration flags
@@ -43,7 +44,6 @@ CONSTANT version            : NATURAL := 2200; -- <major_release><functionality_
 CONSTANT simulation         : BOOLEAN := true  ; -- will e.g. increase the frequency of timers to make them observable in simulation
 CONSTANT coldboot           : BOOLEAN := false ; -- cold boot on reset when true, else warmboot
 CONSTANT extended           : BOOLEAN := true  ; -- false -> core instruction set, true -> extended instruction set
-CONSTANT with_prog_rw       : BOOLEAN := true  ; -- read/write access to program memory when true
 CONSTANT with_mult          : BOOLEAN := true  ; -- true when FPGA has hardware multiply resources
 CONSTANT with_float         : BOOLEAN := true  ; -- floating point instructions?
 CONSTANT with_up_download   : BOOLEAN := true  ; -- up/download via umbilical?
@@ -72,13 +72,13 @@ CONSTANT exp_width          : NATURAL :=  8; -- floating point exponent width
 
 CONSTANT data_addr_width    : NATURAL := 13; -- data memory address width, large enough for cache and external data memory
 CONSTANT cache_addr_width   : NATURAL := 12; -- data cache memory address width
-CONSTANT reg_addr_width     : NATURAL :=  5; -- number of address bits reserved for internal registers at the top data space
+CONSTANT reg_addr_width     : NATURAL :=  4; -- number of address bits reserved for internal registers at the top data space
 --~
 CONSTANT addr_extern        : NATURAL := 2 ** cache_addr_width; -- start address of external memory
 --~--
-CONSTANT mem_data_width     : NATURAL :=  8; -- external memory word width
+CONSTANT ext_data_width     : NATURAL :=  8; -- external memory word width
 --~
-CONSTANT chunks             : NATURAL := ceiling(data_width, mem_data_width);
+CONSTANT chunks             : NATURAL := ceiling(data_width, ext_data_width);
 CONSTANT subbits            : NATURAL := log2(chunks);
 CONSTANT mem_addr_width     : NATURAL := 12 + subbits; -- external memory, virtually data_width wide
 --~--
@@ -101,7 +101,7 @@ CONSTANT ds_addr_width      : NATURAL :=  7; -- data stack pointer width
 CONSTANT rs_addr_width      : NATURAL :=  7; -- return stack pointer width
 CONSTANT addr_rstack        : NATURAL := 16#C00#; -- beginning of the return stack, must be a multiple of 2**rsp_width
 --~
-CONSTANT addr_rstack_v      : STD_LOGIC_VECTOR (data_width-1 DOWNTO 0) := to_vec(addr_rstack, data_width);
+CONSTANT addr_rstack_v      : UNSIGNED(data_width-1 DOWNTO 0) := to_unsigned(addr_rstack, data_width);
 CONSTANT dsp_width          : NATURAL := ds_addr_width + tasks_addr_width;
 CONSTANT rsp_width          : NATURAL := rs_addr_width + tasks_addr_width;
 
@@ -160,48 +160,48 @@ CONSTANT min_registers            : INTEGER :=  -9;
 -- uCore subtype and record definitions
 -- ---------------------------------------------------------------------
 
-SUBTYPE byte                IS STD_LOGIC_VECTOR ( 7 DOWNTO 0);
-SUBTYPE word                IS STD_LOGIC_VECTOR (15 DOWNTO 0);
-SUBTYPE data_bus            IS STD_LOGIC_VECTOR (data_width-1 DOWNTO 0);
-SUBTYPE data_addr           IS STD_LOGIC_VECTOR (data_addr_width-1 DOWNTO 0);
-SUBTYPE reg_addr            IS STD_LOGIC_VECTOR (reg_addr_width-1 DOWNTO 0);
-SUBTYPE dcache_addr         IS STD_LOGIC_VECTOR (cache_addr_width-1 DOWNTO 0);
-SUBTYPE exponent            IS STD_LOGIC_VECTOR (exp_width-1  DOWNTO 0);
-SUBTYPE inst_bus            IS STD_LOGIC_VECTOR (inst_width-1 DOWNTO 0);
-SUBTYPE program_addr        IS STD_LOGIC_VECTOR (prog_addr_width-1 DOWNTO 0);
-SUBTYPE boot_addr_bus       IS STD_LOGIC_VECTOR (boot_addr_width-1 DOWNTO 0);
-SUBTYPE dstacks_addr        IS STD_LOGIC_VECTOR (dsp_width-1 DOWNTO 0);
-SUBTYPE rstacks_addr        IS STD_LOGIC_VECTOR (rsp_width-1 DOWNTO 0);
-SUBTYPE int_flags           IS STD_LOGIC_VECTOR (interrupts-1 DOWNTO 0);
-SUBTYPE flag_bus            IS STD_LOGIC_VECTOR (flag_width-1 DOWNTO 0);
-SUBTYPE status_bus          IS STD_LOGIC_VECTOR (status_width-1 DOWNTO 0);
+SUBTYPE byte                IS UNSIGNED ( 7 DOWNTO 0);
+SUBTYPE word                IS UNSIGNED (15 DOWNTO 0);
+SUBTYPE data_bus            IS UNSIGNED (data_width-1 DOWNTO 0);
+SUBTYPE data_addr           IS UNSIGNED (data_addr_width-1 DOWNTO 0);
+SUBTYPE register_addr       IS   SIGNED (reg_addr_width DOWNTO 0);
+SUBTYPE dcache_addr         IS UNSIGNED (cache_addr_width-1 DOWNTO 0);
+SUBTYPE exponent            IS UNSIGNED (exp_width-1 DOWNTO 0);
+SUBTYPE inst_bus            IS UNSIGNED (inst_width-1 DOWNTO 0);
+SUBTYPE program_addr        IS UNSIGNED (prog_addr_width-1 DOWNTO 0);
+SUBTYPE boot_addr_bus       IS UNSIGNED (boot_addr_width-1 DOWNTO 0);
+SUBTYPE dstacks_addr        IS UNSIGNED (dsp_width-1 DOWNTO 0);
+SUBTYPE rstacks_addr        IS UNSIGNED (rsp_width-1 DOWNTO 0);
+SUBTYPE int_flags           IS UNSIGNED (interrupts-1 DOWNTO 0);
+SUBTYPE flag_bus            IS UNSIGNED (flag_width-1 DOWNTO 0);
+SUBTYPE status_bus          IS UNSIGNED (status_width-1 DOWNTO 0);
 
 TYPE data_sources IS ARRAY (max_registers DOWNTO min_registers) OF data_bus;
 
 TYPE  uBus_port  IS RECORD
-   reset       : STD_LOGIC;    -- synchronous, positive logic reset signal
-   clk         : STD_LOGIC;    -- clock signal
-   clk_en      : STD_LOGIC;    -- enable at the end of a uCore cycle
-   chain       : STD_LOGIC;    -- true when executing multicycle instructions
-   pause       : STD_LOGIC;    -- pause exception
-   delay       : STD_LOGIC;    -- extend uCore's cycle to wait for slow peripherals
-   tick        : STD_LOGIC;    -- produces a pulse every "ticks_per_ms"
-   sources     : data_sources; -- array of register outputs
+   reset       : STD_LOGIC;      -- synchronous, positive logic reset signal
+   clk         : STD_LOGIC;      -- clock signal
+   clk_en      : STD_LOGIC;      -- enable at the end of a uCore cycle
+   chain       : STD_LOGIC;      -- true when executing multicycle instructions
+   pause       : STD_LOGIC;      -- pause exception
+   delay       : STD_LOGIC;      -- extend uCore's cycle to wait for slow peripherals
+   tick        : STD_LOGIC;      -- produces a pulse every "ticks_per_ms"
+   sources     : data_sources;   -- array of register outputs
 -- data_io_interface
-   reg_en      : STD_LOGIC;    -- enable signal for register access
-   reg_addr    : reg_addr;     -- register address
-   enable      : STD_LOGIC;    -- RAM & IO address space, including return stack
-   write       : STD_LOGIC;    -- 1 => write, 0 => read
-   addr        : data_addr;    -- address on uBus
-   wdata       : data_bus;     -- data to memory
-   dma_rdata   : data_bus;     -- data to dma memory (2nd blockRAM port)
+   reg_en      : STD_LOGIC;      -- enable signal for register access
+   reg_addr    : register_addr;  -- register address
+   enable      : STD_LOGIC;      -- RAM & IO address space, including return stack
+   write       : STD_LOGIC;      -- 1 => write, 0 => read
+   addr        : data_addr;      -- address on uBus
+   wdata       : data_bus;       -- data to memory
+   dma_rdata   : data_bus;       -- data to dma memory (2nd blockRAM port)
 END RECORD;
 
 TYPE  core_signals  IS RECORD
    clk_en      : STD_LOGIC;
    reg_en      : STD_LOGIC;
-   reg_addr    : reg_addr;
-   ext_en      : STD_LOGIC;  -- enable signal for external data memory
+   reg_addr    : register_addr;
+   ext_en      : STD_LOGIC;      -- enable signal for external data memory
    tick        : STD_LOGIC;
    chain       : STD_LOGIC;
    status      : status_bus;
@@ -297,7 +297,7 @@ COMPONENT semaphor PORT (
 --  2   00 -rot       -0 z-branch      +0 tuck          00 0<
 --  3   00 swap       -0 nip           +0 over          00 time?
 --  4                 -0 less          +0 ovfl?         00 flag?
---  5   00 DST2NOS    -0 st-set        +0 carry?        00 norm
+--  5                 -0 st-set        +0 carry?        00 norm
 --  6   00 PRG2NOS    -? nz-exit
 --  7   00 SUM2TOS    -? tor-branch    ?0 ?dup
 -- ---------------------------------------------------------------------
@@ -338,7 +338,7 @@ CONSTANT op_ROT      : byte := "00000001";
 CONSTANT op_NROT     : byte := "00000010";
 CONSTANT op_SWAP     : byte := "00000011";
 
-CONSTANT op_DST2NOS  : byte := "00000101";
+
 CONSTANT op_PRG2NOS  : byte := "00000110"; -- program memory load
 CONSTANT op_SUM2TOS  : byte := "00000111"; -- Extended instruction set
 
@@ -481,9 +481,7 @@ FUNCTION uReg_read(uBus : IN uBus_port;
                    reg  : IN INTEGER
                   ) RETURN BOOLEAN IS
 BEGIN
-  IF  reg = SIGNED(uBus.reg_addr)
-     AND (NOT uBus.write AND uBus.reg_en AND uBus.clk_en) = '1'
-  THEN
+  IF  reg = uBus.reg_addr AND (NOT uBus.write AND uBus.reg_en AND uBus.clk_en) = '1'  THEN
      RETURN true;
   ELSE
      RETURN false;
@@ -499,9 +497,7 @@ FUNCTION uReg_write (uBus : IN uBus_port;
                      reg  : IN INTEGER
                     ) RETURN BOOLEAN IS
 BEGIN
-  IF  reg = SIGNED(uBus.reg_addr)
-     AND (    uBus.write AND uBus.reg_en AND uBus.clk_en) = '1'
-  THEN
+  IF  reg = uBus.reg_addr AND (uBus.write AND uBus.reg_en AND uBus.clk_en) = '1'  THEN
      RETURN true;
   ELSE
      RETURN false;

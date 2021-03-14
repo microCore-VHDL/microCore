@@ -2,10 +2,10 @@
 \ @file : debugger.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 16.01.2021 18:51:05
+\ Last change: KS 19.02.2021 19:41:42
 \ Project : microCore
 \ Language : gforth_0.6.2
-\ Last check in : $Rev: 619 $ $Date:: 2021-01-20 #$
+\ Last check in : $Rev: 656 $ $Date:: 2021-03-06 #$
 \ @copyright (c): Free Software Foundation
 \ @original author: uho - Ulrich Hoffmann
 \
@@ -40,6 +40,7 @@
 \                             search order
 \          uho   11-Apr-2009  Breakpoints, nest, end-trace
 \          uho   21-Jun-2009  added abort to stop debugging immediately
+\   2300    ks   04-Feb-2021  #bytes/cell moved to microcross.fs
 \ ----------------------------------------------------------------------
 Host
 
@@ -172,9 +173,6 @@ data_width 4 /mod swap 0<> - Constant #hex/word
    Umbilical @ 0= IF  drop EXIT THEN  space
    temp-hex dup <# #hex/word 0 DO # LOOP #> type
 ;
-
-data_width inst_width /mod swap 0<> - Constant #bytes/cell
-
 : transmit ( x -- )
    dup log-word
    0 #bytes/cell 1- ?DO  dup I 8 * rshift term-emit  -1 +LOOP  drop
@@ -555,8 +553,6 @@ Command definitions
 : commands ( -- ) get-order Command words  set-order ;
 
 : help ( -- ) commands ;
-
-: ? ( -- ) commands ;
 
 : disasm ( -- ) ( T addr -- ) t> disasm ;
 

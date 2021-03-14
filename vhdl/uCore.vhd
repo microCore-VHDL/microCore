@@ -2,10 +2,10 @@
 -- @file : uCore.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 24.01.2021 19:50:19
+-- Last change: KS 04.03.2021 16:46:38
 -- Project : microCore
 -- Language : VHDL-2008
--- Last check in : $Rev: 613 $ $Date:: 2020-12-16 #$
+-- Last check in : $Rev: 656 $ $Date:: 2021-03-06 #$
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
 --
 -- Do not use this file except in compliance with the License.
@@ -19,11 +19,13 @@
 -- @brief: The microCore processor kernel.
 --
 -- Version Author   Date       Changes
---           ks    8-Jun-2020  initial version
+--   210     ks    8-Jun-2020  initial version
+--   2300    ks    8-Mar-2021  compiler switch WITH_PROG_RW eliminated
+--                             Conversion to NUMERIC_STD
 -- ---------------------------------------------------------------------
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
-USE IEEE.STD_LOGIC_signed.ALL;
+USE IEEE.NUMERIC_STD.ALL;
 USE work.functions_pkg.ALL;
 USE work.architecture_pkg.ALL;
 
@@ -228,8 +230,8 @@ mem_rdata <= ext_rdata WHEN  ext_mem_en = '1'  ELSE  dcache_rdata;
 
 paddr <= umbilical.addr  WHEN  deb_penable = '1'  ELSE  progmem.addr;
 
-pwrite <= umbilical.write WHEN  deb_penable = '1'                                ELSE
-          progmem.write   WHEN  with_prog_rw AND (warmboot = '0' OR simulation)  ELSE '0'; -- only during boot phase
+pwrite <= umbilical.write WHEN  deb_penable = '1'             ELSE
+          progmem.write   WHEN  warmboot = '0' OR SIMULATION  ELSE '0'; -- only during boot phase
 
 pcache_wdata <= umbilical.wdata  WHEN  deb_penable = '1'  ELSE  progmem.wdata;
 

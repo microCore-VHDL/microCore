@@ -2,10 +2,10 @@
 \ @file : vhdl.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 06.01.2021 18:20:18
+\ Last change: KS 07.03.2021 11:55:15
 \ Project : microCore
 \ Language : gforth_0.6.2
-\ Last check in : $Rev: 619 $ $Date:: 2021-01-20 #$
+\ Last check in : $Rev: 657 $ $Date:: 2021-03-08 #$
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
 \
@@ -32,8 +32,8 @@
 \          --~-- will be skipped.
 \
 \ Version Author   Date       Changes
-\    1      ks   14-Jun-2020  initial version
-\    2      ks   15-Dec-2020  more literal number formats
+\   210     ks   14-Jun-2020  initial version
+\   2200    ks   15-Dec-2020  more literal number formats
 \ ----------------------------------------------------------------------
 \ E.g. the following VHDL expressions will be interpreted by Forth:
 \
@@ -69,6 +69,9 @@ Vocabulary --VHDL   --VHDL definitions
 1 Constant INTEGER
 2 Constant BOOLEAN
 
+: STD_LOGIC_VECTOR  ( -- type )  postpone ( byte ;    \ )
+: UNSIGNED          ( -- type )  postpone ( byte ;    \ )
+
 : CONSTANT  ( -- )   0 Constant ;
 
 : vhdl-types  ( type -- n )
@@ -76,8 +79,6 @@ Vocabulary --VHDL   --VHDL definitions
    2 case? IF  [char] ; word count evaluate  EXIT THEN  \ for conditional compilation
    abort" unknown type"
 ;
-: STD_LOGIC_VECTOR  ( -- type )  postpone ( byte ;    \ )
-
 : :=      ( type -- )   Base save  vhdl-types   here cell- ! ; \ patch constant created before
 
 : --~     ( ccc~ -- )   [char] ~ scan-input ;         \ ~

@@ -2,7 +2,7 @@
 -- @file : .vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 24.01.2021 19:49:55
+-- Last change: KS 24.01.2021 19:51:28
 -- Project : microCore
 -- Language : VHDL-2008
 -- Last check in : $Rev: 511 $ $Date:: 2020-04-15 #$

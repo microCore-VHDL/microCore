@@ -7,9 +7,10 @@ add wave -noupdate /bench/myFPGA/clk
 add wave -noupdate /bench/myFPGA/uCore/cycle_ctr
 add wave -noupdate /bench/myFPGA/uCore/clk_en
 add wave -noupdate /bench/myFPGA/uCore/uBus
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/r
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/s
 add wave -noupdate /bench/myFPGA/flags
-add wave -noupdate /bench/myFPGA/ctrl
+add wave -noupdate /bench/bitout
 add wave -noupdate -divider Sequencer
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/pause
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/s.lit
@@ -30,17 +31,23 @@ add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.tor
 add wave -noupdate /bench/myFPGA/uCore/mem_rdata
 add wave -noupdate /bench/myFPGA/uCore/mem_addr
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.rsp
-add wave -noupdate /bench/myFPGA/uCore/internal_data_mem/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(4094)
-add wave -noupdate /bench/myFPGA/uCore/internal_data_mem/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(4093)
-add wave -noupdate /bench/myFPGA/uCore/internal_data_mem/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(4092)
 add wave -noupdate -divider Debugger
 add wave -noupdate /bench/myFPGA/uCore/debug_unit/rxd
-add wave -noupdate /bench/myFPGA/uCore/internal_data_mem/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(19)
-add wave -noupdate /bench/myFPGA/uCore/internal_data_mem/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(1)
-add wave -noupdate /bench/myFPGA/uCore/internal_data_mem/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(10)
+add wave -noupdate -divider Dsu
+add wave -noupdate /bench/myFPGA/uCore/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(28)
+add wave -noupdate -divider Rerun
+add wave -noupdate /bench/myFPGA/uCore/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(17)
+add wave -noupdate -divider Counter
+add wave -noupdate /bench/myFPGA/uCore/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(16)
+add wave -noupdate -divider Tptr
+add wave -noupdate -radix unsigned /bench/myFPGA/uCore/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(18)
+add wave -noupdate -divider Background
+add wave -noupdate /bench/myFPGA/uCore/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(9)
+add wave -noupdate -divider Terminal
+add wave -noupdate /bench/myFPGA/uCore/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(19)
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {20200 ns} 0} {{Cursor 2} {73400 ns} 0}
-quietly wave cursor active 2
+WaveRestoreCursors {{Cursor 1} {248996 ns} 0} {{Cursor 2} {24400 ns} 0}
+quietly wave cursor active 1
 configure wave -namecolwidth 111
 configure wave -valuecolwidth 68
 configure wave -justifyvalue left
@@ -55,4 +62,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {0 ns} {231 us}
+WaveRestoreZoom {0 ns} {315 us}

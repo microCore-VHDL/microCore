@@ -4,6 +4,6 @@ END program;
 
 BEGIN
 
-data <= program(conv_integer(addr));
+data <= program(to_integer(addr));
 
 END sim_model;

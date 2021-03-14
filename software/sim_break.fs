@@ -1,6 +1,6 @@
 \ 
-\ Last change: KS 20.08.2020 15:31:39
-\ Last check in : $Rev: 584 $ $Date:: 2020-11-11 #$
+\ Last change: KS 06.03.2021 22:52:44
+\ Last check in : $Rev: 656 $ $Date:: 2021-03-06 #$
 \
 \ MicroCore load screen for simulating the umbilical's break function.
 \ Constant break has to be set to '1' in bench.vhd.
@@ -29,19 +29,22 @@ library task_lib.fs
 Task Background
 
 Variable Counter
+Variable Rerun
 
-: bg_task  ( -- )   0 Counter !  BEGIN  pause  1 Counter +!  REPEAT ;
-
-: boot  ( -- )  
-   0 task>dsp Dsp !   0 task>rsp Rsp !   
-   Terminal Background ['] bg_task spawn
-   debugService
+: bg_task  ( -- )  0 Counter !   0 Rerun !
+   BEGIN  pause  1 Counter +!   Dsu @   Rerun @
+      2dup or 0= IF  Rerun on  THEN
+      and IF  #c-bitout Ctrl !  THEN
+   REPEAT
 ;
-
-#reset TRAP: rst   ( -- ) boot           ;  \ compile branch to TEST at reset vector location
-#isr   TRAP: isr   ( -- ) di IRET        ;
-#psr   TRAP: psr   ( -- ) pause          ;  \ reexecute the previous instruction
-#break TRAP: break ( -- ) debugger       ;
+: boot  ( -- )   CALL INITIALIZATION
+   Terminal Background ['] bg_task spawn
+   BEGIN pause REPEAT
+;
+#reset TRAP: rst    ( -- )            boot       ;  \ compile branch to boot at reset vector location
+#psr   TRAP: psr    ( -- )            pause      ;  \ reexecute the previous instruction
+#break TRAP: break  ( -- )            debugger   ;
+#data! TRAP: data!  ( dp n -- dp+1 )  swap st 1+ ;  \ Data memory initialization
 
 end
 

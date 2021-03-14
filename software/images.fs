@@ -2,10 +2,10 @@
 \ @file : images.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 30.07.2020 17:04:23
+\ Last change: KS 18.02.2021 18:39:30
 \ Project : microCore
 \ Language : gforth_0.6.2
-\ Last check in : $Rev: 584 $ $Date:: 2020-11-11 #$
+\ Last check in : $Rev: 647 $ $Date:: 2021-02-18 #$
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
 \
@@ -24,18 +24,18 @@
 \ @brief : Generating the target object code image in different formats.
 \
 \ Version Author   Date       Changes
-\           ks   14-Jun-2020  initial version
+\   210     ks   14-Jun-2020  initial version
+\   2300    ks   06-Feb-2021  CRC-file modified for variable data_widths
 \ ----------------------------------------------------------------------
 Only Forth also definitions
 
-: Bin-file   ( <name> -- )                       \ write program memory image to file <name> as binary
+: Bin-file   ( <name> -- ) \ write program memory image to file <name> as binary
    BL word dup c@ 0= abort" file name required"
    count R/W BIN           Create-file abort" File could not be created"  >r
    0 >memory there cells r@ write-file abort" File write error"
    r>                       close-file abort" File close failed"
 ;
-
-: Byte-file   ( <name> -- )                      \ write program memory image to file <name> as byte oriented binary
+: Byte-file   ( <name> -- ) \ write program memory image to file <name> as byte oriented binary
    BL word dup c@ 0= abort" file name required"
    count R/W BIN  Create-file abort" File could not be created"
    there 0 ?DO I >memory @  pad c!  dup   pad 1 rot write-file abort" File write error"  LOOP
@@ -43,35 +43,41 @@ Only Forth also definitions
 ;
 \ ----------------------------------------------------------------------
 \ Create bootable code for 8-bit EEPROM
-\ 16-bit length-field | program image | 16-bit crc
-\ The length field is not included in the crc computation!
-\ 16-bit length-field is little endian.
-\ 16-bit crc is big endian
+\ length-field | program image | 2 byte crc
 \ ----------------------------------------------------------------------
 
-$1021 Constant Polynom  ( x16+x13+x5+1 CRC-16-CCITT )
+$1021 Constant #polynom
+$FFFF Constant #crc-init
+$8000 Constant #X15-bit
+$FFFF Constant #crc-mask
+    2 Constant #bytes/crc
 
-: crc-step ( 16b crc1 -- 16b' crc2 )
-   2dup xor $8000 and >r
-   2* swap 2* swap  r> IF  Polynom xor  THEN ;
-
-: crc  ( crc1 8b -- crc2 )  &8 lshift swap &7 FOR  crc-step  NEXT  $FFFF and nip ;
-
-: crc-check  ( addr length -- crc )
-   0 -rot 1- FOR  dup >r @  crc  r> 1+  NEXT  drop ;
-
-: pack_image ( -- addr )
-   Pad    dup 2 + 0   0 >memory there cells bounds
+: crc-step  ( w crc1 -- w' crc2 ) \ process one bit
+   2dup xor >r   2* swap 2* swap
+   r> #X15-bit and IF  #polynom xor  THEN
+;
+: crc8  ( crc1 c -- crc2 )  \ process one byte
+   8 lshift swap &7 FOR  crc-step  NEXT  nip
+;
+: crc-check ( addr length -- crc )  \ process string of bytes
+   #crc-init -rot 1- FOR  dup >r   c@ crc8   r> 1+  NEXT  drop
+   #crc-mask and
+;
+: pack_image ( -- addr len )
+   Pad    dup #bytes/cell + 0
+   0 >memory there cells bounds
    DO  I c@   swap >r swap >r   r@ c!  r> 1+  r> 1+  1 cells +LOOP
-   swap >r   over 2 + over crc-check
-   unpack r@ c!   r> 1+ c!             \ append 16 bit CRC
-   over >r  unpack r@ 1+ c!  r> c!     \ add length word in front
+   swap >r   over #bytes/cell + over crc-check
+   unpack r@ c!  r> 1+ c!                                         \ append two CRC bytes
+   swap over #bytes/cell 2 - FOR  unpack  NEXT                    \ fill in length-field
+   Pad #bytes/cell + 1-   #bytes/cell 1- FOR  tuck c! 1-  NEXT drop
+   swap #bytes/cell + #bytes/crc +                                \ compute total image length
 ;
 : CRC-file   ( <name> -- )  \ write program memory image length field and CRC
-   BL word dup c@ 0= abort" file name required"
-   count R/W BIN  Create-file abort" File could not be created"
-   pack_image  dup w@ 4 + bounds ?DO  dup I 1 rot write-file abort" File write error"  LOOP
-   close-file abort" File close failed"
+   BL word          dup c@ 0= abort" file name required"
+   count R/W BIN  Create-file abort" File could not be created" >r
+   pack_image   r@ write-file abort" File write error"
+   r> close-file              abort" File close failed"
 ;
 \ ----------------------------------------------------------------------
 \ Create VHDL output files for the object code

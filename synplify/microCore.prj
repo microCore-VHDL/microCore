@@ -7,8 +7,7 @@
 #project files
 add_file -vhdl -lib work "../vhdl/functions_pkg.vhd"
 add_file -vhdl -lib work "../vhdl/architecture_pkg.vhd"
-add_file -vhdl -lib work "../vhdl/uMult.vhd"
-add_file -vhdl -lib work "../vhdl/uAdd.vhd"
+add_file -vhdl -lib work "../vhdl/uArithmetic.vhd"
 add_file -vhdl -lib work "../vhdl/uCntrl.vhd"
 add_file -vhdl -lib work "../vhdl/uart.vhd"
 add_file -vhdl -lib work "../vhdl/debugger.vhd"

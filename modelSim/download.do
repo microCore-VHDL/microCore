@@ -28,11 +28,12 @@ add wave -noupdate /bench/myFPGA/uCore/debug_unit/send_ack
 add wave -noupdate /bench/myFPGA/uCore/debug_unit/tx_write
 add wave -noupdate /bench/myFPGA/uCore/debug_unit/txd
 add wave -noupdate -divider {Data RAM}
-add wave -noupdate /bench/myFPGA/uCore/internal_data_mem/internal_data_mem/enable
-add wave -noupdate /bench/myFPGA/uCore/internal_data_mem/internal_data_mem/write
-add wave -noupdate /bench/myFPGA/uCore/internal_data_mem/internal_data_mem/addr
 add wave -noupdate /bench/myFPGA/uCore/mem_addr
-add wave -noupdate /bench/myFPGA/uCore/internal_data_mem/internal_data_mem/rdata
+add wave -noupdate /bench/myFPGA/uCore/memory.enable
+add wave -noupdate /bench/myFPGA/uCore/memory.write
+add wave -noupdate /bench/myFPGA/uCore/memory.addr
+add wave -noupdate /bench/myFPGA/uCore/memory.wdata
+add wave -noupdate /bench/myFPGA/uCore/mem_rdata
 add wave -noupdate -divider host
 add wave -noupdate /bench/send_ack
 add wave -noupdate /bench/send_debug
@@ -60,7 +61,7 @@ add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.tor
 add wave -noupdate /bench/myFPGA/uCore/mem_rdata
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.rsp
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {109710 ns} 0} {{Cursor 2} {67487 ns} 0}
+WaveRestoreCursors {{Cursor 1} {205024 ns} 0} {{Cursor 2} {67487 ns} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 152
 configure wave -valuecolwidth 68
@@ -76,4 +77,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {0 ns} {115500 ns}
+WaveRestoreZoom {0 ns} {215250 ns}

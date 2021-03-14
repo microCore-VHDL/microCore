@@ -5,7 +5,7 @@
 \ Last change: KS 20.01.2021 23:30:14
 \ Project : microCore
 \ Language : gforth_0.6.2
-\ Last check in : $Rev: 626 $ $Date:: 2021-01-20 #$
+\ Last check in : $Rev: 645 $ $Date:: 2021-02-17 #$
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
 \
@@ -27,7 +27,7 @@
 \          rs232 interface used.
 \
 \ Version Author   Date       Changes
-\           ks   14-Jun-2020  initial version
+\   210     ks   14-Jun-2020  initial version
 \ ----------------------------------------------------------------------
 SIMULATION [NOTIF]
 
