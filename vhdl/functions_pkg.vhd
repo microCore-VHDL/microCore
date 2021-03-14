@@ -29,7 +29,7 @@ USE STD.TEXTIO.ALL;
 
 PACKAGE functions_pkg IS
 
-CONSTANT async_reset : BOOLEAN := true; -- true = async reset, false = synchronous reset
+CONSTANT async_reset : BOOLEAN := false; -- true = async reset, false = synchronous reset
 
 FUNCTION  resize(slv : IN STD_LOGIC_VECTOR;
                  s   : IN INTEGER        ) RETURN STD_LOGIC_VECTOR;
