@@ -19,4 +19,4 @@ uCore_Public_License.pdf | free license for research and development.
 
 License:
 
-The public license allows the creation, manufacture and sale of products in general using microCore.
+The public license allows the creation, manufacture and sale of products in general using microCore. It is similar to the BSD and LGPL licenses.
