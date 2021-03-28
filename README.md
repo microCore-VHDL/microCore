@@ -1,7 +1,7 @@
 # microCore
 microCore is a hardware/software co-design environment based on Forth and VHDL.
 
-The hardware is a dual stack, deterministic, real-time processor for embedded FPGA applications.<BR>
+The hardware is a high-performance, dual stack, deterministic, real-time processor for embedded FPGA applications.<BR>
 The software is a co-design environment consisting of a cross-compiler and an interactive debugger.
 
 Documentation is in microCore/documents:
