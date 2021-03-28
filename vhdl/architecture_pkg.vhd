@@ -2,14 +2,15 @@
 -- @file : architecture_pkg.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 08.03.2021 12:21:19
--- Project : uCore_2.0
--- Language : VHDL-2008
--- Last check in : $Rev: 656 $ $Date:: 2021-03-06 #$
+-- Last change: KS 24.03.2021 17:41:13
+-- Last check in: $Rev: 673 $ $Date:: 2021-03-24 #$
+-- @project: microCore
+-- @language : VHDL-2008
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
+-- @contributors :
 --
--- Do not use this file except in compliance with the License.
--- You may obtain a copy of the License at
+-- @license: Do not use this file except in compliance with the License.
+-- You may obtain a copy of the Public License at
 -- https://github.com/microCore-VHDL/microCore/tree/master/documents
 -- Software distributed under the License is distributed on an "AS IS"
 -- basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.
@@ -34,7 +35,7 @@ USE work.functions_pkg.ALL;
 PACKAGE architecture_pkg IS
 --~--  \ when loaded by the microForth cross-compiler, code between "--~" up to "--~--" will be skipped.
 
-CONSTANT version            : NATURAL := 2300; -- <major_release><functionality_added><HW_fix><SW_fix>
+CONSTANT version            : NATURAL := 2310; -- <major_release><functionality_added><HW_fix><SW_fix>
 
 -- ---------------------------------------------------------------------
 -- Configuration flags
@@ -61,8 +62,8 @@ CONSTANT umbilical_rate     : NATURAL := 57600;
 -- memory initialisation during simulation
 -- ---------------------------------------------------------------------
 
-CONSTANT MEM_file           : string  := "none"; --"../software/program.mem";
-CONSTANT DMEM_file          : string  := "none"; --"../software/data.mem";
+CONSTANT MEM_file           : string  := ""; -- ../software/program.mem";
+CONSTANT DMEM_file          : string  := ""; -- ../software/data.mem";
 --~--
 -- ---------------------------------------------------------------------
 -- data, cache, register, and external data memory parameters:
@@ -76,12 +77,13 @@ CONSTANT cache_addr_width   : NATURAL := 12; -- data cache memory address width
 CONSTANT reg_addr_width     : NATURAL :=  4; -- number of address bits reserved for internal registers at the top data space
 --~
 CONSTANT addr_extern        : NATURAL := 2 ** cache_addr_width; -- start address of external memory
+CONSTANT with_extmem        : BOOLEAN := data_addr_width /= cache_addr_width;
 --~--
-CONSTANT ext_data_width     : NATURAL :=  8; -- external memory word width
+CONSTANT ram_data_width     : NATURAL :=  8; -- external memory word width
 --~
-CONSTANT chunks             : NATURAL := ceiling(data_width, ext_data_width);
+CONSTANT chunks             : NATURAL := ceiling(data_width, ram_data_width);
 CONSTANT subbits            : NATURAL := log2(chunks);
-CONSTANT mem_addr_width     : NATURAL := 12 + subbits; -- external memory, virtually data_width wide
+CONSTANT ram_addr_width     : NATURAL := 12 + subbits; -- external memory, virtually data_width wide
 --~--
 -- ---------------------------------------------------------------------
 -- program memory parameters:
@@ -165,7 +167,6 @@ SUBTYPE byte                IS UNSIGNED ( 7 DOWNTO 0);
 SUBTYPE word                IS UNSIGNED (15 DOWNTO 0);
 SUBTYPE data_bus            IS UNSIGNED (data_width-1 DOWNTO 0);
 SUBTYPE data_addr           IS UNSIGNED (data_addr_width-1 DOWNTO 0);
-SUBTYPE register_addr       IS   SIGNED (reg_addr_width DOWNTO 0);
 SUBTYPE dcache_addr         IS UNSIGNED (cache_addr_width-1 DOWNTO 0);
 SUBTYPE exponent            IS UNSIGNED (exp_width-1 DOWNTO 0);
 SUBTYPE inst_bus            IS UNSIGNED (inst_width-1 DOWNTO 0);
@@ -189,19 +190,18 @@ TYPE  uBus_port  IS RECORD
    tick        : STD_LOGIC;      -- produces a pulse every "ticks_per_ms"
    sources     : data_sources;   -- array of register outputs
 -- data_io_interface
-   reg_en      : STD_LOGIC;      -- enable signal for register access
-   reg_addr    : register_addr;  -- register address
-   enable      : STD_LOGIC;      -- RAM & IO address space, including return stack
+   reg_en      : STD_LOGIC;      -- enable signal for registers
+   mem_en      : STD_LOGIC;      -- enable signal for dcache and return stack
+   ext_en      : STD_LOGIC;      -- enable signal for external memory and IO
    write       : STD_LOGIC;      -- 1 => write, 0 => read
    addr        : data_addr;      -- address on uBus
    wdata       : data_bus;       -- data to memory
-   dma_rdata   : data_bus;       -- data to dma memory (2nd blockRAM port)
 END RECORD;
 
 TYPE  core_signals  IS RECORD
    clk_en      : STD_LOGIC;
    reg_en      : STD_LOGIC;
-   reg_addr    : register_addr;
+   mem_en      : STD_LOGIC;
    ext_en      : STD_LOGIC;      -- enable signal for external data memory
    tick        : STD_LOGIC;
    chain       : STD_LOGIC;
@@ -482,7 +482,9 @@ FUNCTION uReg_read(uBus : IN uBus_port;
                    reg  : IN INTEGER
                   ) RETURN BOOLEAN IS
 BEGIN
-  IF  reg = uBus.reg_addr AND (NOT uBus.write AND uBus.reg_en AND uBus.clk_en) = '1'  THEN
+  IF  reg = signed(uBus.addr(reg_addr_width DOWNTO 0))
+     AND (NOT uBus.write AND uBus.reg_en AND uBus.clk_en) = '1'
+  THEN
      RETURN true;
   ELSE
      RETURN false;
@@ -498,7 +500,9 @@ FUNCTION uReg_write (uBus : IN uBus_port;
                      reg  : IN INTEGER
                     ) RETURN BOOLEAN IS
 BEGIN
-  IF  reg = uBus.reg_addr AND (uBus.write AND uBus.reg_en AND uBus.clk_en) = '1'  THEN
+  IF  reg = signed(uBus.addr(reg_addr_width DOWNTO 0))
+     AND (uBus.write AND uBus.reg_en AND uBus.clk_en) = '1'
+  THEN
      RETURN true;
   ELSE
      RETURN false;

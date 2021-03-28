@@ -13,10 +13,13 @@ add wave -noupdate -divider {address diffs}
 add wave -noupdate /architecture_pkg/data_width
 add wave -noupdate /architecture_pkg/chunks
 add wave -noupdate /architecture_pkg/subbits
-add wave -noupdate /bench/myFPGA/with_ext_mem/SRAM/leader
-add wave -noupdate -radix unsigned /bench/myFPGA/with_ext_mem/SRAM/residue
+add wave -noupdate /bench/myFPGA/with_external_mem/SRAM/residue
+add wave -noupdate /bench/myFPGA/with_external_mem/SRAM/leader
+add wave -noupdate /bench/myFPGA/with_external_mem/SRAM/if_wide_data/data_mux_proc/maxdata
+add wave -noupdate /bench/myFPGA/with_external_mem/SRAM/if_wide_data/data_mux_proc/subaddr
+add wave -noupdate /bench/myFPGA/with_external_mem/SRAM/if_wide_data/data_mux_proc/subdata
 add wave -noupdate -divider SRAM
-add wave -noupdate /bench/myFPGA/with_ext_mem/SRAM/delay_ctr
+add wave -noupdate /bench/myFPGA/with_external_mem/SRAM/delay_ctr
 add wave -noupdate /bench/myFPGA/ext_memory.enable
 add wave -noupdate /bench/ext_ce_n
 add wave -noupdate /bench/myFPGA/ext_memory.addr
@@ -46,7 +49,7 @@ add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.dsp
 add wave -noupdate -divider {Return Stack}
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.tor
 add wave -noupdate /bench/myFPGA/uCore/mem_rdata
-add wave -noupdate /bench/myFPGA/uCore/mem_addr
+add wave -noupdate /bench/myFPGA/uCore/cache_addr
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.rsp
 TreeUpdate [SetDefaultTree]
 WaveRestoreCursors {{Cursor 1} {268800 ns} 0} {{Cursor 2} {2211 ns} 0} {{Cursor 3} {267900 ns} 0}

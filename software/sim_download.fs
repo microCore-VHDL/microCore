@@ -2,7 +2,7 @@
 \ Last change: KS 06.03.2021 16:44:11
 \ Last check in : $Rev: 584 $ $Date:: 2020-11-11 #$
 \
-\ MicroCore load screen to simulate the umbilical up- and download function.
+\ MicroCore load screen to simulate the umbilical download function.
 \ Either constant download or upload has to be set to '1' in bench.vhd.
 \ Use wave signal script download.do and upload.do in the simulator directory.
 \

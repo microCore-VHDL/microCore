@@ -2,12 +2,13 @@
 \ @file : rs232_linux.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 14.06.2020 17:06:34
-\ Project : microCore
-\ Language : gforth_0.6.2
-\ Last check in : $Rev: 619 $ $Date:: 2021-01-20 #$
+\ Last change: KS 27.03.2021 22:14:28
+\ Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
+\ @project: microCore
+\ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
 \ @original author: uho - Ulrich Hoffmann
+\ @contributor: ks - Klaus Schleisiek
 \
 \ @license: This file is part of microForth.
 \ microForth is free software for microCore that loads on top of Gforth;
@@ -30,7 +31,7 @@
 \ ----------------------------------------------------------------------
 Only Forth also definitions
 
-gforth_062 [IF]   .( UART for gforth_062, 32 bit)
+gforth_062 [IF]   cr .( UART for gforth_062, 32 bit)
 
 require lib.fs
 

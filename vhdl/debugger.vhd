@@ -2,14 +2,15 @@
 -- @file : debugger.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 07.03.2021 11:49:14
--- Project : microCore
--- Language : VHDL-2008
--- Last check in : $Rev: 662 $ $Date:: 2021-03-10 #$
+-- Last change: KS 24.03.2021 17:41:39
+-- Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
+-- @project: microCore
+-- @language : VHDL-2008
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
+-- @contributors :
 --
--- Do not use this file except in compliance with the License.
--- You may obtain a copy of the License at
+-- @license: Do not use this file except in compliance with the License.
+-- You may obtain a copy of the Public License at
 -- https://github.com/microCore-VHDL/microCore/tree/master/documents
 -- Software distributed under the License is distributed on an "AS IS"
 -- basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.
@@ -19,7 +20,8 @@
 -- @brief: The debugger connects to the host via an RS232 interface
 --         and allows interactive control while microCore is running.
 --         The debugger does not use the processor, it is a specific
---         set of state machines.
+--         set of state machines. Except when reading or writing the
+--         uCore's memories.
 --
 -- Version Author   Date       Changes
 --   210     ks    8-Jun-2020  initial version
@@ -140,7 +142,7 @@ umbilical.read   <= '0';
 umbilical.addr   <= addr_ptr(umbilical.addr'range);
 umbilical.wdata  <= rx_data;
 
-debugmem.enable  <= deb_denable WHEN  with_up_download  ELSE '0';
+debugmem.enable  <= '0';
 debugmem.write   <= write;
 debugmem.addr    <= addr_ptr(debugmem.addr'range);
 debugmem.wdata   <= in_reg(debugmem.wdata'range);

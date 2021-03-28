@@ -2,12 +2,13 @@
 \ @file : rs232_macosx.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 14.06.2020 17:06:42
-\ Project : microCore
-\ Language : gforth_0.6.2
-\ Last check in : $Rev: 572 $ $Date:: 2020-06-24 #$
+\ Last change: KS 24.03.2021 17:53:45
+\ Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
+\ @project: microCore
+\ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
 \ @original author: uho - Ulrich Hoffmann
+\ @contributor:
 \
 \ @license: This file is part of microForth.
 \ microForth is free software for microCore that loads on top of Gforth;

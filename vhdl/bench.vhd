@@ -2,14 +2,15 @@
 -- @file : bench.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 11.03.2021 10:58:36
--- Project : microCore
--- Language : VHDL-2008
--- Last check in : $Rev: 667 $ $Date:: 2021-03-14 #$
+-- Last change: KS 24.03.2021 17:41:32
+-- Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
+-- @project: microCore
+-- @language : VHDL-2008
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
+-- @contributors :
 --
--- Do not use this file except in compliance with the License.
--- You may obtain a copy of the License at
+-- @license: Do not use this file except in compliance with the License.
+-- You may obtain a copy of the Public License at
 -- https://github.com/microCore-VHDL/microCore/tree/master/documents
 -- Software distributed under the License is distributed on an "AS IS"
 -- basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.
@@ -44,7 +45,7 @@ END bench;
 ARCHITECTURE testbench OF bench IS
 
 CONSTANT prog_len   : NATURAL := 10;    -- length of sim_boot.fs
-CONSTANT progload   : STD_LOGIC := '0'; -- use sim_progload.fs   progload.do   MEM_file := "none"                    150 usec
+CONSTANT progload   : STD_LOGIC := '0'; -- use sim_progload.fs   progload.do   MEM_file := ""                        150 usec
 CONSTANT debug      : STD_LOGIC := '0'; -- use sim_debug.fs      debug.do      MEM_FILE := "../software/program.mem" 155 usec
 CONSTANT handshake  : STD_LOGIC := '0'; -- use sim_handshake.fs  handshake.do  MEM_FILE := "../software/program.mem" 320 usec
 CONSTANT upload     : STD_LOGIC := '0'; -- use sim_upload.fs     upload.do     MEM_FILE := "../software/program.mem" 260 usec
@@ -60,8 +61,8 @@ COMPONENT fpga PORT (
    ce_n        : OUT   STD_LOGIC;
    oe_n        : OUT   STD_LOGIC;
    we_n        : OUT   STD_LOGIC;
-   addr        : OUT   UNSIGNED(mem_addr_width-1 DOWNTO 0);
-   data        : INOUT UNSIGNED(ext_data_width-1 DOWNTO 0);
+   addr        : OUT   UNSIGNED(ram_addr_width-1 DOWNTO 0);
+   data        : INOUT UNSIGNED(ram_data_width-1 DOWNTO 0);
 -- umbilical port for debugging
    dsu_rxd     : IN    STD_LOGIC;  -- incoming asynchronous data stream
    dsu_txd     : OUT   STD_LOGIC   -- outgoing data stream
@@ -104,8 +105,8 @@ CONSTANT int_time   : TIME := 29 us + 6 * 80 ns;
 SIGNAL ext_ce_n     : STD_LOGIC;
 SIGNAL ext_oe_n     : STD_LOGIC;
 SIGNAL ext_we_n     : STD_LOGIC;
-SIGNAL ext_addr     : UNSIGNED(mem_addr_width-1 DOWNTO 0);
-SIGNAL ext_data     : UNSIGNED(ext_data_width-1 DOWNTO 0);
+SIGNAL ext_addr     : UNSIGNED(ram_addr_width-1 DOWNTO 0);
+SIGNAL ext_data     : UNSIGNED(ram_data_width-1 DOWNTO 0);
 
 BEGIN
 
@@ -450,7 +451,7 @@ END PROCESS xtal_clock;
 -- ---------------------------------------------------------------------
 
 ext_SRAM: external_ram
-GENERIC MAP (ext_data_width, mem_addr_width)
+GENERIC MAP (ram_data_width, ram_addr_width)
 PORT MAP (
    ce_n   => ext_ce_n,
    oe_n   => ext_oe_n,

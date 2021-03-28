@@ -2,12 +2,13 @@
 \ @file : library.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 12.03.2021 18:12:17
-\ Project : microCore
-\ Language : gforth_0.6.2
-\ Last check in : $Rev: 573 $ $Date:: 2020-07-08 #$
+\ Last change: KS 24.03.2021 17:52:11
+\ Last check in: $Rev: 645 $ $Date:: 2021-02-17 #$
+\ @project: microCore
+\ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
+\ @contributor:
 \
 \ @license: This file is part of microForth.
 \ microForth is free software for microCore that loads on top of Gforth;

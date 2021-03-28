@@ -2,14 +2,15 @@
 -- @file : fpga.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 07.03.2021 22:54:43
--- Project : microCore
--- Language : VHDL-2008
--- Last check in : $Rev: 662 $ $Date:: 2021-03-10 #$
+-- Last change: KS 24.03.2021 17:41:53
+-- Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
+-- @project: microCore
+-- @language : VHDL-2008
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
+-- @contributors :
 --
--- Do not use this file except in compliance with the License.
--- You may obtain a copy of the License at
+-- @license: Do not use this file except in compliance with the License.
+-- You may obtain a copy of the Public License at
 -- https://github.com/microCore-VHDL/microCore/tree/master/documents
 -- Software distributed under the License is distributed on an "AS IS"
 -- basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.
@@ -39,8 +40,8 @@ ENTITY fpga IS PORT (
    ce_n        : OUT   STD_LOGIC;
    oe_n        : OUT   STD_LOGIC;
    we_n        : OUT   STD_LOGIC;
-   addr        : OUT   UNSIGNED(mem_addr_width-1 DOWNTO 0);
-   data        : INOUT UNSIGNED(ext_data_width-1 DOWNTO 0);
+   addr        : OUT   UNSIGNED(ram_addr_width-1 DOWNTO 0);
+   data        : INOUT UNSIGNED(ram_data_width-1 DOWNTO 0);
 -- umbilical uart for debugging
    dsu_rxd     : IN    STD_LOGIC;  -- incoming asynchronous data stream
    dsu_txd     : OUT   STD_LOGIC   -- outgoing data stream
@@ -53,6 +54,8 @@ ALIAS  reset      : STD_LOGIC IS uBus.reset;
 ALIAS  clk        : STD_LOGIC IS uBus.clk;
 ALIAS  clk_en     : STD_LOGIC IS uBus.clk_en;
 
+SIGNAL reset_a    : STD_LOGIC; -- asynchronous reset positive logic
+SIGNAL reset_s    : STD_LOGIC; -- synchronized reset_n
 SIGNAL dsu_rxd_s  : STD_LOGIC;
 SIGNAL dsu_break  : STD_LOGIC;
 
@@ -79,12 +82,11 @@ SIGNAL dma          : datamem_port;
 SIGNAL dma_rdata    : data_bus;
 
 COMPONENT external_SRAM GENERIC (
-   mem_addr_width : NATURAL;
-   ext_data_width : NATURAL;
+   ram_addr_width : NATURAL;
+   ram_data_width : NATURAL;
    delay_cnt      : NATURAL    -- delay_cnt+1 extra clock cycles for each memory access
 ); PORT (
    uBus        : IN    uBus_port;
-   enable      : IN    STD_LOGIC;    -- enable signal for specific address range
    ext_memory  : IN    datamem_port;
    ext_rdata   : OUT   data_bus;
    delay       : OUT   STD_LOGIC;
@@ -92,8 +94,8 @@ COMPONENT external_SRAM GENERIC (
    ce_n        : OUT   STD_LOGIC;
    oe_n        : OUT   STD_LOGIC;
    we_n        : OUT   STD_LOGIC;
-   addr        : OUT   UNSIGNED(mem_addr_width-1 DOWNTO 0);
-   data        : INOUT UNSIGNED(ext_data_width-1 DOWNTO 0)
+   addr        : OUT   UNSIGNED(ram_addr_width-1 DOWNTO 0);
+   data        : INOUT UNSIGNED(ram_data_width-1 DOWNTO 0)
 ); END COMPONENT external_SRAM;
 
 SIGNAL SRAM_delay   : STD_LOGIC;
@@ -104,7 +106,10 @@ BEGIN
 -- input signal synchronization
 -- ---------------------------------------------------------------------
 
-synch_reset:     synchronize_n PORT MAP(clk, reset_n, reset);
+reset_a <= NOT reset_n;
+synch_reset: synchronize PORT MAP(clk, reset_a, reset_s);
+reset <= reset_a OR reset_s;
+
 synch_dsu_rxd:   synchronize   PORT MAP(clk, dsu_rxd, dsu_rxd_s);
 synch_interrupt: synchronize_n PORT MAP(clk, int_n,   flags(i_ext));
 
@@ -207,23 +212,22 @@ uBus.sources(DEBUG_REG)   <= core.debug;
 uBus.sources(TIME_REG)    <= core.time;
 -- data memory and return stack
 uBus.reg_en               <= core.reg_en;
-uBus.reg_addr             <= core.reg_addr;
-uBus.enable               <= ext_memory.enable;
+uBus.mem_en               <= core.mem_en;
+uBus.ext_en               <= core.ext_en;
 uBus.write                <= ext_memory.write;
 uBus.addr                 <= ext_memory.addr;
 uBus.wdata                <= ext_memory.wdata;
-uBus.dma_rdata            <= dma_rdata;
+
 -- ---------------------------------------------------------------------
 -- external SRAM data memory
 -- ---------------------------------------------------------------------
 
-with_ext_mem: IF  data_addr_width > cache_addr_width  GENERATE
+with_external_mem: IF  WITH_EXTMEM  GENERATE
 
    SRAM: external_SRAM
-   GENERIC MAP (mem_addr_width, ext_data_width, 2)
+   GENERIC MAP (ram_addr_width, ram_data_width, 1)
    PORT MAP (
       uBus        => uBus,
-      enable      => ext_memory.enable,
       ext_memory  => ext_memory,
       ext_rdata   => ext_rdata,
       delay       => SRAM_delay,
@@ -235,7 +239,7 @@ with_ext_mem: IF  data_addr_width > cache_addr_width  GENERATE
       data        => data
 );
 
-END GENERATE with_ext_mem; no_ext_mem: IF  data_addr_width <= cache_addr_width  GENERATE
+END GENERATE with_external_mem; no_external_mem: IF  NOT WITH_EXTMEM  GENERATE
 
    ext_rdata  <= (OTHERS => '0');
    SRAM_delay <= '0';
@@ -246,6 +250,6 @@ END GENERATE with_ext_mem; no_ext_mem: IF  data_addr_width <= cache_addr_width  
    addr <= (OTHERS => '0');
    data <= (OTHERS => 'Z');
 
-END GENERATE no_ext_mem;
+END GENERATE no_external_mem;
 
 END technology;

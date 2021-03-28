@@ -1,4 +1,22 @@
 ************************************************************************
+*** uCore 2.310  23-Mar-2021 ks
+************************************************************************
+
+Architecture_pkg(_sim).vhd: A few renames of constants.
+   Both types uBus_port and core_signals now include the full set of
+   memory enable signals: reg_en, mem_en, and ext_en.
+
+functions_pkg.vhd: "none" for "no file" replaced by "", the empty
+   string.
+
+uCore.vhd: Restructuring memory enable control and rdata source
+   selection.
+
+external_SRAM.vhd: Bugfix in data_mux_proc.
+
+extensions.fs: Bugfix in [IF] structure for loading RS232_linux.fs.
+
+************************************************************************
 *** uCore 2.300   8-Mar-2021 ks
 ************************************************************************
 

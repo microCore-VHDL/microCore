@@ -1,11 +1,11 @@
 \ 
-\ Last change: KS 16.05.2020 18:25:33
-\ Last check in : $Rev: 584 $ $Date:: 2020-11-11 #$
+\ Last change: KS 21.03.2021 18:57:11
+\ Last check in : $Rev: 675 $ $Date:: 2021-03-25 #$
 \
 \ MicroCore load screen to simulate program loading via the umbilical.
 \
 \ Constant progload has to be set to '1' in bench.vhd.
-\ CONSTANT MEM_file has to be set to "none" in architecture_pkg_sim.vhd
+\ CONSTANT MEM_file has to be set to "" in architecture_pkg_sim.vhd
 \ Use wave signal script progload.do in the simulator directory.
 \
 Only Forth also definitions 

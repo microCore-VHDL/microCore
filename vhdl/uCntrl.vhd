@@ -2,14 +2,15 @@
 -- @file : uCntrl.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 10.03.2021 19:23:21
--- Project : microCore
--- Language : VHDL-2008
--- Last check in : $Rev: 659 $ $Date:: 2021-03-08 #$
+-- Last change: KS 26.03.2021 22:37:47
+-- Last check in: $Rev: 677 $ $Date:: 2021-03-27 #$
+-- @project: microCore
+-- @language : VHDL-2008
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
+-- @contributors :
 --
--- Do not use this file except in compliance with the License.
--- You may obtain a copy of the License at
+-- @license: Do not use this file except in compliance with the License.
+-- You may obtain a copy of the Public License at
 -- https://github.com/microCore-VHDL/microCore/tree/master/documents
 -- Software distributed under the License is distributed on an "AS IS"
 -- basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.
@@ -93,7 +94,6 @@ SIGNAL ext_en       : STD_LOGIC;     -- select asynchronous external RAM
 SIGNAL reg_en       : STD_LOGIC;     -- select memory mapped register
 SIGNAL mem_wr       : STD_LOGIC;     -- output to memory
 SIGNAL mem_addr     : data_addr;     -- output to memory
-SIGNAL reg_addr     : register_addr; -- output to register file
 SIGNAL mem_wdata    : data_bus;      -- output to memory
 
 -- program memory
@@ -148,7 +148,7 @@ SIGNAL tick         : STD_LOGIC;
 
 BEGIN
 
-datamem.enable    <= mem_en;
+datamem.enable    <= '0';
 datamem.write     <= mem_wr;
 datamem.addr      <= mem_addr;
 datamem.wdata     <= mem_wdata;
@@ -159,11 +159,9 @@ progmem.read      <= pread;
 progmem.addr      <= paddr;
 progmem.wdata     <= r.nos(inst_width-1 DOWNTO 0);
 
-reg_addr <= signed(r.tos(reg_addr'range)); -- this is needed by Synplify
-
 uCtrl.clk_en      <= clk_en;
+uCtrl.mem_en      <= mem_en;
 uCtrl.reg_en      <= reg_en;
-uCtrl.reg_addr    <= reg_addr;
 uCtrl.ext_en      <= ext_en;
 uCtrl.tick        <= tick;
 uCtrl.chain       <= r.chain;
@@ -370,18 +368,19 @@ uCore_control: PROCESS (ALL)
    VARIABLE rsp_pop      : rstacks_addr;
    VARIABLE rsp_push     : rstacks_addr;
    VARIABLE rstack_addr  : UNSIGNED(data_width-1 DOWNTO rs_addr_width);
+   VARIABLE rsp_addr     : data_addr; -- memory address rsp points to
    VARIABLE dsp_push     : dstacks_addr;
    VARIABLE dsp_pop      : dstacks_addr;
    VARIABLE nos_dspush   : dstacks_addr;
    VARIABLE tos_power2   : data_bus;
    VARIABLE temp         : data_bus;
+   VARIABLE reg_addr     : INTEGER;
    VARIABLE add_ovfl     : STD_LOGIC;
    VARIABLE tos_zero     : STD_LOGIC;
    VARIABLE nos_zero     : STD_LOGIC;
    VARIABLE registers    : BOOLEAN;
    VARIABLE dcache       : BOOLEAN;
    VARIABLE asyncRAM     : BOOLEAN; -- external asynchronous RAM
-   VARIABLE with_extmem  : BOOLEAN;
 -- floating point
    VARIABLE fexp         : exponent;
    VARIABLE mantissa     : data_bus;
@@ -440,7 +439,6 @@ uCore_control: PROCESS (ALL)
 
    PROCEDURE pop_rstack IS
    BEGIN
-      mem_addr <= rstack_addr(data_addr_width-1 DOWNTO rsp_width) & r.rsp;
       r_in.rsp <= rsp_pop;
       IF  addr_rstack < addr_extern  THEN
          mem_en <= '1';
@@ -511,8 +509,8 @@ BEGIN
 -- uCore registers
    r_in <= r;
    IF  r.status(s_lit) = '0'  THEN
-      r_in.status(s_neg) <= r.tos(r.tos'high);
-      r_in.status(s_zero) <= tos_zero;
+      r_in.status(s_neg) <= to_01(r.tos(r.tos'high));
+      r_in.status(s_zero) <= to_01(tos_zero);
    END IF;
    r_in.status(s_lit) <= '0';
 
@@ -535,17 +533,23 @@ BEGIN
 -- floating point
    fexp := NOT r.tos(exp_width-1) & r.tos(exp_width-2 DOWNTO 0);
 
+-- register
+   reg_en <= '0';
+   reg_addr := to_integer(signed(r.tos(reg_addr_width DOWNTO 0)));
+
+-- return stack
+   rsp_addr := rstack_addr(rsp_addr'high DOWNTO rsp_width) & r.rsp;
+
 -- data memory
-   with_extmem := false; IF  data_addr_width > cache_addr_width                                THEN  with_extmem := true;  END IF;
-   registers   := false; IF  signed(r.tos(r.tos'high DOWNTO reg_addr_width)) = -1              THEN    registers := true;  END IF;
-   dcache      := false; IF  r.tos(r.tos'high DOWNTO cache_addr_width) = 0                     THEN       dcache := true;  END IF;
-   asyncRAM    := false; IF  with_extmem AND r.tos(data_width-1 DOWNTO cache_addr_width) /= 0  THEN    asyncRAM  := true;  END IF;
+   registers := false; IF  signed(r.tos(r.tos'high DOWNTO reg_addr_width)) = -1          THEN    registers := true;  END IF;
+   dcache    := false; IF  r.tos(r.tos'high DOWNTO cache_addr_width) = 0                 THEN       dcache := true;  END IF;
+   asyncRAM  := false; IF  with_extmem AND r.tos(r.tos'high DOWNTO data_addr_width) = 0
+                          AND r.tos(data_addr_width-1 DOWNTO cache_addr_width) /= 0      THEN    asyncRAM  := true;  END IF;
 
    mem_en <= '0';
-   reg_en <= '0';
    ext_en <= '0';
    mem_wr <= '0';
-   mem_addr <= r.tos(mem_addr'range);
+   mem_addr <= rsp_addr;
    mem_wdata <= r.nos;
 
 -- program memory
@@ -647,11 +651,6 @@ BEGIN
                        pop_rstack;
                        r_in.tos <= r.tor;
 
-      WHEN op_MEM2TOR => IF  addr_rstack < addr_extern  THEN       -- needed for procedure pop_rstack
-                            r_in.tor <= mem_rdata;
-                            r_in.status(s_lit) <= r.status(s_lit); -- I have no recollection why this is necessary - ks
-                         END IF;
-
       WHEN op_RTOR  => push_stack;
                        r_in.tos <= r.tor;
 
@@ -669,7 +668,6 @@ BEGIN
       WHEN op_INDEX => -- DO ... LOOP index computed from top two items on return stack
                        IF  extended  THEN
                           push_stack;
-                          mem_addr <= rstack_addr(data_addr_width-1 DOWNTO rsp_width) & r.rsp;
                           IF  addr_rstack < addr_extern  THEN
                              mem_en <= '1';
                              set_opcode(op_SUM2TOS);
@@ -686,15 +684,19 @@ BEGIN
 -- data memory access
 -- ---------------------------------------------------------------------
 
+      WHEN op_MEM2NOS => r_in.nos <= mem_rdata;
+
       WHEN op_LOAD  => push_stack;
                        r_in.tos <= r.tos;
                        mem_addr <= r.tos(mem_addr'range);
                        IF  registers  THEN
                           reg_en <= '1';
-                          r_in.nos <= sources(to_integer(reg_addr));
+                          r_in.nos <= sources(reg_addr);
+
                           IF  STATUS_REG = reg_addr  THEN
                              r_in.nos(s_lit) <= '0';
                           END IF;
+
                        ELSIF  asyncRAM  THEN -- external memory
                           ext_en <= '1';
                           r_in.nos <= mem_rdata;
@@ -703,7 +705,10 @@ BEGIN
                           set_opcode(op_MEM2NOS);
                        END IF;
 
-      WHEN op_MEM2NOS => r_in.nos <= mem_rdata;
+      WHEN op_MEM2TOR => IF  addr_rstack < addr_extern  THEN       -- needed for procedure pop_rstack
+                            r_in.tor <= mem_rdata;
+                            r_in.status(s_lit) <= r.status(s_lit); -- I have no recollection why this is necessary - ks
+                         END IF;
 
       WHEN op_STORE => pop_stack;
                        r_in.tos <= r.tos;
@@ -711,25 +716,28 @@ BEGIN
                        mem_wdata <= r.nos;
                        mem_addr <= r.tos(mem_addr'range);
                        IF  registers  THEN
+                          reg_en <= '1';
+
                           IF  STATUS_REG = reg_addr  THEN
                              r_in.status <= r.nos(r.status'range);
+
                           ELSIF  DSP_REG = reg_addr  THEN
                              r_in.dsp <= r.nos(r.dsp'range);
                              ds_addr  <= r.nos(r.dsp'range);
+
                           ELSIF  RSP_REG = reg_addr  THEN
                              mem_wr <= '0';
                              mem_addr <= r.nos(mem_addr'range);
                              r_in.rsp <= r.nos(r.rsp'range);
-                             IF  addr_rstack >= addr_extern AND data_addr_width > cache_addr_width  THEN -- external memory
-                                ext_en <= '1';
-                                r_in.tor <= mem_rdata;
-                             ELSE -- internal memory
+                             IF  addr_rstack < addr_extern  THEN
                                 mem_en <= '1';
                                 set_opcode(op_MEM2TOR);
+                             ELSE -- external memory
+                                ext_en <= '1';
+                                r_in.tor <= mem_rdata;
                              END IF;
-                          ELSE
-                             reg_en <= '1';
                           END IF;
+
                        ELSIF  asyncRAM  THEN -- external memory
                           ext_en <= '1';
                        ELSIF  dcache  THEN   -- internal data memory
@@ -744,7 +752,7 @@ BEGIN
                           mem_addr <= r.tos(mem_addr'range);
                           IF  registers  THEN
                              reg_en <= '1';
-                             r_in.tos <= sources(to_integer(reg_addr));
+                             r_in.tos <= sources(reg_addr);
                              IF  STATUS_REG = reg_addr  THEN
                                 r_in.tos(s_lit) <= '0';
                              END IF;
@@ -759,14 +767,14 @@ BEGIN
 
       WHEN op_LOCAL => add_x <= r.tos - 1;
                        add_y <= rstack_addr & r.rsp(rs_addr_width-1 DOWNTO 0);
-                       r_in.tos <= rstack_addr &   sum(rs_addr_width-1 DOWNTO 0);
+                       r_in.tos <= rstack_addr & sum(rs_addr_width-1 DOWNTO 0);
 
       WHEN op_PLUSST => -- indivisible read-modify-write +! instruction
                        IF  extended  THEN
                           mem_addr <= r.tos(mem_addr'range);
                           IF  registers  THEN
                              reg_en <= '1';
-                             add_x <= sources(to_integer(reg_addr));
+                             add_x <= sources(reg_addr);
                              add_y <= r.nos;
                              mem_wdata <= sum;
                              cin <= '0';
@@ -862,14 +870,14 @@ BEGIN
                         r_in.tor <= resize(r.pc, r.tor'length);
                         branch;
 
-      WHEN op_EXIT   => pop_rstack;
-                        paddr <= r.tor(paddr'range);
-
-      WHEN op_IRET   => pop_stack;
+      WHEN op_EXIT   => paddr <= r.tor(paddr'range);
                         pop_rstack;
-                        paddr <= r.tor(paddr'range);
+
+      WHEN op_IRET   => paddr <= r.tor(paddr'range);
+                        pop_rstack;
+                        pop_stack;
                         r_in.status <= r.tos(r.status'range);
-                        r_in.status(s_ie) <= r.status(s_ie);  -- this way interrupts can be disabled by an interrupt
+                        r_in.status(s_ie) <= r.status(s_ie);  -- this way interrupts can be permanently disabled by an interrupt
                         IF  r.tos(s_lit) = '1'  THEN
                            r_in.status(s_neg)  <= r.tos(s_neg);
                            r_in.status(s_zero) <= r.tos(s_zero);
@@ -888,8 +896,8 @@ BEGIN
       WHEN op_NZEXIT => IF  extended  THEN
                            pop_stack;
                            IF  tos_zero = '0'  THEN
-                              pop_rstack;
                               paddr <= r.tor(paddr'range);
+                              pop_rstack;
                            END IF;
                         END IF;
 

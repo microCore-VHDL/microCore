@@ -2,12 +2,13 @@
 \ @file : extensions.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 13.03.2021 19:47:10
-\ Project : microCore
-\ Language : gforth_0.6.2
-\ Last check in : $Rev: 667 $ $Date:: 2021-03-14 #$
+\ Last change: KS 27.03.2021 17:39:07
+\ Last check in: $Rev: 677 $ $Date:: 2021-03-27 #$
+\ @project: microCore
+\ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
+\ @contributor: uho - Ulrich Hoffmann
 \
 \ @license: This file is part of microForth.
 \ microForth is free software for microCore that loads on top of Gforth;
@@ -327,10 +328,12 @@ $40 cell_width 4 / / Constant #items/line
 \ Conditional compilation, Version 3
 \ ----------------------------------------------------------------------
 
-Defer [IF]    ( flag -- )  immediate
-    : [NOTIF] ( flag -- )  0= postpone [IF] ; immediate
-Defer [ELSE]  ( -- )       immediate
-Defer [THEN]  ( -- )       immediate
+Defer [IF]      ( flag -- )   immediate
+    : [NOTIF]   ( flag -- )   0= postpone [IF] ; immediate
+    : [IFDEF]   ( <name> -- ) postpone [DEFINED]  postpone [IF] ; immediate
+    : [IFUNDEF] ( <name> -- ) postpone [DEFINED]  postpone [NOTIF] ; immediate
+Defer [ELSE]    ( -- )        immediate
+Defer [THEN]    ( -- )        immediate
 
 : <eof> ( -- ) ; \ used to signal "end of file"
 
@@ -350,13 +353,15 @@ Variable Level   0 Level !
 : level-1  ( -- )  Level @ 1 - 0 max Level ! ;
 
 : [if]-decode  ( xt -- flag )
-   ['] [IF]    case? IF  1 Level +!     false  EXIT THEN
-   ['] [NOTIF] case? IF  1 Level +!     false  EXIT THEN
-   ['] [ELSE]  case? IF  Level @ 0=            EXIT THEN
-   ['] [THEN]  case? IF  Level @ 0=   level-1  EXIT THEN
-   ['] \       case? IF  postpone \     false  EXIT THEN  \ needed to be able to e.g. comment out [THEN]
-   ['] (       case? IF  postpone (     false  EXIT THEN  \ needed to be able to e.g. comment out [THEN]
-   ['] (*      case? IF  postpone (*    false  EXIT THEN  \ needed to be able to e.g. comment out [THEN]
+   ['] [IF]      case? IF  1 Level +!     false  EXIT THEN
+   ['] [NOTIF]   case? IF  1 Level +!     false  EXIT THEN
+   ['] [IFDEF]   case? IF  1 Level +!     false  EXIT THEN
+   ['] [IFUNDEF] case? IF  1 Level +!     false  EXIT THEN
+   ['] [ELSE]    case? IF  Level @ 0=            EXIT THEN
+   ['] [THEN]    case? IF  Level @ 0=   level-1  EXIT THEN
+   ['] \         case? IF  postpone \     false  EXIT THEN  \ needed to be able to e.g. comment out [THEN]
+   ['] (         case? IF  postpone (     false  EXIT THEN  \ needed to be able to e.g. comment out [THEN]
+   ['] (*        case? IF  postpone (*    false  EXIT THEN  \ needed to be able to e.g. comment out [THEN]
    ['] <eof> = abort" [THEN] missing"
    \ all oter xt's are just ignored
    false

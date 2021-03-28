@@ -2,12 +2,13 @@
 \ @file : disasm.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 16.02.2021 18:47:32
-\ Project : microCore
-\ Language : gforth_0.6.2
-\ Last check in : $Rev: 645 $ $Date:: 2021-02-17 #$
+\ Last change: KS 25.03.2021 18:14:22
+\ Last check in: $Rev: 675 $ $Date:: 2021-03-25 #$
+\ @project: microCore
+\ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
+\ @contributor:
 \
 \ @license: This file is part of microForth.
 \ microForth is free software for microCore that loads on top of Gforth;
@@ -159,4 +160,7 @@ Variable out     out off
    BEGIN  .instruction  break-key? UNTIL
    drop space std-output
 ;
-: show    ( <name> -- )   defined 0= ?missing   >body @ disasm ;
+: show    ( <name> -- )
+   Context @ >r   Target defined   r> Context !
+   0= ?missing   >body @ disasm
+;

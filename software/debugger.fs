@@ -2,12 +2,13 @@
 \ @file : debugger.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 19.02.2021 19:41:42
-\ Project : microCore
-\ Language : gforth_0.6.2
-\ Last check in : $Rev: 656 $ $Date:: 2021-03-06 #$
+\ Last change: KS 24.03.2021 17:56:45
+\ Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
+\ @project: microCore
+\ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
 \ @original author: uho - Ulrich Hoffmann
+\ @contributor: ks - Klaus Schleisiek
 \
 \ @license: This file is part of microForth.
 \ microForth is free software for microCore that loads on top of Gforth;

@@ -29,7 +29,7 @@ add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.dsp
 add wave -noupdate -divider {Return Stack}
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.tor
 add wave -noupdate /bench/myFPGA/uCore/mem_rdata
-add wave -noupdate /bench/myFPGA/uCore/mem_addr
+add wave -noupdate /bench/myFPGA/uCore/cache_addr
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.rsp
 add wave -noupdate -divider Debugger
 add wave -noupdate /bench/myFPGA/uCore/debug_unit/rxd

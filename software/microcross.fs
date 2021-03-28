@@ -2,12 +2,13 @@
 \ @file : microcross.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 14.03.2021 00:43:14
-\ Project : microCore
-\ Language : gforth_0.6.2
-\ Last check in : $Rev: 667 $ $Date:: 2021-03-14 #$
+\ Last change: KS 24.03.2021 17:52:24
+\ Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
+\ @project: microCore
+\ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
+\ @contributor:
 \
 \ @license: This file is part of microForth.
 \ microForth is free software for microCore that loads on top of Gforth;
@@ -33,8 +34,8 @@ Forth definitions
 : $Rev:         &36 parse s, postpone \ ; immediate
 : $Date::  [char] # parse s, postpone \ ; immediate
 
-Create revision $Rev: 667 $           \ Subversion revision number
-Create datum    $Date:: 2021-03-14 #$ \ Subversion check in date
+Create revision $Rev: 674 $           \ Subversion revision number
+Create datum    $Date:: 2021-03-24 #$ \ Subversion check in date
 
 : .revision ( -- )  revision count type ;
 : .date     ( -- )  datum count type ;
@@ -914,7 +915,7 @@ Command get-context Constant debugger-wordlist Forth
    comp? IF  name>comp  ELSE  name>int  THEN   execute
 ;
 : host-number  ( addr len -- addr len | rdrop )
-   2dup 2>r snumber? ?dup 0= IF  2r> EXIT THEN  2rdrop rdrop
+   2dup 2>r integer? ?dup 0= IF  2r> EXIT THEN  2rdrop rdrop
    comp? IF  0> IF  swap postpone Literal  THEN  postpone Literal  EXIT THEN
    drop
 ;
@@ -942,7 +943,7 @@ Command get-context Constant debugger-wordlist Forth
    over >r  host-target 0 ?DO  d2*  LOOP nip r> #datamask and swap
 ;
 : target-number ( addr len -- addr len | rdrop )
-   2dup 2>r snumber? ?dup 0= IF  2r> EXIT THEN  2rdrop rdrop
+   2dup 2>r integer? ?dup 0= IF  2r> EXIT THEN  2rdrop rdrop
    comp? IF  0> IF  d>target swap lit,  THEN  lit,  EXIT THEN
    dbg?  IF  0> IF  d>target swap >t    THEN  >t    EXIT THEN
    drop
@@ -1020,7 +1021,7 @@ gforth_062 [IF]
    rectype: rectype-tdnum
    
    : rec-tnum ( addr u -- n/d table | rectype-null )
-      snumber? ?dup 0= IF  rectype-null  EXIT THEN
+      integer? ?dup 0= IF  rectype-null  EXIT THEN
       0> IF  rectype-tdnum  EXIT THEN  rectype-tnum
    ;
    $Variable target-recognizer
@@ -1169,9 +1170,11 @@ H extended              T Version EXTENDED       \ extended instruction set?
 H with_mult             T Version WITH_MULT      \ hardware multiply available?
 H with_float            T Version WITH_FLOAT
 H with_up_download      T Version WITH_UP_DOWNLOAD
+H data_addr_width
+  cache_addr_width u>   T Version WITH_EXTMEM
 
 H data_width            T Constant data_width
-H ext_data_width        T Constant ext_data_width
+H ram_data_width        T Constant ram_data_width
 H data_addr_width       T Constant data_addr_width
 H cache_addr_width      T Constant cache_addr_width
 H exp_width             T Constant exp_width

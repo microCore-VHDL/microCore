@@ -6,7 +6,7 @@ add wave -noupdate /bench/myFPGA/uCore/uBus
 add wave -noupdate /bench/myFPGA/clk
 add wave -noupdate /bench/myFPGA/uCore/clk_en
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r
-add wave -noupdate /bench/myFPGA/bitout
+add wave -noupdate /bench/bitout
 add wave -noupdate -divider Debugger
 add wave -noupdate /bench/myFPGA/uCore/debug_unit/rxd
 add wave -noupdate /bench/myFPGA/uCore/debug_unit/rx_data

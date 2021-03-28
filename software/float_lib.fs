@@ -2,12 +2,13 @@
 \ @file : float_lib.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 10.11.2020 18:27:04
-\ Project : microCore
-\ Language : gforth_0.6.2
-\ Last check in : $Rev: 583 $ $Date:: 2020-11-10 #$
+\ Last change: KS 24.03.2021 17:50:54
+\ Last check in: $Rev: 645 $ $Date:: 2021-02-17 #$
+\ @project: microCore
+\ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
+\ @contributor:
 \
 \ @license: This file is part of microForth.
 \ microForth is free software for microCore that loads on top of Gforth;

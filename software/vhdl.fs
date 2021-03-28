@@ -2,12 +2,13 @@
 \ @file : vhdl.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 07.03.2021 11:55:15
-\ Project : microCore
-\ Language : gforth_0.6.2
-\ Last check in : $Rev: 657 $ $Date:: 2021-03-08 #$
+\ Last change: KS 24.03.2021 17:55:06
+\ Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
+\ @project: microCore
+\ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
+\ @contributor:
 \
 \ @license: This file is part of microForth.
 \ microForth is free software for microCore that loads on top of Gforth;

@@ -2,14 +2,15 @@
 -- @file : functions_pkg.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 08.03.2021 11:10:37
--- Project : microCore
--- Language : VHDL-2008
--- Last check in : $Rev: 657 $ $Date:: 2021-03-08 #$
+-- Last change: KS 24.03.2021 17:42:00
+-- Last check in: $Rev: 675 $ $Date:: 2021-03-25 #$
+-- @project: microCore
+-- @language : VHDL-2008
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
+-- @contributors :
 --
--- Do not use this file except in compliance with the License.
--- You may obtain a copy of the License at
+-- @license: Do not use this file except in compliance with the License.
+-- You may obtain a copy of the Public License at
 -- https://github.com/microCore-VHDL/microCore/tree/master/documents
 -- Software distributed under the License is distributed on an "AS IS"
 -- basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.
@@ -29,7 +30,7 @@ USE STD.TEXTIO.ALL;
 
 PACKAGE functions_pkg IS
 
-CONSTANT async_reset : BOOLEAN := false; -- true = async reset, false = synchronous reset
+CONSTANT async_reset : BOOLEAN := true; -- true = async reset, false = synchronous reset
 
 FUNCTION  resize(slv : IN STD_LOGIC_VECTOR;
                  s   : IN INTEGER        ) RETURN STD_LOGIC_VECTOR;
@@ -118,7 +119,7 @@ COMPONENT internal_ram GENERIC (
    data_width : INTEGER;
    addr_width : INTEGER;
    ramstyle   : STRING := "block_ram";
-   init_file  : STRING := "none"
+   init_file  : STRING := ""
 ); PORT (
    clk   : IN    STD_LOGIC;
    en    : IN    STD_LOGIC;
@@ -132,7 +133,7 @@ COMPONENT internal_dpram GENERIC (
    data_width : INTEGER;
    addr_width : INTEGER;
    ramstyle   : STRING := "block_ram";
-   init_file  : STRING := "none"
+   init_file  : STRING := ""
 ); PORT (
    clk   : IN    STD_LOGIC;
    ena   : IN    STD_LOGIC;
@@ -150,7 +151,7 @@ COMPONENT internal_dpram GENERIC (
 COMPONENT external_ram GENERIC (
    data_width : INTEGER;
    addr_width : INTEGER;
-   init_file  : STRING := "none"
+   init_file  : STRING := ""
 ); PORT (
    ce_n   : IN    STD_LOGIC;
    oe_n   : IN    STD_LOGIC;
@@ -664,7 +665,7 @@ initialized_ram: PROCESS(clk)
    VARIABLE ram     : ram_type; ATTRIBUTE syn_ramstyle OF ram : VARIABLE IS ramstyle;
 BEGIN
 -- pragma translate_off
-	IF  first AND init_file /= "none"  THEN
+	IF  first AND init_file /= ""  THEN
    	file_open(tcf, init_file, READ_MODE);
 		l := NEW string'("initializing " & string'(init_file)); writeline(output, l);
       WHILE  NOT ENDFILE(tcf)  LOOP
@@ -760,7 +761,7 @@ initialized_ram: PROCESS(clk)
    VARIABLE ram     : ram_type; ATTRIBUTE syn_ramstyle OF ram : VARIABLE IS ramstyle;
 BEGIN
 -- pragma translate_off
-	IF  first AND init_file /= "none"  THEN
+	IF  first AND init_file /= ""  THEN
    	file_open(tcf, init_file, READ_MODE);
 		l := NEW string'("initializing " & string'(init_file)); writeline(output, l);
       WHILE  NOT ENDFILE(tcf)  LOOP
@@ -823,7 +824,7 @@ USE work.functions_pkg.ALL;
 ENTITY external_ram IS
 GENERIC (data_width  : INTEGER;
          addr_width  : INTEGER;
-         init_file   : STRING := "none");
+         init_file   : STRING := "");
 PORT (ce_n   : IN    STD_LOGIC;
       oe_n   : IN    STD_LOGIC;
       we_n   : IN    STD_LOGIC;
@@ -857,7 +858,7 @@ initialized_ram: PROCESS(ce, oe_n, we_n, addr_i, din)
    VARIABLE ram   : ram_type;
 BEGIN
 -- pragma translate_off
-	IF  first AND init_file /= "none"  THEN
+	IF  first AND init_file /= ""  THEN
    	file_open(tcf, init_file, READ_MODE);
 		l := NEW string'("initializing " & string'(init_file)); writeline(output, l);
       WHILE  NOT ENDFILE(tcf)  LOOP

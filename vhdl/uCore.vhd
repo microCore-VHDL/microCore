@@ -2,14 +2,15 @@
 -- @file : uCore.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 04.03.2021 16:46:38
--- Project : microCore
--- Language : VHDL-2008
--- Last check in : $Rev: 656 $ $Date:: 2021-03-06 #$
+-- Last change: KS 24.03.2021 17:28:42
+-- Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
+-- @project: microCore
+-- @language : VHDL-2008
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
+-- @contributors :
 --
--- Do not use this file except in compliance with the License.
--- You may obtain a copy of the License at
+-- @license: Do not use this file except in compliance with the License.
+-- You may obtain a copy of the Public License at
 -- https://github.com/microCore-VHDL/microCore/tree/master/documents
 -- Software distributed under the License is distributed on an "AS IS"
 -- basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.
@@ -99,6 +100,7 @@ SIGNAL deb_prequest  : STD_LOGIC;
 SIGNAL deb_drequest  : STD_LOGIC;
 SIGNAL deb_penable   : STD_LOGIC;
 SIGNAL deb_denable   : STD_LOGIC;
+SIGNAL deb_ext_en    : STD_LOGIC;
 
 SIGNAL warmboot      : STD_LOGIC := '0';
    ATTRIBUTE syn_keep OF warmboot : SIGNAL IS true;
@@ -131,7 +133,7 @@ COMPONENT uDatacache PORT (
 SIGNAL dcache_en      : STD_LOGIC;
 SIGNAL dcache_rdata   : data_bus;
 SIGNAL ext_mem_en     : STD_LOGIC;
-SIGNAL mem_addr       : data_addr;
+SIGNAL cache_addr     : data_addr;
 
 -- program memory
 COMPONENT uProgmem PORT (
@@ -173,29 +175,29 @@ BEGIN
 END PROCESS enable_proc;
 
 -- ---------------------------------------------------------------------
--- internal data memory
+-- data memory
 -- ---------------------------------------------------------------------
 
 memory <= debugmem WHEN  deb_denable = '1'  ELSE datamem;
 
-with_ext_mem: IF  data_addr_width > cache_addr_width  GENERATE
-
-   ext_mem_en <= '1' WHEN  uCtrl.ext_en = '1' OR
-                           (deb_denable = '1' AND debugmem.addr(data_addr_width-1 DOWNTO cache_addr_width) /= 0)
-                 ELSE '0';
-
-END GENERATE with_ext_mem; no_ext_mem: IF  data_addr_width <= cache_addr_width  GENERATE
-
+mem_en_proc: PROCESS (ALL)
+BEGIN
+   deb_ext_en <= '0';
    ext_mem_en <= '0';
-
-END GENERATE no_ext_mem;
+   dcache_en <= clk_en AND (uCtrl.mem_en OR deb_denable);
+   IF  with_extmem  THEN
+      IF  deb_denable = '1' AND debugmem.addr(data_addr_width-1 DOWNTO cache_addr_width) /= 0  THEN
+         deb_ext_en <= '1';
+      END IF;
+      ext_mem_en <= uCtrl.ext_en OR deb_ext_en;
+      dcache_en  <= clk_en AND (uCtrl.mem_en OR deb_denable) AND NOT deb_ext_en;
+   END IF;
+END PROCESS mem_en_proc;
 
 ext_memory.enable <= ext_mem_en;
 ext_memory.write  <= memory.write;
 ext_memory.addr   <= memory.addr;
 ext_memory.wdata  <= memory.wdata;
-
-dcache_en <= clk_en AND NOT ext_mem_en AND memory.enable;
 
 internal_data_mem: uDatacache PORT MAP (
    clk          => clk,
@@ -211,19 +213,24 @@ internal_data_mem: uDatacache PORT MAP (
    dma_rdata    => dma_rdata
 );
 
+mem_rdata_proc : PROCESS (ALL)
+BEGIN
+   mem_rdata <= dcache_rdata;
+   IF  ext_mem_en = '1'  THEN
+      mem_rdata <= ext_rdata;
+   END IF;
+END PROCESS mem_rdata_proc;
+
 -- pragma translate_off
 memaddr_proc : PROCESS (clk)
 BEGIN
    IF  rising_edge(clk)  THEN
-      IF  dcache_en = '1'  THEN
-         mem_addr <= memory.addr; -- state of the internal blockRAM address register for simulation
+      IF  uCtrl.mem_en = '1'  THEN
+         cache_addr <= uBus.addr; -- state of the internal blockRAM address register for simulation
       END IF;
 END IF;
 END PROCESS memaddr_proc;
 -- pragma translate_on
-
-mem_rdata <= ext_rdata WHEN  ext_mem_en = '1'  ELSE  dcache_rdata;
-
 -- ---------------------------------------------------------------------
 -- internal program memory
 -- ---------------------------------------------------------------------
@@ -289,7 +296,7 @@ uCntrl: microcontrol PORT MAP (
 
 core.clk_en    <= '1' WHEN  delay = '0' AND cycle_ctr = 0  ELSE '0';
 core.reg_en    <= uCtrl.reg_en;
-core.reg_addr  <= uCtrl.reg_addr;
+core.mem_en    <= uCtrl.mem_en;
 core.ext_en    <= uCtrl.ext_en;
 core.tick      <= uCtrl.tick;
 core.chain     <= uCtrl.chain;
@@ -306,7 +313,7 @@ core.debug     <= debugmem.wdata;
 
 deb_penable <= deb_prequest AND (NOT uCtrl.chain OR deb_reset);
 
-deb_denable <= deb_drequest AND NOT (uCtrl.chain OR datamem.enable OR uCtrl.ext_en);
+deb_denable <= deb_drequest AND NOT (uCtrl.chain OR uCtrl.mem_en OR uCtrl.ext_en);
 
 debug_unit: debugger PORT MAP (
    uBus           => uBus,
