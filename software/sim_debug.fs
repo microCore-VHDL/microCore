@@ -1,6 +1,5 @@
 \ 
 \ Last change: KS 05.03.2021 17:41:28
-\ Last check in : $Rev: 656 $ $Date:: 2021-03-06 #$
 \
 \ MicroCore load screen for simulating the debug umbilical.
 \ It produces program.mem for initialization of the program memory during simulation.

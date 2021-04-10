@@ -2,9 +2,8 @@
 \ @file : task_lib.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 24.03.2021 17:54:41
-\ Last check in: $Rev: 645 $ $Date:: 2021-02-17 #$
-\ @project: microCore
+\ Last change: KS 10.04.2021 18:08:28
+\ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
@@ -330,14 +329,14 @@ Target
            dup [ T #t-exec H ] Literal + t_@ [t'] do-priority - IF  drop  EXIT THEN
            dup [ T #p-task H ] Literal + t_@ variables .listname
            dup [ T #p-max  H ] Literal + t_@ . ." Ticks "
-               [ T #p-pc   H ] Literal + t_@ ." PC " .hex
+               [ T #p-pc   H ] Literal + t_@ ." PC " $.
       [ELSE]
          drop ." no performance measurement"
       [THEN]
    EXIT THEN
   \ Tasks
      dup [ T #t-exec H ] Literal + t_@ T .task-exec H &25 position          \ print task exec
-     dup [ T #t-dsp  H ] Literal + t_@ ." DSP " .hex &35 position           \ print task DSP
+     dup [ T #t-dsp  H ] Literal + t_@ ." DSP " $. &35 position           \ print task DSP
      [ T #t-sema H ] Literal + t_@ ?dup 0= ?EXIT
      ." waiting on " variables .listname
   ;

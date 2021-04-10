@@ -1,8 +1,8 @@
 \ ----------------------------------------------------------------------
-\ @file : bootload_sim.fs
+\ @file : bootload.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 05.04.2021 16:46:46
+\ Last change: KS 05.04.2021 16:44:55
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -21,7 +21,7 @@
 \ You should have received a copy of the GNU General Public License
 \ along with this program. If not, see http://www.gnu.org/licenses/.
 \
-\ @brief : The bootloader for VHDL-simulation.
+\ @brief : The bootloader for synthesis.
 \
 \ Version Author   Date       Changes
 \   210     ks   14-Jun-2020  initial version
@@ -33,7 +33,7 @@ Only Forth also definitions
 [IFDEF] microcore   microcore  [ENDIF]   Marker microcore
 
 include extensions.fs           \ Some System word (re)definitions for a more sympathetic environment
-include ../vhdl/architecture_pkg_sim.vhd
+include ../vhdl/architecture_pkg.vhd
 include microcross.fs           \ the cross-compiler
 
 Target new                      \ go into target compilation mode and initialize target compiler
@@ -41,8 +41,8 @@ Target new                      \ go into target compilation mode and initialize
 0 code-origin
 0 data-origin
 
-] 0 noop BRANCH [            \ immediately go to the preset program memory
+] 0 BEGIN REPEAT [          \ hang in endless loop waiting for program loading via umbilical
 
 end
 
-Boot-file ../vhdl/bootload_sim.vhd cr .( bootload_sim.fs written to ../vhdl/bootload_sim.vhd )
+Boot-file ../vhdl/bootload.vhd cr .( bootload.fs written to ../vhdl/bootload.vhd )

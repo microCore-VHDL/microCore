@@ -33,10 +33,12 @@ add wave -noupdate /bench/sending
 add wave -noupdate /bench/uploading
 add wave -noupdate /bench/host_ack
 add wave -noupdate /bench/host_full
-add wave -noupdate /bench/myFPGA/uCore/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(10)
-add wave -noupdate /bench/myFPGA/uCore/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(11)
-add wave -noupdate /bench/myFPGA/uCore/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(12)
-add wave -noupdate /bench/myFPGA/uCore/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(13)
+add wave -noupdate /bench/myFPGA/uCore/uBus.mem_en
+add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(10)
+add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(11)
+add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(12)
+add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(13)
+add wave -noupdate /bench/myFPGA/uCore/uBus.ext_en
 add wave -noupdate /bench/ext_SRAM/initialized_ram/ram(0)
 add wave -noupdate /bench/ext_SRAM/initialized_ram/ram(4)
 add wave -noupdate /bench/ext_SRAM/initialized_ram/ram(8)
@@ -58,9 +60,9 @@ add wave -noupdate -divider {Return Stack}
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.tor
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.rsp
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {259956 ns} 0} {{Cursor 2} {52589 ns} 0}
-quietly wave cursor active 1
-configure wave -namecolwidth 148
+WaveRestoreCursors {{Cursor 1} {79740 ns} 0} {{Cursor 2} {109100 ns} 0}
+quietly wave cursor active 2
+configure wave -namecolwidth 154
 configure wave -valuecolwidth 68
 configure wave -justifyvalue left
 configure wave -signalnamewidth 1
@@ -74,4 +76,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {0 ns} {262500 ns}
+WaveRestoreZoom {65601 ns} {66968 ns}

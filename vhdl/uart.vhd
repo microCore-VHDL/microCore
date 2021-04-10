@@ -2,12 +2,11 @@
 -- @file : uart.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 24.03.2021 17:42:21
--- Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
+-- Last change: KS 05.04.2021 16:53:10
 -- @project: microCore
--- @language : VHDL-2008
+-- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
--- @contributors :
+-- @contributors:
 --
 -- @license: Do not use this file except in compliance with the License.
 -- You may obtain a copy of the Public License at
@@ -72,6 +71,7 @@ SIGNAL tx_buf      : byte;
 SIGNAL tx_shift    : UNSIGNED(8 DOWNTO 0);
 SIGNAL tx_ctr      : UNSIGNED(3 DOWNTO 0);
 SIGNAL tx_baud     : UNSIGNED(1 DOWNTO 0);
+SIGNAL tx_empty_i  : STD_LOGIC;
 
 SIGNAL q_empty     : STD_LOGIC;
 SIGNAL q_full      : STD_LOGIC;
@@ -83,7 +83,9 @@ ASSERT (real(rate) * 1.015) > real(clk_frequency / 4 / baudcnt) AND
 REPORT "baud rate deviation greater +/- 1.5 %"
 SEVERITY warning;
 
-pause <= (q_empty AND rx_read) OR (NOT tx_empty AND tx_write);
+tx_empty <= tx_empty_i;
+
+pause <= (q_empty AND rx_read) OR (NOT tx_empty_i AND tx_write);
 
 -- ---------------------------------------------------------------------
 -- receive queue
@@ -111,7 +113,7 @@ PORT MAP (
 
 uart_rx_proc : PROCESS(reset, clk)
 BEGIN
-   IF  reset = '1' AND async_reset  THEN
+   IF  reset = '1' AND ASYNC_RESET  THEN
       rx_sync <= (OTHERS => '0');
       rx_ctr <= (OTHERS => '0');
       rx_shift <= (OTHERS => '0');
@@ -154,7 +156,7 @@ BEGIN
                         END IF;
          END CASE;
       END IF;
-      IF  reset = '1' AND NOT async_reset  THEN
+      IF  reset = '1' AND NOT ASYNC_RESET  THEN
          rx_sync <= (OTHERS => '0');
          rx_ctr <= (OTHERS => '0');
          rx_shift <= (OTHERS => '0');
@@ -173,17 +175,17 @@ txd <= tx_shift(0);
 
 uart_tx_proc : PROCESS (reset, clk)
 BEGIN
-   IF  reset = '1' AND async_reset  THEN
+   IF  reset = '1' AND ASYNC_RESET  THEN
       tx_shift <= (OTHERS => '1');
       tx_ctr <= (OTHERS => '0');
       tx_baud <= (OTHERS => '0');
       tx_buf <= (OTHERS => '0');
-      tx_empty <= '1';
+      tx_empty_i <= '1';
       tx_busy <= '0';
    ELSIF  rising_edge(clk)  THEN
-      IF  clk_en = '1' AND tx_write = '1' AND tx_empty = '1'  THEN   -- lade tx_buf wenn er leer ist
+      IF  clk_en = '1' AND tx_write = '1' AND tx_empty_i = '1'  THEN   -- lade tx_buf wenn er leer ist
          tx_buf <= tx_data;
-         tx_empty <= '0';
+         tx_empty_i <= '0';
       END IF;
       IF  baud_en = '1'  THEN
          tx_baud <= tx_baud+1;
@@ -192,8 +194,8 @@ BEGIN
             CASE  tx_ctr  IS
             WHEN "0000" =>                             -- es wird gerade nicht gesendet
                tx_busy <= '0';
-               IF  tx_empty = '0'  THEN                -- und der tx_buf voll ist...
-                  tx_empty <= '1';
+               IF  tx_empty_i = '0'  THEN                -- und der tx_buf voll ist...
+                  tx_empty_i <= '1';
                   tx_shift <= tx_buf & '0';            -- dann geht es los.
                   tx_ctr <= tx_ctr+1;
                   tx_busy <= '1';                      -- transmitter is currently sending
@@ -204,12 +206,12 @@ BEGIN
             END CASE;
          END IF;
       END IF;
-      IF  reset = '1' AND NOT async_reset  THEN
+      IF  reset = '1' AND NOT ASYNC_RESET  THEN
          tx_shift <= (OTHERS => '1');
          tx_ctr <= (OTHERS => '0');
          tx_baud <= (OTHERS => '0');
          tx_buf <= (OTHERS => '0');
-         tx_empty <= '1';
+         tx_empty_i <= '1';
          tx_busy <= '0';
       END IF;
    END IF;
@@ -221,7 +223,7 @@ END PROCESS uart_tx_proc ;
 
 baud_rate_proc : PROCESS (reset, clk)
 BEGIN
-   IF  reset = '1' AND async_reset  THEN
+   IF  reset = '1' AND ASYNC_RESET  THEN
       baud_en <= '0';
       baud_ctr <= 0;
    ELSIF  rising_edge(clk)  THEN
@@ -232,7 +234,7 @@ BEGIN
       ELSE
          baud_ctr <= baud_ctr + 1;
       END IF;
-      IF  reset = '1' AND NOT async_reset  THEN
+      IF  reset = '1' AND NOT ASYNC_RESET  THEN
          baud_en <= '0';
          baud_ctr <= 0;
       END IF;

@@ -2,9 +2,8 @@
 \ @file : library.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 24.03.2021 17:52:11
-\ Last check in: $Rev: 645 $ $Date:: 2021-02-17 #$
-\ @project: microCore
+\ Last change: KS 05.04.2021 16:47:46
+\ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
@@ -189,11 +188,11 @@ Predefined definitions Forth
 ' and                Alias and
 ' or                 Alias or
 
-' simulation         Alias SIMULATION     \ simulating?
-' extended           Alias EXTENDED       \ extended instruction set?
-' with_mult          Alias WITH_MULT      \ hardware multiply available?
-' with_float         Alias WITH_FLOAT
-' with_up_download   Alias WITH_UP_DOWNLOAD
+' SIMULATION         Alias SIMULATION     \ simulating?
+' EXTENDED           Alias EXTENDED       \ extended instruction set?
+' WITH_MULT          Alias WITH_MULT      \ hardware multiply available?
+' WITH_FLOAT         Alias WITH_FLOAT
+' WITH_UP_DOWNLOAD   Alias WITH_UP_DOWNLOAD
 
 : ~   ( -- )   libgroup-start ;
 

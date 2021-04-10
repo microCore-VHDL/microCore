@@ -2,12 +2,11 @@
 -- @file : external_SRAM.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 25.03.2021 18:00:47
--- Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
+-- Last change: KS 01.04.2021 18:51:38
 -- @project: microCore
--- @language : VHDL-2008
+-- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
--- @contributors :
+-- @contributors:
 --
 -- @license: Do not use this file except in compliance with the License.
 -- You may obtain a copy of the Public License at
@@ -37,7 +36,6 @@ ENTITY external_SRAM IS GENERIC (
    delay_cnt      : NATURAL          -- delay_cnt+1 extra clock cycles for each memory access
 ); PORT (
    uBus        : IN    uBus_port;
-   ext_memory  : IN    datamem_port;
    ext_rdata   : OUT   data_bus;
    delay       : OUT   STD_LOGIC;
 -- external SRAM
@@ -53,8 +51,9 @@ ARCHITECTURE rtl OF external_SRAM IS
 ALIAS  reset           : STD_LOGIC IS uBus.reset;
 ALIAS  clk             : STD_LOGIC IS uBus.clk;
 ALIAS  clk_en          : STD_LOGIC IS uBus.clk_en;
+ALIAS  enable          : STD_LOGIC IS uBus.ext_en;
+ALIAS  write           : STD_LOGIC IS uBus.write;
 ALIAS  wdata           : data_bus  IS uBus.wdata;
-ALIAS  enable          : STD_LOGIC IS ext_memory.enable;
 
 CONSTANT residue       : NATURAL := data_width MOD ram_data_width;
 CONSTANT leader        : NATURAL := (ram_data_width - residue) MOD ram_data_width;
@@ -80,7 +79,7 @@ if_wide_data: IF  ram_data_width < data_width  GENERATE
 
    delay <= '1' WHEN  enable = '1' AND (ext_ce = '0' OR delay_ctr /= 0 OR sub_addr /= chunks-1)  ELSE '0';
 
-   rdata_proc : PROCESS (ALL)
+   rdata_proc : PROCESS (data, LSword)
    BEGIN
       IF  residue = 0  THEN
          ext_rdata <= data & LSword;
@@ -92,7 +91,7 @@ if_wide_data: IF  ram_data_width < data_width  GENERATE
    ce_n <= NOT ext_ce;
    addr <= resize(uBus.addr & sub_addr, addr'length);
 
-   data_mux_proc: PROCESS (ALL)
+   data_mux_proc: PROCESS (uBus, sub_addr, wdata, ext_ce)
    VARIABLE subaddr : NATURAL;
    VARIABLE maxdata : UNSIGNED((ram_data_width * chunks)-1 DOWNTO 0);
    VARIABLE subdata : UNSIGNED(data'range);
@@ -108,7 +107,7 @@ if_wide_data: IF  ram_data_width < data_width  GENERATE
 
    SRAM_proc: PROCESS (clk)
    BEGIN
-      IF  reset = '1' AND async_reset  THEN
+      IF  reset = '1' AND ASYNC_RESET  THEN
          delay_ctr <= cycles - 1;
          ext_ce <= '0';
          we_n <= '1';
@@ -143,7 +142,7 @@ if_wide_data: IF  ram_data_width < data_width  GENERATE
                END IF;
             END IF;
          END IF;
-         IF  reset = '1' AND NOT async_reset  THEN
+         IF  reset = '1' AND NOT ASYNC_RESET  THEN
             delay_ctr <= cycles - 1;
             ext_ce <= '0';
             we_n <= '1';
@@ -165,7 +164,7 @@ else_wide_data: IF  ram_data_width >= data_width  GENERATE
    ce_n <= NOT ext_ce;
    addr <= resize(uBus.addr, addr'length);
 
-   data_mux_proc: PROCESS (ALL)
+   data_mux_proc: PROCESS (uBus, ext_ce, wdata)
    BEGIN
       data <= (OTHERS => 'Z');
       IF  uBus.write = '1' AND ext_ce = '1'  THEN
@@ -180,7 +179,7 @@ else_wide_data: IF  ram_data_width >= data_width  GENERATE
 
    SRAM_proc: PROCESS (clk)
    BEGIN
-      IF  reset = '1' AND async_reset  THEN
+      IF  reset = '1' AND ASYNC_RESET  THEN
          delay_ctr <= 0;
          ext_ce <= '0';
          we_n <= '1';
@@ -211,7 +210,7 @@ else_wide_data: IF  ram_data_width >= data_width  GENERATE
                END IF;
             END IF;
          END IF;
-         IF  reset = '1' AND NOT async_reset  THEN
+         IF  reset = '1' AND NOT ASYNC_RESET  THEN
             delay_ctr <= 0;
             ext_ce <= '0';
             we_n <= '1';

@@ -2,9 +2,8 @@
 \ @file : extensions.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 27.03.2021 17:39:07
-\ Last check in: $Rev: 677 $ $Date:: 2021-03-27 #$
-\ @project: microCore
+\ Last change: KS 10.04.2021 19:31:44
+\ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
@@ -304,13 +303,14 @@ Variable Debugging  Debugging off
 Create restore ] r> r> ! exit [
 : save  ( var -- )  r> swap dup >r @ >r restore >r >r ;
 
-: temp-hex  ( -- )  r> Base save hex >r ;
-
-: .hex   ( u -- )  temp-hex ." $" u. ;
-
+: temp-hex     ( -- )  r> Base save hex >r ;
 : temp-decimal ( -- )  r> Base save decimal >r ;
+: temp-binary  ( -- )  r> Base save binary >r ;
 
-: .dec   ( n -- )  temp-decimal ." &" . ;
+: $.   ( u -- )  temp-hex     ." $" u. ;
+: &.   ( n -- )  temp-decimal ." &" . ;
+: #.   ( n -- )  temp-decimal ." #" . ;
+: %.   ( u -- )  temp-binary  ." %" u. ;
 
 $40 cell_width 4 / / Constant #items/line
 
@@ -366,11 +366,11 @@ Variable Level   0 Level !
    \ all oter xt's are just ignored
    false
 ;
-:noname  ( flag --  ." IF " ) ?EXIT BEGIN  forth-word [if]-decode UNTIL ; IS [IF]
+:noname  ( flag --  ) ?EXIT BEGIN  forth-word [if]-decode UNTIL ; IS [IF]
 
-:noname  ( --       ." ELSE " )     BEGIN  forth-word [if]-decode UNTIL ; IS [ELSE]
+:noname  ( -- )             BEGIN  forth-word [if]-decode UNTIL ; IS [ELSE]
 
-:noname  ( --       ." THEN " )     level-1 ;                             IS [THEN]
+:noname  ( -- )       level-1 ;                                   IS [THEN]
 
 \ ----------------------------------------------------------------------
 \ dummies for RS232 interface

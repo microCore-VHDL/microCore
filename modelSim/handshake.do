@@ -52,7 +52,7 @@ add wave -noupdate /bench/host_buf
 add wave -noupdate /bench/host_full
 add wave -noupdate /bench/host_reg
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {286000 ns} 0} {{Cursor 2} {45674 ns} 0}
+WaveRestoreCursors {{Cursor 1} {65715 ns} 0} {{Cursor 2} {45674 ns} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 135
 configure wave -valuecolwidth 68
@@ -68,4 +68,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {0 ns} {336 us}
+WaveRestoreZoom {0 ns} {168 us}

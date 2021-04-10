@@ -1,6 +1,5 @@
 \ 
 \ Last change: KS 21.03.2021 18:57:11
-\ Last check in : $Rev: 675 $ $Date:: 2021-03-25 #$
 \
 \ MicroCore load screen to simulate program loading via the umbilical.
 \

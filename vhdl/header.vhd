@@ -2,12 +2,11 @@
 -- @file : .vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 24.03.2021 17:42:06
--- Last check in: $Rev: 673 $ $Date:: 2021-03-24 #$
+-- Last change: KS 05.04.2021 16:53:00
 -- @project: microCore
--- @language : VHDL-2008
+-- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
--- @contributors :
+-- @contributors:
 --
 -- @license: Do not use this file except in compliance with the License.
 -- You may obtain a copy of the Public License at

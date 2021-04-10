@@ -2,12 +2,11 @@
 -- @file : uCore.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 24.03.2021 17:28:42
--- Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
+-- Last change: KS 05.04.2021 16:53:29
 -- @project: microCore
--- @language : VHDL-2008
+-- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
--- @contributors :
+-- @contributors:
 --
 -- @license: Do not use this file except in compliance with the License.
 -- You may obtain a copy of the Public License at
@@ -33,10 +32,7 @@ USE work.architecture_pkg.ALL;
 ENTITY microcore IS PORT (
    uBus        : IN    uBus_port;
    core        : OUT   core_signals;
-   ext_memory  : OUT   datamem_port;
-   ext_rdata   : IN    data_bus;
-   dma         : IN    datamem_port;
-   dma_rdata   : OUT   data_bus;
+   memory      : OUT   datamem_port;
 -- umbilical uart interface
    rxd         : IN    STD_LOGIC;
    break       : OUT   STD_LOGIC;
@@ -53,6 +49,7 @@ ALIAS  clk       : STD_LOGIC IS uBus.clk;
 ALIAS  clk_en    : STD_LOGIC IS uBus.clk_en;
 ALIAS  delay     : STD_LOGIC IS uBus.delay;
 ALIAS  pause     : STD_LOGIC IS uBus.pause;
+ALIAS  mem_rdata : data_bus IS  uBus.rdata;
 
 SIGNAL cycle_ctr : NATURAL RANGE 0 TO cycles - 1;
 
@@ -72,8 +69,6 @@ SIGNAL uCtrl        : core_signals;
 SIGNAL progmem      : progmem_port;
 SIGNAL prog_rdata   : inst_bus;
 SIGNAL datamem      : datamem_port;
-SIGNAL memory       : datamem_port;
-SIGNAL mem_rdata    : data_bus;
 
 COMPONENT debugger PORT (
    uBus           : IN  uBus_port;
@@ -115,26 +110,6 @@ COMPONENT boot_rom PORT (
 SIGNAL boot_addr   : boot_addr_bus;
 SIGNAL boot_rdata  : inst_bus;
 
--- data memory
-COMPONENT uDatacache PORT (
-   clk          : IN  STD_LOGIC;
-   enable       : IN  STD_LOGIC;
-   write        : IN  STD_LOGIC;
-   addr         : IN  dcache_addr;
-   wdata        : IN  data_bus;
-   rdata        : OUT data_bus;
-   dma_enable   : IN  STD_LOGIC;
-   dma_write    : IN  STD_LOGIC;
-   dma_addr     : IN  dcache_addr;
-   dma_wdata    : IN  data_bus;
-   dma_rdata    : OUT data_bus
-); END COMPONENT uDatacache;
-
-SIGNAL dcache_en      : STD_LOGIC;
-SIGNAL dcache_rdata   : data_bus;
-SIGNAL ext_mem_en     : STD_LOGIC;
-SIGNAL cache_addr     : data_addr;
-
 -- program memory
 COMPONENT uProgmem PORT (
    clk      : IN  STD_LOGIC;
@@ -175,63 +150,6 @@ BEGIN
 END PROCESS enable_proc;
 
 -- ---------------------------------------------------------------------
--- data memory
--- ---------------------------------------------------------------------
-
-memory <= debugmem WHEN  deb_denable = '1'  ELSE datamem;
-
-mem_en_proc: PROCESS (ALL)
-BEGIN
-   deb_ext_en <= '0';
-   ext_mem_en <= '0';
-   dcache_en <= clk_en AND (uCtrl.mem_en OR deb_denable);
-   IF  with_extmem  THEN
-      IF  deb_denable = '1' AND debugmem.addr(data_addr_width-1 DOWNTO cache_addr_width) /= 0  THEN
-         deb_ext_en <= '1';
-      END IF;
-      ext_mem_en <= uCtrl.ext_en OR deb_ext_en;
-      dcache_en  <= clk_en AND (uCtrl.mem_en OR deb_denable) AND NOT deb_ext_en;
-   END IF;
-END PROCESS mem_en_proc;
-
-ext_memory.enable <= ext_mem_en;
-ext_memory.write  <= memory.write;
-ext_memory.addr   <= memory.addr;
-ext_memory.wdata  <= memory.wdata;
-
-internal_data_mem: uDatacache PORT MAP (
-   clk          => clk,
-   enable       => dcache_en,
-   write        => memory.write,
-   addr         => memory.addr(cache_addr_width-1 DOWNTO 0),
-   wdata        => memory.wdata,
-   rdata        => dcache_rdata,
-   dma_enable   => dma.enable,
-   dma_write    => dma.write,
-   dma_addr     => dma.addr(cache_addr_width-1 DOWNTO 0),
-   dma_wdata    => dma.wdata,
-   dma_rdata    => dma_rdata
-);
-
-mem_rdata_proc : PROCESS (ALL)
-BEGIN
-   mem_rdata <= dcache_rdata;
-   IF  ext_mem_en = '1'  THEN
-      mem_rdata <= ext_rdata;
-   END IF;
-END PROCESS mem_rdata_proc;
-
--- pragma translate_off
-memaddr_proc : PROCESS (clk)
-BEGIN
-   IF  rising_edge(clk)  THEN
-      IF  uCtrl.mem_en = '1'  THEN
-         cache_addr <= uBus.addr; -- state of the internal blockRAM address register for simulation
-      END IF;
-END IF;
-END PROCESS memaddr_proc;
--- pragma translate_on
--- ---------------------------------------------------------------------
 -- internal program memory
 -- ---------------------------------------------------------------------
 
@@ -259,8 +177,8 @@ prog_rdata <= pcache_rdata WHEN  warmboot = '1'  ELSE boot_rdata;
 
 cold_boot_proc: PROCESS (reset, clk)
 BEGIN
-   IF  reset = '1' AND async_reset  THEN
-      IF  coldboot  THEN  warmboot <= '0';  END IF; -- go into boot loading on reset?
+   IF  reset = '1' AND ASYNC_RESET  THEN
+      IF  COLDBOOT  THEN  warmboot <= '0';  END IF; -- go into boot loading on reset?
       boot_addr <= (OTHERS => '0');
    ELSIF  rising_edge(clk)  THEN
       IF  clk_en = '1' AND warmboot = '0'  THEN
@@ -269,8 +187,8 @@ BEGIN
             warmboot <= '1';
          END IF;
       END IF;
-      IF  reset = '1' AND NOT async_reset  THEN
-         IF  coldboot  THEN  warmboot <= '0';  END IF; -- go into boot loading on reset?
+      IF  reset = '1' AND NOT ASYNC_RESET  THEN
+         IF  COLDBOOT  THEN  warmboot <= '0';  END IF; -- go into boot loading on reset?
          boot_addr <= (OTHERS => '0');
       END IF;
    END IF;
@@ -297,7 +215,7 @@ uCntrl: microcontrol PORT MAP (
 core.clk_en    <= '1' WHEN  delay = '0' AND cycle_ctr = 0  ELSE '0';
 core.reg_en    <= uCtrl.reg_en;
 core.mem_en    <= uCtrl.mem_en;
-core.ext_en    <= uCtrl.ext_en;
+core.ext_en    <= uCtrl.ext_en OR deb_ext_en;
 core.tick      <= uCtrl.tick;
 core.chain     <= uCtrl.chain;
 core.status    <= uCtrl.status;
@@ -306,14 +224,19 @@ core.rsp       <= uCtrl.rsp;
 core.int       <= uCtrl.int;
 core.time      <= uCtrl.time;
 core.debug     <= debugmem.wdata;
+memory         <= datamem WHEN  deb_denable = '0'  ELSE debugmem;
 
 -- ---------------------------------------------------------------------
 -- umbilical uart debug interface
 -- ---------------------------------------------------------------------
 
-deb_penable <= deb_prequest AND (NOT uCtrl.chain OR deb_reset);
+deb_penable <= deb_prequest AND (NOT uBus.chain OR deb_reset);
 
-deb_denable <= deb_drequest AND NOT (uCtrl.chain OR uCtrl.mem_en OR uCtrl.ext_en);
+deb_denable <= deb_drequest AND NOT (uBus.chain OR uCtrl.mem_en OR uCtrl.ext_en);
+
+deb_ext_en <= '1' WHEN  WITH_EXTMEM AND deb_denable = '1'
+                        AND debugmem.addr(data_addr_width-1 DOWNTO cache_addr_width) /= 0
+               ELSE '0';
 
 debug_unit: debugger PORT MAP (
    uBus           => uBus,

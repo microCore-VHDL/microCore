@@ -2,9 +2,8 @@
 \ @file : messages.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 24.03.2021 17:52:17
-\ Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
-\ @project: microCore
+\ Last change: KS 10.04.2021 18:29:04
+\ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
@@ -58,7 +57,7 @@ Forth definitions
 ;
 : .warning  ( +n -- )  cr ." warning: "
    #string-overflow case? IF  ." string-overflow " EXIT THEN
-   .hex
+   $.
 ;
 \ ----------------------------------------------------------------------
 \ target words, which can be executed during compilation
@@ -74,6 +73,10 @@ SIMULATION [IF] Target definitions Forth
    : here  ( -- addr )      ?exec Tdp @ ;
    : allot ( n -- )         ?exec Tdp +! ;
    : emit  ( char -- )      ?exec emit ;
+   : $.    ( u -- )         ?exec $. ;
+   : &.    ( n -- )         ?exec &. ;
+   : #.    ( n -- )         ?exec #. ;
+   : %.    ( u -- )         ?exec %. ;
 
 Forth definitions
 
@@ -107,7 +110,7 @@ Forth definitions
       #allot     case? IF  target> Tdp +!                            EXIT THEN
       #emit      case? IF  target> emit                              EXIT THEN
       dup $3FFF >      IF  .warning                                  EXIT THEN
-      cr ." message: " .hex
+      cr ." message: " $.
    ;
 
 [THEN]

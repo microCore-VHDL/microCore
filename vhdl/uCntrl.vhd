@@ -2,12 +2,11 @@
 -- @file : uCntrl.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 26.03.2021 22:37:47
--- Last check in: $Rev: 677 $ $Date:: 2021-03-27 #$
+-- Last change: KS 10.04.2021 17:27:16
 -- @project: microCore
--- @language : VHDL-2008
+-- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
--- @contributors :
+-- @contributors:
 --
 -- @license: Do not use this file except in compliance with the License.
 -- You may obtain a copy of the Public License at
@@ -143,12 +142,12 @@ SIGNAL interrupt    : STD_LOGIC;
 -- timer
 CONSTANT time_cnt   : NATURAL := (clk_frequency/(1000*ticks_per_ms))-1;
 SIGNAL time_ctr     : NATURAL RANGE 0 TO time_cnt; -- divides system clock
-SIGNAL time         : UNSIGNED(data_width-1 DOWNTO 0);
+SIGNAL time         : data_bus;
 SIGNAL tick         : STD_LOGIC;
 
 BEGIN
 
-datamem.enable    <= '0';
+datamem.enable    <= mem_en;
 datamem.write     <= mem_wr;
 datamem.addr      <= mem_addr;
 datamem.wdata     <= mem_wdata;
@@ -198,7 +197,7 @@ core_en <= clk_en AND NOT (deb_penable OR deb_penable_d);
 uReg_proc: PROCESS(clk, reset)
 BEGIN
 
-   IF  reset = '1' AND async_reset  THEN
+   IF  reset = '1' AND ASYNC_RESET  THEN
       IF  SIMULATION  THEN
          r.tos <= to_unsigned(16#80#, r.tos'length);
          r.nos <= to_unsigned(16#40#, r.tos'length);
@@ -211,7 +210,7 @@ BEGIN
       r.status <= (OTHERS => '0');
       deb_penable_d <= '0';
       prog_addr <= (OTHERS => '0');
-      IF  simulation  THEN
+      IF  SIMULATION  THEN
          r.tor <= (OTHERS => '0');
       END IF;
 
@@ -236,7 +235,7 @@ BEGIN
          END IF;
       END IF;
 
-      IF  reset = '1' AND NOT async_reset  THEN
+      IF  reset = '1' AND NOT ASYNC_RESET  THEN
          IF  SIMULATION  THEN
             r.tos <= to_unsigned(16#80#, r.tos'length);
             r.nos <= to_unsigned(16#40#, r.tos'length);
@@ -249,7 +248,7 @@ BEGIN
          r.status <= (OTHERS => '0');
          deb_penable_d <= '0';
          prog_addr <= (OTHERS => '0');
-         IF  simulation  THEN
+         IF  SIMULATION  THEN
             r.tor <= (OTHERS => '0');
          END IF;
       END IF;
@@ -258,7 +257,7 @@ BEGIN
 END PROCESS uReg_proc;
 
 data_stack: internal_ram
-GENERIC MAP (data_width, r.dsp'length, "rw_check")
+GENERIC MAP (data_width, 2**dsp_width, "rw_check")
 PORT MAP (
    clk   => clk,
    en    => core_en,
@@ -278,7 +277,6 @@ BEGIN
    END IF;
 END PROCESS stack_addr_proc;
 -- pragma translate_on
-
 -- ---------------------------------------------------------------------
 -- interrupt management
 -- ---------------------------------------------------------------------
@@ -287,7 +285,7 @@ interrupt_services: IF  interrupts /= 0  GENERATE
 
    interrupt_proc: PROCESS (reset, clk)
    BEGIN
-      IF  reset = '1' AND async_reset  THEN
+      IF  reset = '1' AND ASYNC_RESET  THEN
          ienable <= (OTHERS => '0');
          pending <= (OTHERS => '0');
       ELSIF  rising_edge(clk)  THEN
@@ -301,7 +299,7 @@ interrupt_services: IF  interrupts /= 0  GENERATE
                END IF;
             END IF;
          END IF;
-         IF  reset = '1' AND NOT async_reset  THEN
+         IF  reset = '1' AND NOT ASYNC_RESET  THEN
             ienable <= (OTHERS => '0');
             pending <= (OTHERS => '0');
          END IF;
@@ -322,18 +320,18 @@ END GENERATE no_interrupt_services;
 
 timer_proc : PROCESS (clk, reset)
 BEGIN
-   IF  reset = '1' AND async_reset  THEN
+   IF  reset = '1' AND ASYNC_RESET  THEN
       time <= (OTHERS => '0');
    ELSIF  rising_edge(clk)  THEN
       tick <= '0';
       IF  time_ctr = 0  THEN
-         IF  simulation  THEN  time_ctr <= time_cnt/100;  ELSE  time_ctr <= time_cnt;  END IF;
+         IF  SIMULATION  THEN  time_ctr <= time_cnt/100;  ELSE  time_ctr <= time_cnt;  END IF;
          time <= time + 1;
          tick <= '1';
       ELSE
          time_ctr <= time_ctr - 1;
       END IF;
-      IF  reset = '1' AND NOT async_reset  THEN
+      IF  reset = '1' AND NOT ASYNC_RESET  THEN
          time <= (OTHERS => '0');
       END IF;
    END IF;
@@ -363,7 +361,14 @@ sum <= ladd_out(sum'high DOWNTO 0);
 
 instruction <= prog_rdata WHEN  r.chain = '0'  ELSE r.inst;
 
-uCore_control: PROCESS (ALL)
+uCore_control: PROCESS
+   (uBus, r, r_in, time,
+    ladd_x, ladd_y, cin, ladd_out, add_x, add_y, sum,
+    multiplicand, multiplier, product,
+    mem_wr, mem_addr, mem_rdata,
+    paddr, prog_addr, prog_rdata, instruction,
+    ds_rdata, ds_wdata, interrupt, core_en
+   )
 
    VARIABLE rsp_pop      : rstacks_addr;
    VARIABLE rsp_push     : rstacks_addr;
@@ -509,8 +514,8 @@ BEGIN
 -- uCore registers
    r_in <= r;
    IF  r.status(s_lit) = '0'  THEN
-      r_in.status(s_neg) <= to_01(r.tos(r.tos'high));
-      r_in.status(s_zero) <= to_01(tos_zero);
+      r_in.status(s_neg) <= r.tos(r.tos'high);
+      r_in.status(s_zero) <= tos_zero;
    END IF;
    r_in.status(s_lit) <= '0';
 
@@ -543,8 +548,8 @@ BEGIN
 -- data memory
    registers := false; IF  signed(r.tos(r.tos'high DOWNTO reg_addr_width)) = -1          THEN    registers := true;  END IF;
    dcache    := false; IF  r.tos(r.tos'high DOWNTO cache_addr_width) = 0                 THEN       dcache := true;  END IF;
-   asyncRAM  := false; IF  with_extmem AND r.tos(r.tos'high DOWNTO data_addr_width) = 0
-                          AND r.tos(data_addr_width-1 DOWNTO cache_addr_width) /= 0      THEN    asyncRAM  := true;  END IF;
+   asyncRAM  := false; IF  WITH_EXTMEM AND r.tos(r.tos'high DOWNTO data_addr_width) = 0
+                           AND r.tos(data_addr_width-1 DOWNTO cache_addr_width) /= 0     THEN    asyncRAM  := true;  END IF;
 
    mem_en <= '0';
    ext_en <= '0';
@@ -623,18 +628,18 @@ BEGIN
                        ds_wdata <= r.tos;
                        ds_wr <= '1';
 
-      WHEN op_NIP   => IF  extended  THEN
+      WHEN op_NIP   => IF  EXTENDED  THEN
                           pop_stack;
                           r_in.tos <= r.tos;
                        END IF;
 
-      WHEN op_TUCK  => IF  extended  THEN
+      WHEN op_TUCK  => IF  EXTENDED  THEN
                           push_stack;
                           r_in.nos <= r.nos;
                           ds_wdata <= r.tos;
                        END IF;
 
-      WHEN op_UNDER => IF  extended  THEN
+      WHEN op_UNDER => IF  EXTENDED  THEN
                           push_stack;
                           r_in.nos <= r.nos;
                        END IF;
@@ -654,11 +659,11 @@ BEGIN
       WHEN op_RTOR  => push_stack;
                        r_in.tos <= r.tor;
 
-      WHEN op_RDROP => IF  extended  THEN
+      WHEN op_RDROP => IF  EXTENDED  THEN
                           pop_rstack;
                        END IF;
 
-      WHEN op_SUM2TOS => IF  extended AND addr_rstack < addr_extern  THEN -- needed for op_INDEX
+      WHEN op_SUM2TOS => IF  EXTENDED AND addr_rstack < addr_extern  THEN -- needed for op_INDEX
                             add_x <= mem_rdata;
                             add_y <= NOT r.tor;
                             cin <= '1';
@@ -666,7 +671,7 @@ BEGIN
                          END IF;
 
       WHEN op_INDEX => -- DO ... LOOP index computed from top two items on return stack
-                       IF  extended  THEN
+                       IF  EXTENDED  THEN
                           push_stack;
                           IF  addr_rstack < addr_extern  THEN
                              mem_en <= '1';
@@ -744,11 +749,11 @@ BEGIN
                           mem_en <= '1';
                        END IF;
 
-      WHEN op_MEM2TOS => IF  extended  THEN
+      WHEN op_MEM2TOS => IF  EXTENDED  THEN
                             r_in.tos <= mem_rdata;
                          END IF;
 
-      WHEN op_FETCH => IF  extended  THEN
+      WHEN op_FETCH => IF  EXTENDED  THEN
                           mem_addr <= r.tos(mem_addr'range);
                           IF  registers  THEN
                              reg_en <= '1';
@@ -770,7 +775,7 @@ BEGIN
                        r_in.tos <= rstack_addr & sum(rs_addr_width-1 DOWNTO 0);
 
       WHEN op_PLUSST => -- indivisible read-modify-write +! instruction
-                       IF  extended  THEN
+                       IF  EXTENDED  THEN
                           mem_addr <= r.tos(mem_addr'range);
                           IF  registers  THEN
                              reg_en <= '1';
@@ -790,7 +795,7 @@ BEGIN
                           END IF;
                        END IF;
 
-      WHEN op_PLUSST2 => IF  extended  THEN
+      WHEN op_PLUSST2 => IF  EXTENDED  THEN
                           pop_stack;
                           r_in.tos <= r.tos;
                           add_x <= mem_rdata;
@@ -893,7 +898,7 @@ BEGIN
 
       WHEN op_DATA  => call_trap(i_usr);
 
-      WHEN op_NZEXIT => IF  extended  THEN
+      WHEN op_NZEXIT => IF  EXTENDED  THEN
                            pop_stack;
                            IF  tos_zero = '0'  THEN
                               paddr <= r.tor(paddr'range);
@@ -912,18 +917,18 @@ BEGIN
       WHEN op_ZLESS => r_in.tos <= (OTHERS => r.tos(r.tos'high));
 
       WHEN op_SRC   => -- shift right through carry
-                       IF  NOT with_mult  THEN
+                       IF  NOT WITH_MULT  THEN
                           r_in.tos <= r.status(s_c) & r.tos(r.tos'high DOWNTO 1);
                           r_in.status(s_c) <= r.tos(0);
                        END IF;
 
       WHEN op_SLC   => -- shift left through carry
-                       IF  NOT with_mult  THEN
+                       IF  NOT WITH_MULT  THEN
                           r_in.tos <= r.tos(r.tos'high-1 DOWNTO 0) & r.status(s_c);
                           r_in.status(s_c) <= r.tos(r.tos'high);
                        END IF;
 
-      WHEN op_MSHIFT => IF  with_mult  THEN
+      WHEN op_MSHIFT => IF  WITH_MULT  THEN
                           multiplicand <= '0' & r.nos;
                           multiplier   <= '0' & tos_power2;
                           IF  r.tos(r.tos'high) = '0'  THEN   -- shift left
@@ -974,7 +979,7 @@ BEGIN
                           END IF;
                        END IF;
 
-      WHEN op_MASHIFT => IF  with_mult  THEN
+      WHEN op_MASHIFT => IF  WITH_MULT  THEN
                           multiplicand <= r.nos(r.nos'high) & r.nos;
                           multiplier   <= '0' & tos_power2;
                           IF  r.tos(r.tos'high) = '0'  THEN   -- shift left
@@ -1070,7 +1075,7 @@ BEGIN
       WHEN op_XOR  => pop_stack;
                       r_in.tos <= r.tos XOR r.nos;
 
-      WHEN op_ADDSAT => IF  extended  THEN
+      WHEN op_ADDSAT => IF  EXTENDED  THEN
                          pop_stack;
                          add_x <= r.tos;
                          add_y <= r.nos;
@@ -1084,7 +1089,7 @@ BEGIN
                          END IF;
                       END IF;
 
-      WHEN op_PADD => IF  extended  THEN
+      WHEN op_PADD => IF  EXTENDED  THEN
                          push_stack;
                          add_x <= r.tos;
                          add_y <= r.nos;
@@ -1094,7 +1099,7 @@ BEGIN
                          r_in.status(s_ovfl) <= add_ovfl;
                       END IF;
 
-      WHEN op_PADC => IF  extended  THEN
+      WHEN op_PADC => IF  EXTENDED  THEN
                          push_stack;
                          add_x <= r.tos;
                          add_y <= r.nos;
@@ -1104,7 +1109,7 @@ BEGIN
                          r_in.status(s_ovfl) <= add_ovfl;
                       END IF;
 
-      WHEN op_PSUB => IF  extended  THEN
+      WHEN op_PSUB => IF  EXTENDED  THEN
                          push_stack;
                          add_x <= NOT r.tos;
                          add_y <= r.nos;
@@ -1114,7 +1119,7 @@ BEGIN
                          r_in.status(s_ovfl) <= add_ovfl;
                       END IF;
 
-      WHEN op_PSSUB=> IF  extended  THEN
+      WHEN op_PSSUB=> IF  EXTENDED  THEN
                          push_stack;
                          add_x <= r.tos;
                          add_y <= NOT r.nos;
@@ -1124,17 +1129,17 @@ BEGIN
                          r_in.status(s_ovfl) <= (add_carry XOR add_sign) AND NOT(ladd_x(r.tos'high) XOR ladd_y(r.tos'high)) AND NOT tos_zero;
                       END IF;
 
-      WHEN op_PAND => IF  extended  THEN
+      WHEN op_PAND => IF  EXTENDED  THEN
                          push_stack;
                          r_in.tos <= r.tos AND r.nos;
                       END IF;
 
-      WHEN op_POR  => IF  extended  THEN
+      WHEN op_POR  => IF  EXTENDED  THEN
                          push_stack;
                          r_in.tos <= r.tos OR  r.nos;
                       END IF;
 
-      WHEN op_PXOR => IF  extended  THEN
+      WHEN op_PXOR => IF  EXTENDED  THEN
                          push_stack;
                          r_in.tos <= r.tos XOR r.nos;
                       END IF;
@@ -1144,7 +1149,7 @@ BEGIN
 -- ---------------------------------------------------------------------
 
       WHEN op_UMULT => -- unsigned multiply, step instruction when mult-hardware not available
-                       IF  with_mult  THEN
+                       IF  WITH_MULT  THEN
                           multiplicand <= '0' & r.nos;
                           multiplier   <= '0' & r.tos;
                           r_in.tos <= product(data_width*2-1 DOWNTO data_width);
@@ -1173,7 +1178,7 @@ BEGIN
                        END IF;
 
       WHEN op_SMULT => -- signed multiply when mult-hardware available
-                       IF  with_mult  THEN
+                       IF  WITH_MULT  THEN
                           multiplicand <= r.nos(r.nos'high) & r.nos;
                           multiplier <= r.tos(r.tos'high) & r.tos;
                           r_in.tos <= product(data_width*2-1 DOWNTO data_width);
@@ -1226,7 +1231,7 @@ BEGIN
                        -- ( dividend.low dividend.high divisor -- divisor dividend.low dividend.high )
                        -- dup >r   abs >r   dup 0< IF  r@ +  THEN  r> um/mod
                        -- r@ 0< IF  negate over IF  swap r@ + swap 1-  THEN THEN  rdrop
-                       IF  extended  THEN
+                       IF  EXTENDED  THEN
                           r_in.nos <= ds_rdata;    -- dividend_low -> NOS
                           ds_wdata <= unsigned(abs(signed(r.tos)));  -- |divisor| in ds_rdata
                           ds_wr <= '1';
@@ -1247,7 +1252,7 @@ BEGIN
       WHEN op_SDIVL => -- last signed division step with signed divisor
                        -- dup >r   abs >r   dup 0< IF  r@ +  THEN  r> um/mod
                        -- r@ 0< IF  negate over IF  swap r@ + swap 1-  THEN THEN  rdrop
-                       IF  extended  THEN
+                       IF  EXTENDED  THEN
                           pop_stack;
                           ladd_x <= (r.status(s_c) OR r.status(s_ovfl)) & r.tos;
                           ladd_y <= NOT('0' & ds_rdata);
@@ -1289,7 +1294,7 @@ BEGIN
                        -- root accumulated in ds_wdata
                        -- square decimated in NOS
                        -- remainder in TOS
-                       IF  extended  THEN
+                       IF  EXTENDED  THEN
                           add_x <= r.tos(data_width-3 DOWNTO 0) & r.nos(data_width-1 DOWNTO data_width-2);
                           add_y <= NOT (ds_rdata(data_width-3 DOWNTO 0) & "01"); -- 2s complement subtract
                           cin <= '1';
@@ -1308,7 +1313,7 @@ BEGIN
                        -- root accumulated in ds_wdata
                        -- square decimated in NOS
                        -- remainder in TOS
-                       IF  extended AND to_unsigned(data_width, 8)(0) = '1' THEN
+                       IF  EXTENDED AND to_unsigned(data_width, 8)(0) = '1' THEN
                           add_x <= r.tos(data_width-2 DOWNTO 0) & r.nos(data_width-1);
                           add_y <= NOT (ds_rdata(data_width-2 DOWNTO 0) & "1"); -- 2s complement subtract
                           cin <= '1';
@@ -1347,8 +1352,8 @@ BEGIN
                        r_in.status(s_ovfl) <= add_ovfl;
                        r_in.tos <= (OTHERS => (add_ovfl XOR sum(sum'high)));
 
-      WHEN op_FLAGQ  => IF  extended  THEN
-                           IF  (flags AND r.tos(flags'range)) = 0  THEN
+      WHEN op_FLAGQ  => IF  EXTENDED  THEN
+                           IF  (flags AND r.tos(flag_width-1 DOWNTO 0)) = 0  THEN
                               r_in.tos <= (OTHERS => '0');
                            ELSE
                               r_in.tos <= (OTHERS => '1');
@@ -1360,7 +1365,7 @@ BEGIN
 -- ---------------------------------------------------------------------
 
       WHEN op_FMULT => -- fractional signed multiply with standard rounding towards even for .5
-                       IF  with_float AND with_mult  THEN
+                       IF  WITH_FLOAT AND WITH_MULT  THEN
                           pop_stack;
                           multiplicand <= r.nos(r.nos'high) & r.nos;
                           multiplier <= '0' & r.tos;
@@ -1386,7 +1391,7 @@ BEGIN
 -- op_LOGS        Op: log2s   ( u  0  -- u' ld ) don't
 --             Macro: ulog    ( u -- ld )        ?comp 0 lit, data_width 0 DO T log2s H LOOP T nip H ;
       WHEN op_LOGS  => -- log2 bit step
-                       IF  with_float AND with_mult  THEN
+                       IF  WITH_FLOAT AND WITH_MULT  THEN
                           multiplicand <= '0' & r.nos;
                           multiplier   <= '0' & r.nos;              -- nos ** 2
                           IF  product(data_width*2-1) = '0'  THEN   -- then shift nos left
@@ -1419,7 +1424,7 @@ BEGIN
 -- ;
 -- op_NORM is an interruptible, multi-cycle instruction. The number of cycles depends on the mantissa argument
       WHEN op_NORM  => -- normalize a 2s-complement matissa (NOS)/exponent(TOS) number pair on the stack
-                       IF  with_float  THEN
+                       IF  WITH_FLOAT  THEN
                           IF  nos_zero = '1'  THEN
                              r_in.tos <= exp_min; -- minimal exponent
                           ELSIF  r.nos(data_width-1) /= r.nos(data_width-2) OR r.tos = exp_min  THEN     -- already properly formatted or minimum exponent reached
@@ -1452,7 +1457,7 @@ BEGIN
 --    swap 0< IF  #signbit or  THEN  or
 -- ;
       WHEN op_FLOAT => -- convert 2s-complement mantissa(NOS)/exponent(TOS) pair to floating point number
-                       IF  with_float  THEN
+                       IF  WITH_FLOAT  THEN
                           r_in.status(s_ovfl) <= '0';
                           r_in.status(s_unfl) <= '0';
                           pop_stack;
@@ -1493,7 +1498,7 @@ BEGIN
 --         THEN  swap
 -- ;
       WHEN op_INTEG => -- convert floating point number to 2s-complement mantissa(NOS)/exponent(TOS) pair
-                       IF  with_float  THEN
+                       IF  WITH_FLOAT  THEN
                           push_stack;
                           r_in.tos <= slice(fexp(fexp'high), data_width - exp_width) & fexp;
                           IF  r.tos(exp_width-1 DOWNTO 0) = 0  THEN  -- de-normalized or zero

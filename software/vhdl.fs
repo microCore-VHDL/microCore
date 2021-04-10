@@ -2,9 +2,8 @@
 \ @file : vhdl.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 24.03.2021 17:55:06
-\ Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
-\ @project: microCore
+\ Last change: KS 02.04.2021 12:04:43
+\ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
@@ -38,7 +37,7 @@
 \ ----------------------------------------------------------------------
 \ E.g. the following VHDL expressions will be interpreted by Forth:
 \
-\ CONSTANT with_mult   : STD_LOGIC := '0';
+\ CONSTANT WITH_MULT   : BOOLEAN   := false;
 \ CONSTANT data_width  : NATURAL   := 16;
 \ CONSTANT addr_rstack : NATURAL   := 16#C00#;
 \ CONSTANT flag_reg    : INTEGER   := -2;

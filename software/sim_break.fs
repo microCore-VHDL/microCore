@@ -1,6 +1,5 @@
 \ 
 \ Last change: KS 06.03.2021 22:52:44
-\ Last check in : $Rev: 656 $ $Date:: 2021-03-06 #$
 \
 \ MicroCore load screen for simulating the umbilical's break function.
 \ Constant break has to be set to '1' in bench.vhd.

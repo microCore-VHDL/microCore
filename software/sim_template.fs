@@ -1,6 +1,5 @@
 \ 
 \ Last change: KS 11.11.2020 18:09:30
-\ Last check in : $Rev: 587 $ $Date:: 2020-11-12 #$
 \
 \ MicroCore load screen for simulation.
 \ It produces program.mem for initialization of the program memory during simulation.

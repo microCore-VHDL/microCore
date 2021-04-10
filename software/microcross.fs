@@ -2,9 +2,8 @@
 \ @file : microcross.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 24.03.2021 17:52:24
-\ Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
-\ @project: microCore
+\ Last change: KS 10.04.2021 18:19:51
+\ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek
@@ -31,14 +30,6 @@
 \ ----------------------------------------------------------------------
 Forth definitions
 
-: $Rev:         &36 parse s, postpone \ ; immediate
-: $Date::  [char] # parse s, postpone \ ; immediate
-
-Create revision $Rev: 674 $           \ Subversion revision number
-Create datum    $Date:: 2021-03-24 #$ \ Subversion check in date
-
-: .revision ( -- )  revision count type ;
-: .date     ( -- )  datum count type ;
 : .version  ( -- )  temp-decimal Version u. #BS emit [char] _ emit data_width . ;
 
 \ Debugger forward references
@@ -1111,7 +1102,7 @@ Does> ( -- ) [ here (doColon ! ]  Method   @
 : init:  ( <name> -- # )   T : H here Init-link @ , Init-link ! ;
 
 : new      ( -- )   \ Initialize cross-compiler for another compilation run
-   cr ." microCross revision " .revision   #BS emit   ." , date " .date ." by ks, gforth port and debugger by uho"
+   cr ." microCross version " .version ." by ks, gforth port and debugger by uho"
    Memory [ #datamask #maxprog umin 1+ cells ] Literal erase
    Data #maxdata cells erase   Initials 3 cells erase
    Tcp off  Tdp off  if-prefix  Colons off   Sequential off
@@ -1128,7 +1119,7 @@ Does> ( -- ) [ here (doColon ! ]  Method   @
 : end  ( -- )    \ Finish target compilation run
    s" Label Initialization" evaluate
    save-data   host-compile definitions   temp-decimal
-   cr there . ." instructions compiled for microCore version " .version
+   cr there . ." instructions compiled
 ;
 : Host   ( -- )  host-compile definitions ;
 
@@ -1165,19 +1156,21 @@ T h' Host H   Alias Host
 \ ----------------------------------------------------------------------
 T definitions
 
-H simulation            T Version SIMULATION     \ simulating?
-H extended              T Version EXTENDED       \ extended instruction set?
-H with_mult             T Version WITH_MULT      \ hardware multiply available?
-H with_float            T Version WITH_FLOAT
-H with_up_download      T Version WITH_UP_DOWNLOAD
+H SIMULATION            T Version SIMULATION     \ simulating?
+H EXTENDED              T Version EXTENDED       \ extended instruction set?
+H WITH_MULT             T Version WITH_MULT      \ hardware multiply available?
+H WITH_FLOAT            T Version WITH_FLOAT
+H WITH_UP_DOWNLOAD      T Version WITH_UP_DOWNLOAD
 H data_addr_width
   cache_addr_width u>   T Version WITH_EXTMEM
 
 H data_width            T Constant data_width
 H ram_data_width        T Constant ram_data_width
 H data_addr_width       T Constant data_addr_width
+H cache_size            T Constant cache_size
 H cache_addr_width      T Constant cache_addr_width
 H exp_width             T Constant exp_width
+H prog_size             T Constant prog_size
 H prog_addr_width       T Constant prog_addr_width
 H ticks_per_ms          T Constant ticks_per_ms
 H rs_addr_width         T Constant rs_addr_width
@@ -1203,7 +1196,7 @@ H rs_addr_width        2** T Constant #rs-depth
 H ds_addr_width        2** T Constant #ds-depth
 H cache_addr_width     2** T Constant #extern       \ first address of external memory size
 H addr_rstack              T Constant #rstack       \ first address used for the return stack
-#rstack #extern H umin     T Constant #cache        \ first address past internal data memory, starting at 0
+#rstack H cache_size umin  T Constant #cache        \ first address past internal data memory, starting at 0
 #rstack #tasks #rs-depth * + Constant #rstack-end   \ first address past rstack area
 
 \ trap vectors used, to be extended as needed.

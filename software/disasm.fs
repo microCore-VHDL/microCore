@@ -2,9 +2,8 @@
 \ @file : disasm.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 25.03.2021 18:14:22
-\ Last check in: $Rev: 675 $ $Date:: 2021-03-25 #$
-\ @project: microCore
+\ Last change: KS 05.04.2021 16:47:10
+\ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek

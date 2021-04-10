@@ -1,6 +1,5 @@
 \ 
 \ Last change: KS 06.03.2021 11:47:05
-\ Last check in : $Rev: 584 $ $Date:: 2020-11-11 #$
 \
 \ MicroCore load screen to simulate the umbilical upload function.
 \ Either constant download or upload has to be set to '1' in bench.vhd.

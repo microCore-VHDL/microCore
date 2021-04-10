@@ -2,12 +2,11 @@
 -- @file : architecture_pkg.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 24.03.2021 17:41:13
--- Last check in: $Rev: 673 $ $Date:: 2021-03-24 #$
+-- Last change: KS 10.04.2021 17:57:20
 -- @project: microCore
--- @language : VHDL-2008
+-- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
--- @contributors :
+-- @contributors:
 --
 -- @license: Do not use this file except in compliance with the License.
 -- You may obtain a copy of the Public License at
@@ -35,20 +34,20 @@ USE work.functions_pkg.ALL;
 PACKAGE architecture_pkg IS
 --~--  \ when loaded by the microForth cross-compiler, code between "--~" up to "--~--" will be skipped.
 
-CONSTANT version            : NATURAL := 2310; -- <major_release><functionality_added><HW_fix><SW_fix>
+CONSTANT version            : NATURAL := 2320; -- <major_release><functionality_added><HW_fix><SW_fix>
 
 -- ---------------------------------------------------------------------
 -- Configuration flags
 -- ---------------------------------------------------------------------
--- async_reset is defined in functions_pkg.vhd, because that is the first file to load
--- CONSTANT async_reset     : BOOLEAN := false; -- true = async reset, false = synchronous reset
+-- ASYNC_RESET is defined in functions_pkg.vhd, because that is the first file to load
+-- CONSTANT ASYNC_RESET     : BOOLEAN := false; -- true = async reset, false = synchronous reset
 
-CONSTANT simulation         : BOOLEAN := false ; -- will e.g. increase the frequency of timers to make them observable in simulation
-CONSTANT coldboot           : BOOLEAN := false ; -- cold boot on reset when true, else warmboot
-CONSTANT extended           : BOOLEAN := true  ; -- false -> core instruction set, true -> extended instruction set
-CONSTANT with_mult          : BOOLEAN := true  ; -- true when FPGA has hardware multiply resources
-CONSTANT with_float         : BOOLEAN := true  ; -- floating point instructions?
-CONSTANT with_up_download   : BOOLEAN := true  ; -- up/download via umbilical?
+CONSTANT SIMULATION         : BOOLEAN := false ; -- will e.g. increase the frequency of timers to make them observable in simulation
+CONSTANT COLDBOOT           : BOOLEAN := false ; -- cold boot on reset when true, else warmboot
+CONSTANT EXTENDED           : BOOLEAN := true  ; -- false -> core instruction set, true -> extended instruction set
+CONSTANT WITH_MULT          : BOOLEAN := true  ; -- true when FPGA has hardware multiply resources
+CONSTANT WITH_FLOAT         : BOOLEAN := true  ; -- floating point instructions?
+CONSTANT WITH_UP_DOWNLOAD   : BOOLEAN := true  ; -- up/download via umbilical?
 
 -- ---------------------------------------------------------------------
 -- Hardware definitions
@@ -74,10 +73,11 @@ CONSTANT exp_width          : NATURAL :=  8; -- floating point exponent width
 
 CONSTANT data_addr_width    : NATURAL := 13; -- data memory address width, large enough for cache and external data memory
 CONSTANT cache_addr_width   : NATURAL := 12; -- data cache memory address width
+CONSTANT cache_size         : NATURAL := 16#1000#;
 CONSTANT reg_addr_width     : NATURAL :=  4; -- number of address bits reserved for internal registers at the top data space
 --~
 CONSTANT addr_extern        : NATURAL := 2 ** cache_addr_width; -- start address of external memory
-CONSTANT with_extmem        : BOOLEAN := data_addr_width /= cache_addr_width;
+CONSTANT WITH_EXTMEM        : BOOLEAN := data_addr_width /= cache_addr_width;
 --~--
 CONSTANT ram_data_width     : NATURAL :=  8; -- external memory word width
 --~
@@ -91,6 +91,7 @@ CONSTANT ram_addr_width     : NATURAL := 12 + subbits; -- external memory, virtu
 
 CONSTANT inst_width         : NATURAL :=  8; -- instruction width - this is determined by design
 CONSTANT prog_addr_width    : NATURAL := 13; -- internal program memory address width
+CONSTANT prog_size          : NATURAL := 16#2000#;
 CONSTANT boot_addr_width    : NATURAL :=  6; -- size of the internal boot program memory !!! must match size of bootload.vhd !!!
 
 CONSTANT trap_width         : NATURAL :=  3; -- each vector has room for 2**trap_width instructions
@@ -196,6 +197,7 @@ TYPE  uBus_port  IS RECORD
    write       : STD_LOGIC;      -- 1 => write, 0 => read
    addr        : data_addr;      -- address on uBus
    wdata       : data_bus;       -- data to memory
+   rdata       : data_bus;       -- data from memory
 END RECORD;
 
 TYPE  core_signals  IS RECORD
@@ -518,7 +520,7 @@ END architecture_pkg;
 Library IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
 USE work.architecture_pkg.ALL;
-USE work.functions_pkg.async_reset;
+USE work.functions_pkg.ASYNC_RESET;
 
 ENTITY semaphor IS PORT (
    uBus   : IN  uBus_port;
@@ -533,7 +535,7 @@ BEGIN
 
 semaphor_proc : PROCESS (uBus.clk)
 BEGIN
-   IF  uBus.reset = '1' AND async_reset  THEN
+   IF  uBus.reset = '1' AND ASYNC_RESET  THEN
       sema <= '0';
    ELSIF  rising_edge(uBus.clk)  THEN
       IF  uReg_write(uBus, FLAG_REG) AND (uBus.wdata(signbit) XOR uBus.wdata(flag)) = '1'  THEN
@@ -544,7 +546,7 @@ BEGIN
       ELSIF  uReg_read(uBus, reg) AND uBus.pause = '0'  THEN
          sema <= '0';
       END IF;
-      IF  uBus.reset = '1' AND NOT async_reset  THEN
+      IF  uBus.reset = '1' AND NOT ASYNC_RESET  THEN
          sema <= '0';
       END IF;
    END IF;

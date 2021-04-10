@@ -1,6 +1,5 @@
 \ 
 \ Last change: KS 20.06.2020 16:25:49
-\ Last check in : $Rev: 584 $ $Date:: 2020-11-11 #$
 \
 \ MicroCore load screen for simulating the host <-> target synchronization.
 \ Constant handshake has to be set to '1' in bench.vhd.

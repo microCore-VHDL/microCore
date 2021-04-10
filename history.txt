@@ -1,4 +1,20 @@
 ************************************************************************
+*** uCore 2.320   1-Apr-2021 ks
+************************************************************************
+
+Rewriting the VHDL code for VHDL-93 instead of VHDL-2008
+Some additional modifications to make it synthesizable by XST.
+
+Moving the data cache memory interface from uCore.vhd to fpga.vhd.
+
+architecture_pkg.vhd: New parameters cache_size and prog_size, because
+   those may be smaller than 2**cache_addr_width or 2**prog_addr_width
+   respectively.
+
+functions_pkg.vhd: All internal memory components now take the actual
+   RAM size as generic instead of the addr_width.
+   
+************************************************************************
 *** uCore 2.310  23-Mar-2021 ks
 ************************************************************************
 

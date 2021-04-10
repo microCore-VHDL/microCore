@@ -2,12 +2,11 @@
 -- @file : uArithmetic.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 24.03.2021 17:42:14
--- Last check in: $Rev: 673 $ $Date:: 2021-03-24 #$
+-- Last change: KS 02.04.2021 11:59:11
 -- @project: microCore
--- @language : VHDL-2008
+-- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
--- @contributors :
+-- @contributors:
 --
 -- @license: Do not use this file except in compliance with the License.
 -- You may obtain a copy of the Public License at
@@ -46,15 +45,15 @@ ARCHITECTURE inference OF uArithmetic IS
 
 BEGIN
 
-sim_arith: IF  simulation  GENERATE
+sim_arith: IF  SIMULATION  GENERATE
 
-   ladd_out <= ('0' & ladd_x) + ('0' & ladd_y) + cin;
+   ladd_out <= ('0' & ladd_x) + ('0' & ladd_y) + ("" & cin);
 
    product <= unsigned(signed(multiplicand) * signed(multiplier));
 
-END GENERATE sim_arith; syn_arith: IF  NOT simulation  GENERATE
+END GENERATE sim_arith; syn_arith: IF  NOT SIMULATION  GENERATE
 
-   ladd_out <= ('0' & ladd_x) + ('0' & ladd_y) + cin;
+   ladd_out <= ('0' & ladd_x) + ('0' & ladd_y) + ("" & cin);
 
    product <= unsigned(signed(multiplicand) * signed(multiplier));
 

@@ -2,12 +2,11 @@
 -- @file : fpga.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 24.03.2021 17:41:53
--- Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
+-- Last change: KS 02.04.2021 18:34:55
 -- @project: microCore
--- @language : VHDL-2008
+-- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
--- @contributors :
+-- @contributors:
 --
 -- @license: Do not use this file except in compliance with the License.
 -- You may obtain a copy of the Public License at
@@ -62,10 +61,7 @@ SIGNAL dsu_break  : STD_LOGIC;
 COMPONENT microcore PORT (
    uBus        : IN    uBus_port;
    core        : OUT   core_signals;
-   ext_memory  : OUT   datamem_port;
-   ext_rdata   : IN    data_bus;
-   dma         : IN    datamem_port;
-   dma_rdata   : OUT   data_bus;
+   memory      : OUT   datamem_port;
 -- umbilical uart interface
    rxd         : IN    STD_LOGIC;
    break       : OUT   STD_LOGIC;
@@ -76,18 +72,29 @@ SIGNAL core         : core_signals;
 SIGNAL flags        : flag_bus;
 SIGNAL flags_pause  : STD_LOGIC;
 SIGNAL ctrl         : UNSIGNED(ctrl_width-1 DOWNTO 0);
-SIGNAL ext_memory   : datamem_port;
-SIGNAL ext_rdata    : data_bus;
-SIGNAL dma          : datamem_port;
-SIGNAL dma_rdata    : data_bus;
+SIGNAL memory       : datamem_port; -- multiplexed memory signals
 
+-- data memory
+COMPONENT uDatacache PORT (
+   uBus        : IN  uBus_port;
+   rdata       : OUT data_bus;
+   dma_mem     : IN  datamem_port;
+   dma_rdata   : OUT data_bus
+); END COMPONENT uDatacache;
+
+SIGNAL dcache_rdata : data_bus;
+SIGNAL mem_rdata    : data_bus;
+SIGNAL dma_mem      : datamem_port;
+SIGNAL dma_rdata    : data_bus;
+SIGNAL cache_addr   : data_addr;    -- for simulation only
+
+-- external memory
 COMPONENT external_SRAM GENERIC (
    ram_addr_width : NATURAL;
    ram_data_width : NATURAL;
    delay_cnt      : NATURAL    -- delay_cnt+1 extra clock cycles for each memory access
 ); PORT (
    uBus        : IN    uBus_port;
-   ext_memory  : IN    datamem_port;
    ext_rdata   : OUT   data_bus;
    delay       : OUT   STD_LOGIC;
 -- external SRAM
@@ -98,9 +105,12 @@ COMPONENT external_SRAM GENERIC (
    data        : INOUT UNSIGNED(ram_data_width-1 DOWNTO 0)
 ); END COMPONENT external_SRAM;
 
+SIGNAL ext_rdata    : data_bus;
 SIGNAL SRAM_delay   : STD_LOGIC;
 
 BEGIN
+
+bitout <= ctrl(c_bitout);
 
 -- ---------------------------------------------------------------------
 -- input signal synchronization
@@ -125,7 +135,7 @@ clk <= clock;
 
 ctrl_proc: PROCESS (reset, clk)
 BEGIN
-   IF  reset = '1' AND async_reset  THEN
+   IF  reset = '1' AND ASYNC_RESET  THEN
       ctrl <= (OTHERS => '0');
    ELSIF  rising_edge(clk)  THEN
       IF  uReg_write(uBus, CTRL_REG)  THEN
@@ -134,13 +144,12 @@ BEGIN
          ELSE  ctrl <= ctrl AND uBus.wdata(ctrl'range);
          END IF;
       END IF;
-      IF  reset = '1' AND NOT async_reset  THEN
+      IF  reset = '1' AND NOT ASYNC_RESET  THEN
          ctrl <= (OTHERS => '0');
       END IF;
    END IF;
 END PROCESS ctrl_proc;
 
-bitout          <= ctrl(c_bitout);
 flags(f_bitout) <= ctrl(c_bitout);
 
 uBus.sources(CTRL_REG) <= resize(ctrl, data_width);
@@ -151,7 +160,7 @@ uBus.sources(CTRL_REG) <= resize(ctrl, data_width);
 
 sema_proc : PROCESS (clk, reset)
 BEGIN
-   IF  reset = '1' AND async_reset  THEN
+   IF  reset = '1' AND ASYNC_RESET  THEN
       flags(f_sema) <= '0';
    ELSIF  rising_edge(clk)  THEN
       IF  uReg_write(uBus, FLAG_REG)  THEN
@@ -159,7 +168,7 @@ BEGIN
             flags(f_sema) <= uBus.wdata(f_sema);
          END IF;
       END IF;
-      IF  reset = '1' AND NOT async_reset  THEN
+      IF  reset = '1' AND NOT ASYNC_RESET  THEN
          flags(f_sema) <= '0';
       END IF;
    END IF;
@@ -173,20 +182,12 @@ flags_pause <= '1' WHEN  uReg_write(uBus, FLAG_REG) AND uBus.wdata(signbit) = '0
 -- microcore interface
 -- ---------------------------------------------------------------------
 
-dma.enable <= '0';
-dma.write  <= '0';
-dma.addr   <= (OTHERS => '0');
-dma.wdata  <= (OTHERS => '0');
-
 flags(f_dsu) <= NOT dsu_break; -- '1' if debug terminal present
 
 uCore: microcore PORT MAP (
    uBus       => uBus,
    core       => core,
-   ext_memory => ext_memory,
-   ext_rdata  => ext_rdata,
-   dma        => dma,
-   dma_rdata  => dma_rdata,
+   memory     => memory,
 -- umbilical uart interface
    rxd        => dsu_rxd_s,
    break      => dsu_break,
@@ -214,10 +215,45 @@ uBus.sources(TIME_REG)    <= core.time;
 uBus.reg_en               <= core.reg_en;
 uBus.mem_en               <= core.mem_en;
 uBus.ext_en               <= core.ext_en;
-uBus.write                <= ext_memory.write;
-uBus.addr                 <= ext_memory.addr;
-uBus.wdata                <= ext_memory.wdata;
+uBus.write                <= memory.write;
+uBus.addr                 <= memory.addr;
+uBus.wdata                <= memory.wdata;
+uBus.rdata                <= mem_rdata;
 
+-- ---------------------------------------------------------------------
+-- data memory consisting of dcache, ext_mem, and debugmem
+-- ---------------------------------------------------------------------
+
+dma_mem.enable <= '0';
+dma_mem.write  <= '0';
+dma_mem.addr   <= (OTHERS => '0');
+dma_mem.wdata  <= (OTHERS => '0');
+
+internal_data_mem: uDatacache PORT MAP (
+   uBus         => uBus,
+   rdata        => dcache_rdata,
+   dma_mem      => dma_mem,
+   dma_rdata    => dma_rdata
+);
+
+mem_rdata_proc : PROCESS (uBus, dcache_rdata, ext_rdata)
+BEGIN
+   mem_rdata <= dcache_rdata;
+   IF  uBus.ext_en = '1' AND WITH_EXTMEM  THEN
+      mem_rdata <= ext_rdata;
+   END IF;
+END PROCESS mem_rdata_proc;
+
+-- pragma translate_off
+memaddr_proc : PROCESS (clk)
+BEGIN
+   IF  rising_edge(clk)  THEN
+      IF  (clk_en AND core.mem_en) = '1'  THEN
+         cache_addr <= memory.addr; -- state of the internal blockRAM address register for simulation
+      END IF;
+END IF;
+END PROCESS memaddr_proc;
+-- pragma translate_on
 -- ---------------------------------------------------------------------
 -- external SRAM data memory
 -- ---------------------------------------------------------------------
@@ -228,7 +264,6 @@ with_external_mem: IF  WITH_EXTMEM  GENERATE
    GENERIC MAP (ram_addr_width, ram_data_width, 1)
    PORT MAP (
       uBus        => uBus,
-      ext_memory  => ext_memory,
       ext_rdata   => ext_rdata,
       delay       => SRAM_delay,
    -- external SRAM

@@ -2,12 +2,11 @@
 -- @file : uProgmem.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 24.03.2021 17:42:44
--- Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
+-- Last change: KS 10.04.2021 17:24:58
 -- @project: microCore
--- @language : VHDL-2008
+-- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
--- @contributors :
+-- @contributors:
 --
 -- @license: Do not use this file except in compliance with the License.
 -- You may obtain a copy of the Public License at
@@ -42,7 +41,7 @@ ARCHITECTURE rtl OF uProgmem IS
 BEGIN
 
 internal_prog_mem: internal_ram
-GENERIC MAP (inst_width, prog_addr_width, "no_rw_check", MEM_file)
+GENERIC MAP (inst_width, prog_size, "no_rw_check", MEM_file)
 PORT MAP (
    clk     => clk,
    en      => penable,

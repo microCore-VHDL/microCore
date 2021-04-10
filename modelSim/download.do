@@ -52,9 +52,9 @@ add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.tor
 add wave -noupdate /bench/myFPGA/uCore/mem_rdata
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.rsp
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {205024 ns} 0} {{Cursor 2} {67487 ns} 0}
-quietly wave cursor active 1
-configure wave -namecolwidth 152
+WaveRestoreCursors {{Cursor 1} {79740 ns} 0} {{Cursor 2} {106760 ns} 0}
+quietly wave cursor active 2
+configure wave -namecolwidth 148
 configure wave -valuecolwidth 68
 configure wave -justifyvalue left
 configure wave -signalnamewidth 1
@@ -68,4 +68,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {0 ns} {215250 ns}
+WaveRestoreZoom {0 ns} {115500 ns}

@@ -2,9 +2,8 @@
 \ @file : debugger.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 24.03.2021 17:56:45
-\ Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
-\ @project: microCore
+\ Last change: KS 10.04.2021 18:30:53
+\ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
 \ @original author: uho - Ulrich Hoffmann
@@ -219,7 +218,7 @@ Variable Broken  Broken off   \ break issued to Target as a command if ON
    REPEAT
    ." S"  0 >target
    ." H"  target>
-   ." A"  ?dup IF ." Handshake error. 0 expected, " .hex ." received"
+   ." A"  ?dup IF ." Handshake error. 0 expected, " $. ." received"
                   #handshake-error throw
           THEN
    ." KE "
@@ -350,13 +349,13 @@ Defer do-handle-breakpoint
 \ ----------------------------------------------------------------------
 
 : install-breakpoint ( taddr table -- )
-\   Verbose @ IF ."  installing breakpoint " over .hex THEN
+\   Verbose @ IF ."  installing breakpoint " over $. THEN
    over set-breakpoint
    2dup table-find IF  drop 2drop  EXIT THEN
    table-append
 ;
 : remove-breakpoint ( taddr table -- ) 
-\   Verbose @ IF ."  removing breakpoint " over .hex THEN
+\   Verbose @ IF ."  removing breakpoint " over $. THEN
    over restore-instruction
    swap over  table-find IF swap table-remove ELSE drop THEN
 ;
@@ -530,7 +529,7 @@ gforth_062 [IF]
    IF  over restore-instruction   advance-breakpoint
    ELSE  2drop
    THEN                                                    ( addr )
-\   Verbose @ IF ."  resuming at " dup .hex THEN
+\   Verbose @ IF ."  resuming at " dup $. THEN
    [t'] nextstep >target  >target
 ;
 ' handle-breakpoint is do-handle-breakpoint
@@ -693,5 +692,9 @@ Host: here  ( -- addr )      comp? IF  #here  lit, T message host>       H EXIT 
 Host: allot ( n -- )         comp? IF  #allot lit, T message >host       H EXIT THEN  dbg? IF  t>                    THEN  Tdp +! ;
 Host: emit  ( char -- )      comp? IF  #emit  lit, T message >host       H EXIT THEN  dbg? IF  t>                    THEN  emit ;
 Host: 2//   ( u1 -- u2 )     ?exec                                                    dbg? IF  t> 2// >t        EXIT THEN  2// ;
+Host: $.    ( u -- )         ?exec                                                    dbg? IF  t>                    THEN  $. ;
+Host: &.    ( n -- )         ?exec                                                    dbg? IF  t>                    THEN  &. ;
+Host: #.    ( n -- )         ?exec                                                    dbg? IF  t>                    THEN  #. ;
+Host: %.    ( u -- )         ?exec                                                    dbg? IF  t>                    THEN  %. ;
 
 [THEN]

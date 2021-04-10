@@ -1,6 +1,5 @@
 \ 
 \ Last change: KS 15.11.2020 14:03:48
-\ Last check in : $Rev: 589 $ $Date:: 2020-11-19 #$
 \
 \ MicroCore load screen for simulating internal and external data memory.
 \ It produces program.mem for initialization of the program memory during simulation.

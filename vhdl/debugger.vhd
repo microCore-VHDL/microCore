@@ -2,12 +2,11 @@
 -- @file : debugger.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 24.03.2021 17:41:39
--- Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
+-- Last change: KS 02.04.2021 12:06:05
 -- @project: microCore
--- @language : VHDL-2008
+-- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
--- @contributors :
+-- @contributors:
 --
 -- @license: Do not use this file except in compliance with the License.
 -- You may obtain a copy of the Public License at
@@ -142,7 +141,7 @@ umbilical.read   <= '0';
 umbilical.addr   <= addr_ptr(umbilical.addr'range);
 umbilical.wdata  <= rx_data;
 
-debugmem.enable  <= '0';
+debugmem.enable  <= deb_denable;
 debugmem.write   <= write;
 debugmem.addr    <= addr_ptr(debugmem.addr'range);
 debugmem.wdata   <= in_reg(debugmem.wdata'range);
@@ -186,7 +185,7 @@ umbilical_proc: PROCESS(clk, reset)
 
 BEGIN
 
-   IF  reset = '1' AND async_reset  THEN
+   IF  reset = '1' AND ASYNC_RESET  THEN
          out_ctr <= all_nibbles;
        out_state <= start;
         in_state <= idle;
@@ -233,11 +232,11 @@ BEGIN
                                                     in_state <= getaddr;
                                                     progload <= '1';
                               WHEN mark_debug    => in_state <= rx_debug;
-                              WHEN mark_upload   => IF  with_up_download  THEN
+                              WHEN mark_upload   => IF  WITH_UP_DOWNLOAD  THEN
                                                        in_state <= getaddr;
                                                        upload <= '1';
                                                     END IF;
-                              WHEN mark_download => IF  with_up_download  THEN
+                              WHEN mark_download => IF  WITH_UP_DOWNLOAD  THEN
                                                        in_state <= getaddr;
                                                        download <= '1';
                                                     END IF;
@@ -264,10 +263,10 @@ BEGIN
                                  in_ctr <= all_nibbles;
                                  addr_ctr <= unsigned(new_inreg(addr_ctr'range));
                                  in_state <= loading;
-                                 IF  upload = '1' AND with_up_download  THEN
+                                 IF  upload = '1' AND WITH_UP_DOWNLOAD  THEN
                                     in_state <= uploading;
                                  END IF;
-                                 IF  download = '1' AND with_up_download  THEN
+                                 IF  download = '1' AND WITH_UP_DOWNLOAD  THEN
                                     in_state <= downloading;
                                  END IF;
                               ELSE
@@ -308,7 +307,7 @@ BEGIN
                               in_state <= idle;
                            END IF;
 
-         WHEN uploading => IF  with_up_download  THEN
+         WHEN uploading => IF  WITH_UP_DOWNLOAD  THEN
                               IF  addr_ctr = 0  THEN
                                  tx_ack;
                                  IF  send_ack = '1'  THEN
@@ -327,7 +326,7 @@ BEGIN
                               END IF;
                            END IF;
 
-         WHEN downloading => IF  with_up_download  THEN
+         WHEN downloading => IF  WITH_UP_DOWNLOAD  THEN
                               IF  out_state = idle  THEN
                                  deb_drequest <= '1';
                                  out_state <= readmem;
@@ -356,7 +355,7 @@ BEGIN
 
          WHEN idle      => out_ctr <= all_nibbles;
                            IF  out_wr = '1' AND in_state = idle AND send_ack = '0'  THEN   -- send a new word
-                              out_reg <= to_unsigned(0, out_reg'length - data_width) & wdata;
+                              out_reg <= resize(wdata, octetts * 8);
                               out_state <= mark;
                            END IF;
 
@@ -380,7 +379,7 @@ BEGIN
                               download <= '0';
                            END IF;
 
-         WHEN readmem   => IF  with_up_download  THEN
+         WHEN readmem   => IF  WITH_UP_DOWNLOAD  THEN
                               IF  addr_extern <= to_INTEGER(addr_ptr(debugmem.addr'range))
                                  AND data_addr_width > cache_addr_width
                               THEN -- external memory
@@ -398,7 +397,7 @@ BEGIN
                               END IF;
                            END IF;
 
-         WHEN downloading => IF  with_up_download  THEN
+         WHEN downloading => IF  WITH_UP_DOWNLOAD  THEN
                               tx_start;
                               IF  tx_write = '1'  THEN
                                  IF  out_ctr /= 0  THEN
@@ -419,7 +418,7 @@ BEGIN
 
       END IF; -- clk_en = '1'
 
-      IF  reset = '1' AND NOT async_reset  THEN
+      IF  reset = '1' AND NOT ASYNC_RESET  THEN
            out_ctr <= all_nibbles;
          out_state <= start;
           in_state <= idle;

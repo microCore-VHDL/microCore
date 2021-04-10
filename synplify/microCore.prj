@@ -1,7 +1,7 @@
 #--  Synopsys, Inc.
 #--  Version M-2017.03L-SP1-1
-#--  Project file D:\technik\microcore\testcore\synthesis\microCore.prj
-#--  Written on Sat Apr 18 19:26:57 2020
+#--  Project file D:\technik\microcore\microCore\synplify\microCore.prj
+#--  Written on Tue Mar 30 23:39:08 2021
 
 
 #project files
@@ -11,18 +11,18 @@ add_file -vhdl -lib work "../vhdl/uArithmetic.vhd"
 add_file -vhdl -lib work "../vhdl/uCntrl.vhd"
 add_file -vhdl -lib work "../vhdl/uart.vhd"
 add_file -vhdl -lib work "../vhdl/debugger.vhd"
-add_file -vhdl -lib work "../vhdl/bootload.VHD"
+add_file -vhdl -lib work "../vhdl/bootload.vhd"
 add_file -vhdl -lib work "../vhdl/uProgmem.vhd"
-add_file -vhdl -lib work "../vhdl/uDatacache.vhd"
 add_file -vhdl -lib work "../vhdl/uCore.vhd"
+add_file -vhdl -lib work "../vhdl/uDatacache.vhd"
 add_file -vhdl -lib work "../vhdl/external_SRAM.vhd"
 add_file -vhdl -lib work "../vhdl/fpga.vhd"
 add_file -fpga_constraint "microCore.fdc"
 
 
 
-#implementation: "synthesis"
-impl -add synthesis -type fpga
+#implementation: "synplify"
+impl -add synplify -type fpga
 
 #
 #implementation parameter settings
@@ -70,19 +70,16 @@ set_option -no_sequential_opt 0
 set_option -symbolic_fsm_compiler 0
 
 # Compiler Options
-set_option -compiler_compatible 0
+set_option -compiler_compatible 1
 set_option -resource_sharing 0
 set_option -multi_file_compilation_unit 1
 
 # Compiler Options
 set_option -auto_infer_blackbox 1
 
-# Compiler Options
-set_option -vhdl2008 1
-
 #automatic place and route (vendor) options
 set_option -write_apr_constraint 1
 
 #set result format/file last
 project -result_file "./microCore.edn"
-impl -active "synthesis"
+impl -active "synplify"

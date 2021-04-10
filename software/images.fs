@@ -2,9 +2,8 @@
 \ @file : images.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 24.03.2021 17:52:02
-\ Last check in: $Rev: 674 $ $Date:: 2021-03-24 #$
-\ @project: microCore
+\ Last change: KS 05.04.2021 16:47:42
+\ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
 \ @original author: ks - Klaus Schleisiek

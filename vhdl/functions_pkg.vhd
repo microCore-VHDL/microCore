@@ -2,12 +2,11 @@
 -- @file : functions_pkg.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 24.03.2021 17:42:00
--- Last check in: $Rev: 675 $ $Date:: 2021-03-25 #$
+-- Last change: KS 10.04.2021 17:22:18
 -- @project: microCore
--- @language : VHDL-2008
+-- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
--- @contributors :
+-- @contributors:
 --
 -- @license: Do not use this file except in compliance with the License.
 -- You may obtain a copy of the Public License at
@@ -30,7 +29,7 @@ USE STD.TEXTIO.ALL;
 
 PACKAGE functions_pkg IS
 
-CONSTANT async_reset : BOOLEAN := true; -- true = async reset, false = synchronous reset
+CONSTANT ASYNC_RESET : BOOLEAN := true; -- true = async reset, false = synchronous reset
 
 FUNCTION  resize(slv : IN STD_LOGIC_VECTOR;
                  s   : IN INTEGER        ) RETURN STD_LOGIC_VECTOR;
@@ -49,6 +48,16 @@ FUNCTION ceiling(v : IN INTEGER;
                  w : IN INTEGER          ) RETURN INTEGER;
 
 FUNCTION next_quad(width : IN NATURAL    ) RETURN NATURAL;
+
+-- pragma translate_off
+PROCEDURE  hread(l     : INOUT LINE;
+                 value : OUT UNSIGNED);
+
+PROCEDURE Char2QuadBits(c           : CHARACTER;
+                        result      : OUT UNSIGNED(3 DOWNTO 0);
+                        good        : OUT BOOLEAN;
+                        issue_error : IN  BOOLEAN);
+-- pragma translate_on
 
 COMPONENT synchronize
 PORT (clk      : IN    STD_LOGIC;
@@ -96,18 +105,18 @@ END COMPONENT;
 
 COMPONENT asynch_dpram
 GENERIC (data_width  : INTEGER;
-         addr_width  : INTEGER);
+         ram_size    : INTEGER);
 PORT (clk   : IN  STD_LOGIC;
       we    : IN  STD_LOGIC;
-      waddr : IN  UNSIGNED(addr_width-1 DOWNTO 0);
-      di    : IN  UNSIGNED(data_width-1 DOWNTO 0);
-      raddr : IN  UNSIGNED(addr_width-1 DOWNTO 0);
-      do    : OUT UNSIGNED(data_width-1 DOWNTO 0));
+      waddr : IN  UNSIGNED;
+      di    : IN  UNSIGNED;
+      raddr : IN  UNSIGNED;
+      do    : OUT UNSIGNED);
 END COMPONENT;
 
 COMPONENT asynch_ram
 GENERIC (data_width : INTEGER;
-         addr_width : INTEGER);
+         ram_size   : INTEGER);
 PORT (clk   : IN    STD_LOGIC;
       we    : IN    STD_LOGIC;
       addr  : IN    UNSIGNED;
@@ -117,7 +126,7 @@ END COMPONENT;
 
 COMPONENT internal_ram GENERIC (
    data_width : INTEGER;
-   addr_width : INTEGER;
+   ram_size   : INTEGER;
    ramstyle   : STRING := "block_ram";
    init_file  : STRING := ""
 ); PORT (
@@ -131,7 +140,7 @@ COMPONENT internal_ram GENERIC (
 
 COMPONENT internal_dpram GENERIC (
    data_width : INTEGER;
-   addr_width : INTEGER;
+   ram_size   : INTEGER;
    ramstyle   : STRING := "block_ram";
    init_file  : STRING := ""
 ); PORT (
@@ -290,6 +299,79 @@ PACKAGE BODY functions_pkg IS
       RETURN len;
    END;
 
+    ----------------------------------------------------------------
+    -- read hex number
+    ----------------------------------------------------------------
+-- pragma translate_off
+
+    PROCEDURE Char2QuadBits (c           : CHARACTER;
+                             result      : OUT UNSIGNED(3 DOWNTO 0);
+                             good        : OUT BOOLEAN;
+                             issue_error : IN  BOOLEAN) IS
+    BEGIN
+       CASE  C  IS
+          WHEN '0' => result :=  x"0"; good := TRUE;
+          WHEN '1' => result :=  x"1"; good := TRUE;
+          WHEN '2' => result :=  x"2"; good := TRUE;
+          WHEN '3' => result :=  x"3"; good := TRUE;
+          WHEN '4' => result :=  x"4"; good := TRUE;
+          WHEN '5' => result :=  x"5"; good := TRUE;
+          WHEN '6' => result :=  x"6"; good := TRUE;
+          WHEN '7' => result :=  x"7"; good := TRUE;
+          WHEN '8' => result :=  x"8"; good := TRUE;
+          WHEN '9' => result :=  x"9"; good := TRUE;
+          WHEN 'A' => result :=  x"A"; good := TRUE;
+          WHEN 'B' => result :=  x"B"; good := TRUE;
+          WHEN 'C' => result :=  x"C"; good := TRUE;
+          WHEN 'D' => result :=  x"D"; good := TRUE;
+          WHEN 'E' => result :=  x"E"; good := TRUE;
+          WHEN 'F' => result :=  x"F"; good := TRUE;
+
+          WHEN 'a' => result :=  x"A"; good := TRUE;
+          WHEN 'b' => result :=  x"B"; good := TRUE;
+          WHEN 'c' => result :=  x"C"; good := TRUE;
+          WHEN 'd' => result :=  x"D"; good := TRUE;
+          WHEN 'e' => result :=  x"E"; good := TRUE;
+          WHEN 'f' => result :=  x"F"; good := TRUE;
+          WHEN OTHERS => IF  issue_error  THEN
+                            ASSERT FALSE REPORT "HREAD Error: Read a '" & c & "', expected a Hex character (0-F).";
+                         END if;
+                         good := FALSE;
+          END CASE;
+    END;
+
+    PROCEDURE hread (l     : INOUT LINE;
+                     value : OUT   UNSIGNED) IS
+       VARIABLE ok : BOOLEAN;
+       VARIABLE c  : CHARACTER;
+       CONSTANT ne : INTEGER := value'length/4;
+       VARIABLE bv : UNSIGNED(0 to value'length-1);
+       VARIABLE s  : STRING(1 to ne-1);
+    BEGIN
+       IF  value'length mod 4 /= 0  THEN
+          ASSERT FALSE REPORT	"HREAD Error: Trying to read vector with an odd (non multiple of 4) length";
+          RETURN;
+       END IF;
+       LOOP					-- skip white space and ':'
+          read(l, c);
+          EXIT WHEN ((c /= ' ') AND (c /= CR) AND (c /= HT) AND (c /= ':'));
+       END LOOP;
+       Char2QuadBits(c, bv(0 TO 3), ok, TRUE);
+       IF  NOT ok  THEN  RETURN;  END IF;
+       read(l, s, ok);
+       IF  NOT ok  THEN
+          ASSERT FALSE REPORT "HREAD Error: Failed to read the STRING";
+          RETURN;
+       END IF;
+       FOR i IN 1 TO ne-1 LOOP
+          Char2QuadBits(s(i), bv(4*i to 4*i+3), ok, TRUE);
+          IF  NOT ok  THEN  RETURN;  END IF;
+       END LOOP;
+       value := bv;
+	 END hread;
+
+-- pragma translate_on
+
 END functions_pkg;
 
 -- ---------------------------------------------------------------------
@@ -361,7 +443,7 @@ END rtl;
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
 USE IEEE.NUMERIC_STD.ALL;
-USE work.functions_pkg.async_reset;
+USE work.functions_pkg.ASYNC_RESET;
 
 ENTITY debounce IS
 GENERIC (width : INTEGER);
@@ -380,7 +462,7 @@ BEGIN
 
 noglitch: PROCESS(clk, reset)
 BEGIN
-   IF  reset = '1' AND async_reset  THEN
+   IF  reset = '1' AND ASYNC_RESET  THEN
       sync <= '0';
       temp <= (OTHERS => '0');
    ELSIF  rising_edge(clk)  THEN
@@ -393,7 +475,7 @@ BEGIN
             sync <= '0';
          END IF;
       END IF;
-      IF  reset = '1' AND NOT async_reset  THEN
+      IF  reset = '1' AND NOT ASYNC_RESET  THEN
          sync <= '0';
          temp <= (OTHERS => '0');
       END IF;
@@ -409,7 +491,7 @@ END rtl;
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
 USE IEEE.NUMERIC_STD.ALL;
-USE work.functions_pkg.async_reset;
+USE work.functions_pkg.ASYNC_RESET;
 
 ENTITY debounce_n IS
 GENERIC (width : INTEGER);
@@ -428,7 +510,7 @@ BEGIN
 
 noglitch_n: PROCESS(clk, reset)
 BEGIN
-   IF  reset = '1' AND async_reset  THEN
+   IF  reset = '1' AND ASYNC_RESET  THEN
       sync <= '0';
       temp <= (OTHERS => '0');
    ELSIF  rising_edge(clk)  THEN
@@ -441,7 +523,7 @@ BEGIN
             sync <= '1';
          END IF;
       END IF;
-      IF  reset = '1' AND NOT async_reset  THEN
+      IF  reset = '1' AND NOT ASYNC_RESET  THEN
          sync <= '0';
          temp <= (OTHERS => '0');
       END IF;
@@ -457,7 +539,7 @@ END rtl;
 Library IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
 USE IEEE.NUMERIC_STD.ALL;
-USE work.functions_pkg.async_reset;
+USE work.functions_pkg.ASYNC_RESET;
 
 ENTITY edge IS
      PORT (reset   : IN  STD_LOGIC;
@@ -477,13 +559,13 @@ o <= output;
 
 risingedge: PROCESS(reset, clk)
 BEGIN
-   IF  reset = '1' AND async_reset  THEN
+   IF  reset = '1' AND ASYNC_RESET  THEN
       temp   <= '0';          -- temp
       output <= '0';          -- out
    ELSIF  rising_edge(clk)   THEN
       temp   <= i AND     (temp OR output);
       output <= i AND NOT (temp OR output);
-      IF  reset = '1' AND NOT async_reset  THEN
+      IF  reset = '1' AND NOT ASYNC_RESET  THEN
          temp   <= '0';       -- temp
          output <= '0';       -- out
       END IF;
@@ -499,7 +581,7 @@ END rtl;
 Library IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
 USE IEEE.NUMERIC_STD.ALL;
-USE work.functions_pkg.async_reset;
+USE work.functions_pkg.ASYNC_RESET;
 
 ENTITY edge_n IS
      PORT (reset   : IN  STD_LOGIC;
@@ -519,13 +601,13 @@ o   <= output;
 
 fallingedge: PROCESS(reset, clk)
 BEGIN
-   IF  reset = '1' AND async_reset  THEN
+   IF  reset = '1' AND ASYNC_RESET  THEN
       temp   <= '1';          -- temp
       output <= '0';          -- out
    ELSIF  rising_edge(clk)   THEN
       temp   <= NOT i AND     (temp OR output);
       output <= NOT i AND NOT (temp OR output);
-      IF  reset = '1' AND NOT async_reset  THEN
+      IF  reset = '1' AND NOT ASYNC_RESET  THEN
          temp   <= '1';       -- temp
          output <= '0';       -- out
       END IF;
@@ -545,18 +627,18 @@ USE work.functions_pkg.ALL;
 
 ENTITY asynch_dpram IS
 GENERIC (data_width  : INTEGER;
-         addr_width  : INTEGER);
+         ram_size    : INTEGER);
 PORT (clk   : IN  STD_LOGIC;
       we    : IN  STD_LOGIC;
-      waddr : IN  UNSIGNED(addr_width-1 DOWNTO 0);
+      waddr : IN  UNSIGNED(log2(ram_size)-1 DOWNTO 0);
       di    : IN  UNSIGNED(data_width-1 DOWNTO 0);
-      raddr : IN  UNSIGNED(addr_width-1 DOWNTO 0);
+      raddr : IN  UNSIGNED(log2(ram_size)-1 DOWNTO 0);
       do    : OUT UNSIGNED(data_width-1 DOWNTO 0));
 END asynch_dpram;
 
 ARCHITECTURE inference_model OF asynch_dpram IS
 
-TYPE ram_type IS ARRAY (2**addr_width-1 DOWNTO 0) OF UNSIGNED(data_width-1 DOWNTO 0);
+TYPE ram_type IS ARRAY (ram_size-1 DOWNTO 0) OF UNSIGNED(data_width-1 DOWNTO 0);
 
 SIGNAL ram : ram_type;
 
@@ -586,17 +668,17 @@ USE work.functions_pkg.ALL;
 
 ENTITY asynch_ram IS
 GENERIC (data_width  : INTEGER;
-         addr_width  : INTEGER);
+         ram_size    : INTEGER);
 PORT (clk   : IN  STD_LOGIC;
       we    : IN  STD_LOGIC;
-      addr  : IN  UNSIGNED(addr_width-1 DOWNTO 0);
+      addr  : IN  UNSIGNED(log2(ram_size)-1 DOWNTO 0);
       di    : IN  UNSIGNED(data_width-1 DOWNTO 0);
       do    : OUT UNSIGNED(data_width-1 DOWNTO 0));
 END asynch_ram;
 
 ARCHITECTURE inference_model OF asynch_ram IS
 
-TYPE ram_type IS ARRAY (2**addr_width-1 DOWNTO 0) OF UNSIGNED(data_width-1 DOWNTO 0);
+TYPE ram_type IS ARRAY (ram_size-1 DOWNTO 0) OF UNSIGNED(data_width-1 DOWNTO 0);
 
 SIGNAL ram : ram_type;
 
@@ -631,14 +713,14 @@ USE work.functions_pkg.ALL;
 
 ENTITY internal_ram IS GENERIC (
    data_width : INTEGER;
-   addr_width : INTEGER;
+   ram_size   : INTEGER;
    ramstyle   : STRING;
    init_file  : STRING
 ); PORT (
    clk   : IN    STD_LOGIC;
    en    : IN    STD_LOGIC;
    we    : IN    STD_LOGIC;
-   addr  : IN    UNSIGNED(addr_width-1 DOWNTO 0);
+   addr  : IN    UNSIGNED(log2(ram_size)-1 DOWNTO 0);
    di    : IN    UNSIGNED(data_width-1 DOWNTO 0);
    do    : OUT   UNSIGNED(data_width-1 DOWNTO 0)
 ); END internal_ram;
@@ -647,7 +729,10 @@ ARCHITECTURE inference_model OF internal_ram IS
 
 ATTRIBUTE syn_ramstyle : STRING;
 
-TYPE ram_type IS ARRAY (2**addr_width-1 DOWNTO 0) OF UNSIGNED(data_width-1 DOWNTO 0);
+TYPE ram_type IS ARRAY (ram_size-1 DOWNTO 0) OF UNSIGNED(data_width-1 DOWNTO 0);
+
+SIGNAL ram        : ram_type; ATTRIBUTE syn_ramstyle OF ram : SIGNAL IS ramstyle;
+SIGNAL addr_d     : UNSIGNED(log2(ram_size)-1 DOWNTO 0);
 
 CONSTANT data_hex : INTEGER := next_quad(data_width);
 
@@ -660,9 +745,7 @@ initialized_ram: PROCESS(clk)
 	VARIABLE char    : character;
 	VARIABLE adr     : UNSIGNED(15 DOWNTO 0);
 	VARIABLE buf     : UNSIGNED(data_hex-1 DOWNTO 0);
-	VARIABLE loc     : INTEGER RANGE 0 TO 2**addr_width+1;
-   VARIABLE addr_d  : UNSIGNED(addr_width-1 DOWNTO 0);
-   VARIABLE ram     : ram_type; ATTRIBUTE syn_ramstyle OF ram : VARIABLE IS ramstyle;
+	VARIABLE loc     : INTEGER RANGE 0 TO ram_size+1;
 BEGIN
 -- pragma translate_off
 	IF  first AND init_file /= ""  THEN
@@ -678,11 +761,11 @@ BEGIN
             LOOP
 					IF  l'length < (data_hex / 4)  THEN  EXIT; END IF;
             	hread(l, buf);  -- read 16 bit addresses = 4 hex digits
-               ram(loc) := buf(data_width-1 DOWNTO 0);
+               ram(loc) <= buf(data_width-1 DOWNTO 0);
                loc := loc + 1;
-               IF  loc >= (2**addr_width)  THEN  EXIT;  END IF;
+               IF  loc >= ram_size  THEN  EXIT;  END IF;
             END LOOP;
-            IF  loc >= (2**addr_width)  THEN  EXIT;  END IF;
+            IF  loc >= ram_size  THEN  EXIT;  END IF;
          END IF;
       END LOOP;
 		file_close(tcf);
@@ -691,9 +774,9 @@ BEGIN
 -- pragma translate_on
       IF  rising_edge(clk)   THEN
          IF  en = '1'  THEN
-            addr_d := addr;
+            addr_d <= addr;
             IF  we = '1'  THEN
-               ram(to_integer(addr)) := di;
+               ram(to_integer(addr)) <= di;
             END IF;
          END IF;
       END IF;
@@ -721,19 +804,19 @@ USE work.functions_pkg.ALL;
 
 ENTITY internal_dpram IS GENERIC (
    data_width : INTEGER;
-   addr_width : INTEGER;
+   ram_size   : INTEGER;
    ramstyle   : STRING;
    init_file  : STRING
 ); PORT (
    clk   : IN    STD_LOGIC;
    ena   : IN    STD_LOGIC;
    wea   : IN    STD_LOGIC;
-   addra : IN    UNSIGNED(addr_width-1 DOWNTO 0);
+   addra : IN    UNSIGNED(log2(ram_size)-1 DOWNTO 0);
    dia   : IN    UNSIGNED(data_width-1 DOWNTO 0);
    doa   : OUT   UNSIGNED(data_width-1 DOWNTO 0);
    enb   : IN    STD_LOGIC;
    web   : IN    STD_LOGIC;
-   addrb : IN    UNSIGNED(addr_width-1 DOWNTO 0);
+   addrb : IN    UNSIGNED(log2(ram_size)-1 DOWNTO 0);
    dib   : IN    UNSIGNED(data_width-1 DOWNTO 0);
    dob   : OUT   UNSIGNED(data_width-1 DOWNTO 0)
 ); END internal_dpram;
@@ -742,7 +825,11 @@ ARCHITECTURE inference_model OF internal_dpram IS
 
 ATTRIBUTE syn_ramstyle : STRING;
 
-TYPE ram_type IS ARRAY (2**addr_width-1 DOWNTO 0) OF UNSIGNED(data_width-1 DOWNTO 0);
+TYPE ram_type IS ARRAY (ram_size-1 DOWNTO 0) OF UNSIGNED(data_width-1 DOWNTO 0);
+
+SIGNAL ram        : ram_type; ATTRIBUTE syn_ramstyle OF ram : SIGNAL IS ramstyle;
+SIGNAL addra_d    : UNSIGNED(log2(ram_size)-1 DOWNTO 0);
+SIGNAL addrb_d    : UNSIGNED(log2(ram_size)-1 DOWNTO 0);
 
 CONSTANT data_hex : INTEGER := next_quad(data_width);
 
@@ -755,10 +842,7 @@ initialized_ram: PROCESS(clk)
 	VARIABLE char    : character;
 	VARIABLE adr     : UNSIGNED(15 DOWNTO 0);
 	VARIABLE buf     : UNSIGNED(data_hex-1 DOWNTO 0);
-	VARIABLE loc     : INTEGER RANGE 0 TO 2**addr_width+1;
-   VARIABLE addra_d : UNSIGNED(addr_width-1 DOWNTO 0);
-   VARIABLE addrb_d : UNSIGNED(addr_width-1 DOWNTO 0);
-   VARIABLE ram     : ram_type; ATTRIBUTE syn_ramstyle OF ram : VARIABLE IS ramstyle;
+	VARIABLE loc     : INTEGER RANGE 0 TO ram_size+1;
 BEGIN
 -- pragma translate_off
 	IF  first AND init_file /= ""  THEN
@@ -774,11 +858,11 @@ BEGIN
             LOOP
 					IF  l'length < (data_hex / 4)  THEN  EXIT; END IF;
             	hread(l, buf);  -- read 16 bit addresses = 4 hex digits
-               ram(loc) := buf(data_width-1 DOWNTO 0);
+               ram(loc) <= buf(data_width-1 DOWNTO 0);
                loc := loc + 1;
-               IF  loc >= (2**addr_width)  THEN  EXIT;  END IF;
+               IF  loc >= ram_size  THEN  EXIT;  END IF;
             END LOOP;
-            IF  loc >= (2**addr_width)  THEN  EXIT;  END IF;
+            IF  loc >= ram_size  THEN  EXIT;  END IF;
          END IF;
       END LOOP;
 		file_close(tcf);
@@ -787,15 +871,15 @@ BEGIN
 -- pragma translate_on
       IF  rising_edge(clk)   THEN
          IF  ena = '1'  THEN
-            addra_d := addra;
+            addra_d <= addra;
             IF  wea = '1'  THEN
-               ram(to_integer(addra)) := dia;
+               ram(to_integer(addra)) <= dia;
             END IF;
          END IF;
          IF  enb = '1'  THEN
-            addrb_d := addrb;
+            addrb_d <= addrb;
             IF  web = '1'  THEN
-               ram(to_integer(addrb)) := dib;
+               ram(to_integer(addrb)) <= dib;
             END IF;
          END IF;
       END IF;
@@ -836,10 +920,12 @@ ARCHITECTURE sim_model OF external_ram IS
 
 TYPE ram_type IS ARRAY (2**addr_width-1 DOWNTO 0) OF UNSIGNED(data_width-1 DOWNTO 0);
 
-CONSTANT data_hex : INTEGER := next_quad(data_width);
+SIGNAL ram        : ram_type;
 SIGNAL addr_i     : UNSIGNED(addr_width-1 DOWNTO 0);
 SIGNAL ce         : STD_LOGIC;
 SIGNAL din        : UNSIGNED(data_width-1 DOWNTO 0);
+
+CONSTANT data_hex : INTEGER := next_quad(data_width);
 
 BEGIN
 
@@ -855,7 +941,6 @@ initialized_ram: PROCESS(ce, oe_n, we_n, addr_i, din)
 	VARIABLE adr   : UNSIGNED(15 DOWNTO 0);
 	VARIABLE buf   : UNSIGNED(data_hex-1 DOWNTO 0);
 	VARIABLE loc   : INTEGER RANGE 0 TO 2**addr_width+1;
-   VARIABLE ram   : ram_type;
 BEGIN
 -- pragma translate_off
 	IF  first AND init_file /= ""  THEN
@@ -871,7 +956,7 @@ BEGIN
             LOOP
 					IF  l'length < (data_hex / 4)  THEN  EXIT; END IF;
             	hread(l, buf);  -- read 16 bit addresses = 4 hex digits
-               ram(loc) := buf(data_width-1 DOWNTO 0);
+               ram(loc) <= buf(data_width-1 DOWNTO 0);
                loc := loc + 1;
 --               l := NEW string'("."); writeline(output, l);
                IF  loc >= (2**addr_width)  THEN  EXIT;  END IF;
@@ -886,7 +971,7 @@ BEGIN
       data <= (OTHERS => 'Z');
       IF  ce = '1'  THEN
          IF  rising_edge(we_n)  THEN
-            ram(to_integer(addr_i)) := din;
+            ram(to_integer(addr_i)) <= din;
          END IF;
          IF  we_n = '1' AND oe_n = '0'  THEN
             data <= ram(to_integer(addr_i));
@@ -912,7 +997,7 @@ END sim_model;
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
 USE IEEE.NUMERIC_STD.ALL;
-USE work.functions_pkg.async_reset;
+USE work.functions_pkg.ASYNC_RESET;
 
 ENTITY monoflop IS
 GENERIC (ptime : integer := 10000000);  -- Pulsdauer in clk Perioden
@@ -933,7 +1018,7 @@ BEGIN
 
 p_trg_pulse : PROCESS(clk, reset)
 BEGIN
-   IF  reset = '1' AND async_reset  THEN
+   IF  reset = '1' AND ASYNC_RESET  THEN
       inrt_L  <= '0';
       inrt_LL <= '0';
       inrt_P  <= '0';
@@ -941,7 +1026,7 @@ BEGIN
       inrt_L  <= inrt;
       inrt_LL <= inrt_L;
       inrt_P  <= inrt_L XOR inrt_LL;
-      IF  reset = '1' AND NOT async_reset  THEN
+      IF  reset = '1' AND NOT ASYNC_RESET  THEN
          inrt_L  <= '0';
          inrt_LL <= '0';
          inrt_P  <= '0';
@@ -951,7 +1036,7 @@ END PROCESS;
 
 p_cnt : PROCESS(clk, reset)
 BEGIN
-   IF  reset = '1' AND async_reset  THEN
+   IF  reset = '1' AND ASYNC_RESET  THEN
       pcnt <= 1;
       pout <= '1';
    ELSIF rising_edge(clk) THEN
@@ -963,7 +1048,7 @@ BEGIN
       ELSE
          pcnt <= pcnt + 1;
       END IF;
-      IF  reset = '1' AND NOT async_reset  THEN
+      IF  reset = '1' AND NOT ASYNC_RESET  THEN
          pcnt <= 1;
          pout <= '1';
       END IF;
@@ -980,7 +1065,7 @@ END behavior;
 LIBRARY IEEE;
 USE ieee.std_logic_1164.all;
 USE ieee.NUMERIC_STD.all;
-USE work.functions_pkg.async_reset;
+USE work.functions_pkg.ASYNC_RESET;
 
 ENTITY fifo IS GENERIC (
    width    : NATURAL;
@@ -1030,7 +1115,7 @@ END PROCESS make_addr_proc;
 
 fifo_reg_proc : PROCESS(clk, reset)
 BEGIN
-   IF  reset = '1' AND async_reset  THEN
+   IF  reset = '1' AND ASYNC_RESET  THEN
 		cnt <= 0;
 		write_ptr <= 0;
 		read_ptr  <= 0;
@@ -1055,7 +1140,7 @@ BEGIN
 				cnt <= cnt;
 			END IF;
 		END IF;
-		IF  reset = '1' AND NOT async_reset  THEN
+		IF  reset = '1' AND NOT ASYNC_RESET  THEN
 			cnt <= 0;
 			write_ptr <= 0;
 			read_ptr  <= 0;
