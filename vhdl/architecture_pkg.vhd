@@ -2,7 +2,7 @@
 -- @file : architecture_pkg.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 10.04.2021 17:57:20
+-- Last change: KS 27.08.2021 19:20:26
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -34,7 +34,7 @@ USE work.functions_pkg.ALL;
 PACKAGE architecture_pkg IS
 --~--  \ when loaded by the microForth cross-compiler, code between "--~" up to "--~--" will be skipped.
 
-CONSTANT version            : NATURAL := 2320; -- <major_release><functionality_added><HW_fix><SW_fix>
+CONSTANT version            : NATURAL := 2331; -- <major_release> <functionality_added> <HW_fix> <SW_fix> <pre-release#>
 
 -- ---------------------------------------------------------------------
 -- Configuration flags

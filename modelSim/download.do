@@ -22,7 +22,7 @@ add wave -noupdate /bench/myFPGA/uCore/debug_unit/addr_ptr
 add wave -noupdate /bench/myFPGA/uCore/debug_unit/addr_ctr
 add wave -noupdate /bench/myFPGA/uCore/debug_unit/deb_drequest
 add wave -noupdate /bench/myFPGA/uCore/debug_unit/deb_denable
-add wave -noupdate /bench/myFPGA/uCore/dcache_en
+add wave -noupdate /bench/myFPGA/internal_data_mem/enable
 add wave -noupdate /bench/myFPGA/uCore/memory.write
 add wave -noupdate /bench/myFPGA/uCore/memory.addr
 add wave -noupdate /bench/myFPGA/uCore/memory.wdata

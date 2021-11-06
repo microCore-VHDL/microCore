@@ -2,7 +2,7 @@
 -- @file : uCntrl.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 10.04.2021 17:27:16
+-- Last change: KS 26.08.2021 22:47:00
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -325,7 +325,7 @@ BEGIN
    ELSIF  rising_edge(clk)  THEN
       tick <= '0';
       IF  time_ctr = 0  THEN
-         IF  SIMULATION  THEN  time_ctr <= time_cnt/100;  ELSE  time_ctr <= time_cnt;  END IF;
+         IF  SIMULATION  THEN  time_ctr <= time_cnt/10;  ELSE  time_ctr <= time_cnt;  END IF;
          time <= time + 1;
          tick <= '1';
       ELSE
@@ -689,6 +689,11 @@ BEGIN
 -- data memory access
 -- ---------------------------------------------------------------------
 
+      WHEN op_MEM2TOR => IF  addr_rstack < addr_extern  THEN       -- needed for procedure pop_rstack
+                            r_in.tor <= mem_rdata;
+                            r_in.status(s_lit) <= r.status(s_lit); -- I have no recollection why this is necessary - ks
+                         END IF;
+
       WHEN op_MEM2NOS => r_in.nos <= mem_rdata;
 
       WHEN op_LOAD  => push_stack;
@@ -710,11 +715,6 @@ BEGIN
                           set_opcode(op_MEM2NOS);
                        END IF;
 
-      WHEN op_MEM2TOR => IF  addr_rstack < addr_extern  THEN       -- needed for procedure pop_rstack
-                            r_in.tor <= mem_rdata;
-                            r_in.status(s_lit) <= r.status(s_lit); -- I have no recollection why this is necessary - ks
-                         END IF;
-
       WHEN op_STORE => pop_stack;
                        r_in.tos <= r.tos;
                        mem_wr <= '1';
@@ -728,19 +728,10 @@ BEGIN
 
                           ELSIF  DSP_REG = reg_addr  THEN
                              r_in.dsp <= r.nos(r.dsp'range);
-                             ds_addr  <= r.nos(r.dsp'range);
+                             ds_addr  <= r.nos(ds_addr'range);
 
                           ELSIF  RSP_REG = reg_addr  THEN
-                             mem_wr <= '0';
-                             mem_addr <= r.nos(mem_addr'range);
                              r_in.rsp <= r.nos(r.rsp'range);
-                             IF  addr_rstack < addr_extern  THEN
-                                mem_en <= '1';
-                                set_opcode(op_MEM2TOR);
-                             ELSE -- external memory
-                                ext_en <= '1';
-                                r_in.tor <= mem_rdata;
-                             END IF;
                           END IF;
 
                        ELSIF  asyncRAM  THEN -- external memory
@@ -758,9 +749,11 @@ BEGIN
                           IF  registers  THEN
                              reg_en <= '1';
                              r_in.tos <= sources(reg_addr);
+
                              IF  STATUS_REG = reg_addr  THEN
                                 r_in.tos(s_lit) <= '0';
                              END IF;
+
                           ELSIF  asyncRAM  THEN
                              ext_en <= '1';
                              r_in.tos <= mem_rdata;

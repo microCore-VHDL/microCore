@@ -2,7 +2,7 @@
 \ @file : library.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 05.04.2021 16:47:46
+\ Last change: KS 21.07.2021 17:06:40
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -85,16 +85,18 @@ Forth definitions
    cell+ cell+ dup @ current !
    cell+ dup @ dup >r cells + r> 1+ 0 DO  dup @ swap cell-  LOOP drop   set-order
 ;
-: load-libgroup  ( pfa -- )  Current @ >r
-   Libload on   push-file   @ >libgroup   ['] read-loop catch
-   Loadfile @ close-file   pop-file throw   Libload off  throw
-   r> Current !
+: load-libgroup  ( pfa -- )
+   Current @ >r   Libload on   push-file   @ >libgroup
+   ['] read-loop catch
+   Loadfile @ close-file   pop-file throw   Libload off   r> Current !
+                        throw
 ;
 \ Tmarker: | here | there | depth | current | 6 cells save-input stream | \ defined in microcross.fs
 :noname  ( -- )
    Tmarker   here over !  cell+ there over !                 
-   cell+ depth 1- over !  cell+ Current @ over !
-   cell+ >r   -2 >in +!  save-input  2 >in +!                \ back up to re-interpret : after restore-target
+   cell+ depth 1- over !  cell+ Current @ over !   cell+ >r
+   Deflength @ negate >in +!  save-input                     \ back up to re-interpret : after restore-target
+   Deflength @ >in +!   2 Deflength !
    r> over 1+ 0 DO  tuck ! cell+  LOOP  drop
 ; IS mark-target
 
@@ -106,13 +108,13 @@ Forth definitions
    cell+ dup @ dup cells rot +
    swap 1+ 0 DO  dup @ swap cell- LOOP  drop
    restore-input throw                                       \ restore input stream
-   here Init-link @ u<
-   IF  -4 >in +!  Init-link @ @ Init-link !  THEN            \ restore init: source definition
+   here Init-link @ u< IF  Init-link @ @ Init-link !  THEN   \ restore init: source definition
 ;
 Variable Rsave
 
-: ?libloading  ( -- )   Libload @
-   IF  Verbose @ IF  ." trashed "  THEN
+: ?libloading  ( -- )
+   Tcp @ Tcp-origin @ u< abort" no library loading in TRAP: area"
+   Libload @ IF  Verbose @ IF  ." discard "  THEN
        r>   Rsave @ BEGIN  rdepth over - WHILE  rdrop  REPEAT  drop >r \ throw away push-file parameters
        Loadfile @ close-file throw
    EXIT THEN
@@ -121,17 +123,17 @@ Variable Rsave
 Variable Tcp-last  0 Tcp-last !
 
 : exec-libdef  ( pfa -- )
-   Verbose @ IF  cr ." libexec   " dup cell- cell- >name .name  THEN
+   Verbose @ IF  cr ." libexec   " dup .wordname  THEN
    rdepth 1- Rsave !                                        \ Rsave for ?libloading
    dbg? IF  Tcp-last @ 0= IF  there Tcp-last !  THEN THEN   \ Tcp-last in case of nested library loads
-   dup 2 cells - >name name>string nip 1+ >in @ min         \ Determine length of token+1
+   dup body> >name name>string nip 1+ >in @ min             \ Determine length of token+1
    Tmarker   here over !   cell+   there over !             \ Update here and there in Tmarker
    cell+   depth 3 - over !   cell+ Current @ over !        \ update depth and Current in Tmarker
    cell+ >r >r r@ negate >in +!  save-input   r> >in +!     \ Save input beginning at token
    r> over 1+ 0 DO  tuck ! cell+ LOOP  drop                 \ Update input stream in Tmarker
    dup load-libgroup
    dbg? IF  Tcp-last @ there over - false send-image   0 Tcp-last !  THEN  \ Transfer into the target
-   cell- cell- >name name>string
+   body> >name name>string
    find-name ?dup 0= abort" can not find "
    Verbose @ IF  ." exec "  THEN
    name>int execute                                         \ execute newly loaded word
@@ -144,8 +146,8 @@ Variable Tcp-last  0 Tcp-last !
    Create   Libgroup @ ,   0 , ( will link into e.g. colons when actually loaded )
 Does> ( -- )  [ here (doLibdef ! ]
    ?libloading   exec? IF  exec-libdef  EXIT THEN
-   Verbose @ IF  cr ." libload   " dup cell- cell- >name .name  THEN
-   >r restore-target r>   rdepth Rsave !   load-libgroup .loaded
+   Verbose @ IF  cr ." libload   " dup .wordname  THEN
+   >r restore-target r> rdepth Rsave !   load-libgroup .loaded
 ;
 \ ----------------------------------------------------------------------
 \ Library loading
@@ -158,8 +160,8 @@ Does> ( -- )  [ here (doLibdef ! ]
 Create ";  ( -- saddr )  ," ;"
 
 : scan-for-;  ( -- )
-   BEGIN  BEGIN  BL word dup c@ 0= WHILE  drop refill 0= throw  REPEAT
-          count   "; count   compare 0=
+   BEGIN  BEGIN  name ?dup 0= WHILE  drop refill 0= throw  REPEAT
+          "; count   compare 0=
    UNTIL
 ;
 : host-loop ( i*x -- j*x )    BEGIN  interpret refill 0= UNTIL ;
@@ -172,6 +174,7 @@ Predefined definitions Forth
 ' order              Alias order
 ' (                  Alias ( immediate
 ' \                  Alias \ immediate
+' \*                 Alias \* immediate
 ' \\                 Alias \\
 ' .(                 Alias .(
 ' cr                 Alias cr
@@ -181,6 +184,8 @@ Predefined definitions Forth
 ' [NOTIF]            Alias [NOTIF]
 ' [ELSE]             Alias [ELSE]
 ' [THEN]             Alias [THEN]
+' [IFDEF]            Alias [IFDEF]
+' [IFUNDEF]          Alias [IFUNDEF]
 ' true               Alias true
 ' false              Alias false
 ' 0=                 Alias 0=
@@ -211,6 +216,7 @@ P ' : H      Alias Macro:
 ' Libdef     Alias Variable
 ' Libdef     Alias Constant
 ' Libdef     Alias Task
+' Libdef     Alias Semaphore
 
 \ ----------------------------------------------------------------------
 \ Loading host stuff during precompilation
@@ -224,7 +230,7 @@ P ' : H      Alias Macro:
 Target definitions Forth
 
 : library  ( <name> -- )    depth Libdepth !
-   parse-name dup 0= abort" file name required"
+   name dup 0= abort" file name required"
    here   dup Libfile !   over 1+ allot   place    \ store path/file name
    context> >r   ['] pre-compiler IS parser
    Libfile @ count ['] included catch

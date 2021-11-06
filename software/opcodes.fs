@@ -2,7 +2,7 @@
 \ @file : opcodes.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 05.04.2021 16:48:08
+\ Last change: KS 26.08.2021 18:52:12
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -52,7 +52,7 @@ op_LOCAL       Op: local   ( rel -- addr )    don't
 \ data memory
 op_LOAD        Op: ld     ( addr -- n addr )  don't
 op_STORE       Op: st     ( n addr -- addr )  don't
-            Macro: !      ( n addr -- )       ?comp T st drop H ;
+            Macro: !      ( n addr -- )       comp? dbg? or IF T st drop H EXIT THEN  d! ;
 
 \ program memory
 op_PLOAD       Op: pLD    ( addr -- b addr )  don't
@@ -140,14 +140,14 @@ op_STSET       Op: st-set      ( mask -- )    don't
 EXTENDED [IF]
 
    op_NIP         Op: nip     ( 1 2 -- 2 )           nip
-   op_TUCK        Op: tuck    ( 1 2 -- 2 1 2 )       don't
+   op_TUCK        Op: tuck    ( 1 2 -- 2 1 2 )       tuck
    op_UNDER       Op: under   ( 1 2 -- 1 1 2 )       don't
    op_RDROP       Op: rdrop   ( -- )                 don't
    op_INDEX       Op: I       ( -- i )               don't
                                                     
-   op_FETCH       Op: @       ( addr -- u )          don't
+   op_FETCH       Op: @       ( addr -- u )          d@
    op_PLUSST      Op: +st     ( n addr -- addr )     don't                \ indivisible read-modify-write instruction
-               Macro: +!      ( n addr -- )          ?comp T +st drop H ;
+               Macro: +!      ( n addr -- )          comp? IF T +st drop H EXIT THEN  +! ;
    op_FLAGQ       Op: flag?   ( mask -- f )          don't
                                                     
    op_NZEXIT      Op: nz-exit ( f -- )               don't
@@ -169,7 +169,7 @@ EXTENDED [IF]
    Macro: tuck    ( 1 2 -- 2 1 2 )   comp? IF T swap over H EXIT THEN  swap over ;
    Macro: under   ( 1 2 -- 1 1 2 )   comp? IF T over swap H EXIT THEN  over swap ;
    Macro: rdrop   ( -- )             ?comp T r> drop H ;
-   Macro: @       ( addr -- u )      ?comp T ld drop H ;
+   Macro: @       ( addr -- u )      comp? IF T ld drop H EXIT THEN  d@ ;
 
 [THEN]
 
@@ -220,9 +220,10 @@ Macro: >host   ( w -- )           ?comp DEBUG_REG lit, T ! H ;
 Macro: ctrl    ( -- reg )         ?comp CTRL_REG lit, ;
 Macro: -ctrl   ( n -- -n reg )    ?comp T not H CTRL_REG lit, ;
 
-Macro: >rstack ( rsp -- )         ?comp RSP_REG lit, T ! r> drop H ;
+Macro: >rstack ( rsp -- )         ?comp RSP_REG lit, T ! rdrop H ;
 Macro: dstack> ( -- dsp )         ?comp DSP_REG lit, T dup @ nip H ;
 Macro: >dstack ( dsp -- )         ?comp DSP_REG lit, T ! drop H ;
 
 Macro: time    ( -- time )        ?comp TIME_REG lit, T @ H ;
 Macro: ahead   ( ticks -- time )  ?comp T time + H ;
+

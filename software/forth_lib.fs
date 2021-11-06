@@ -2,7 +2,7 @@
 \ @file : forth.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 05.04.2021 16:47:22
+\ Last change: KS 17.06.2021 18:47:26
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -66,7 +66,7 @@ Target
 ~ : u+sat      ( u n -- u' )      swap #signbit tuck xor rot +sat xor ;
 
 ~ : 2@      ( addr -- d )         ld 1+ @ swap ;
-  Host: 2@  ( addr -- d )         comp? dbg? or IF T 2@ H EXIT THEN  dup d@  swap 1+ d@ dtarget ;
+  Host: 2@  ( addr -- d )         comp? dbg? or IF T 2@ H EXIT THEN  dup 1+ d@  swap d@ dtarget ;
 ~ : 2!      ( d addr -- )         st 1+ ! ;
   Host: 2!  ( d addr -- )         comp? dbg? or IF T 2! H EXIT THEN  >r d>target r@ d!  r> 1+ d! ;
 ~ : m+      ( d n -- d )          extend ; noexit                    \ fall into d+
@@ -141,7 +141,7 @@ Target
 
    ~ : /mod    ( n1 n2 -- rem quot )     swap extend rot ; noexit    \ fall into m/mod
      : m/mod   ( d n -- rem quot )       sdivide ;
-   ~ : sqrt     ( u -- urem uroot )   uroot ;
+   ~ : sqrt     ( u -- urem uroot )      uroot ;
 
 ~ [ELSE]
 
@@ -185,20 +185,23 @@ Target
    ;
 ~ [THEN]
 
-~ : inc     ( addr -- )         1 swap +! ;
-~ : dec     ( addr -- )        -1 swap +! ;
-~ : on      ( addr -- )        -1 swap ! ;
-~ : off     ( addr -- )         0 swap ! ;
-~ : erase   ( addr len -- )     0 ; noexit  \ fall into fill
-  : fill    ( addr len u -- )   -rot ?FOR  under st 1+  NEXT  2drop ;
-~ : move    ( addr_from addr_to ucount -- )
+~ : inc      ( addr -- )         1 swap +! ;
+~ : dec      ( addr -- )        -1 swap +! ;
+~ : on       ( addr -- )        -1 swap ! ;
+~ : off      ( addr -- )         0 swap ! ;
+~ : erase    ( addr len -- )     0 ; noexit  \ fall into fill
+  : fill     ( addr len u -- )   -rot ?FOR  under st 1+  NEXT  2drop ;
+~ : move     ( addr_from addr_to ucount -- )
      >r 2dup u< IF ( cmove> )
         r@ + swap r@ +  r> ?FOR  1- ld -rot  swap 1- st  swap  NEXT
-     ELSE   ( cmove )
+     ELSE    ( cmove )
          1 - swap  1 -  r> ?FOR  1+ ld -rot  swap 1+ st  swap  NEXT
      THEN  2drop
   ;
-~ : place   ( addr len to -- )  over swap st 1+ swap move ;
+~ : place    ( addr len to -- )  over swap st 1+ swap move ;
+
+~ : ,        ( n -- )  here ! 1 allot ;
+  Host: ,    ( n -- )  comp? dbg? or IF T , H EXIT THEN Tdp @ d!   1 Tdp +! ;
 
 ~ : sleep    ( n -- )           ahead | ; noexit   \ fall into continue
   : continue ( time -- )        BEGIN  dup time? UNTIL drop ;

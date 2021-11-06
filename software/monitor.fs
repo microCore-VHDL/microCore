@@ -2,7 +2,7 @@
 \ @file : monitor.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 05.04.2021 16:47:58
+\ Last change: KS 17.07.2021 18:23:34
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -60,11 +60,17 @@ Variable tmpStatus
 : depth    ( -- depth )   Dsp @ [ #ds-depth 1- ] Literal and ;
 
 : copyds  ( -- )   depth   dup >host
-   dup ?FOR  swap r> swap >r >r  NEXT
+   dup ?FOR  swap r> swap >r >r         NEXT
        ?FOR  r> r>  swap >r  dup >host  NEXT
 ;
+Variable tmpTOR
+
+: saveTOR     ( -- )          r> r> tmpTOR ! >r ;
+: restoreTOR  ( -- )          r> tmpTOR @ >r >r ;
+
 : \>host  ( n -- )            >host ;
 : \host>  ( -- n )            host> ;
 : \@      ( addr -- n )       @ ;
 : \!      ( n addr -- )       ! ;
 : \does   ( addr -- addr+1 )  H op_DOES t, T ;
+

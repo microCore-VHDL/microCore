@@ -2,7 +2,7 @@
 -- @file : bench.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 24.03.2021 17:41:32
+-- Last change: KS 04.11.2021 17:34:48
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -48,7 +48,7 @@ CONSTANT progload   : STD_LOGIC := '0'; -- use sim_progload.fs   progload.do   M
 CONSTANT debug      : STD_LOGIC := '0'; -- use sim_debug.fs      debug.do      MEM_FILE := "../software/program.mem" 155 usec
 CONSTANT handshake  : STD_LOGIC := '0'; -- use sim_handshake.fs  handshake.do  MEM_FILE := "../software/program.mem" 320 usec
 CONSTANT upload     : STD_LOGIC := '0'; -- use sim_upload.fs     upload.do     MEM_FILE := "../software/program.mem" 260 usec
-CONSTANT download   : STD_LOGIC := '0'; -- use sim_updown.fs     download.do   MEM_FILE := "../software/program.mem" 205 usec
+CONSTANT download   : STD_LOGIC := '0'; -- use sim_download.fs   download.do   MEM_FILE := "../software/program.mem" 205 usec
 CONSTANT break      : STD_LOGIC := '0'; -- use sim_break.fs      break.do      MEM_FILE := "../software/program.mem" 260 usec
 
 COMPONENT fpga PORT (

@@ -2,7 +2,7 @@
 \ @file : messages.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 10.04.2021 18:29:04
+\ Last change: KS 04.06.2021 16:15:57
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -64,14 +64,15 @@ Forth definitions
 \ ----------------------------------------------------------------------
 SIMULATION [IF] Target definitions Forth
 
+   : here  ( -- addr )      ?exec Tdp @ ;
+   : allot ( n -- )         ?exec Tdp +! ;
+   
    : .     ( n -- )         ?exec  . ;
    : .r    ( n u -- )       ?exec .r ;
    : u.    ( u -- )         ?exec tu. ;
    : d.    ( d -- )         ?exec d. ;
    : ud.   ( ud -- )        ?exec ud. ;
    : cr    ( -- )           ?exec cr ;
-   : here  ( -- addr )      ?exec Tdp @ ;
-   : allot ( n -- )         ?exec Tdp +! ;
    : emit  ( char -- )      ?exec emit ;
    : $.    ( u -- )         ?exec $. ;
    : &.    ( n -- )         ?exec &. ;
@@ -94,20 +95,16 @@ Forth definitions
    $104 Message# #ddot
    $105 Message# #uddot
    $106 Message# #cret
-   $107 Message# #here
-   $108 Message# #allot
-   $109 Message# #emit
+   $107 Message# #emit
 
    : do-messages  ( n -- )
       dup #signbit and IF  State off cr .error                       EXIT THEN
       #dot       case? IF  target> signextend .                      EXIT THEN
       #udot      case? IF  target> tu.                               EXIT THEN
       #dotr      case? IF  target> target> signextend swap .r space  EXIT THEN
-      #ddot      case? IF  target> target> dtarget d.                EXIT THEN
-      #uddot     case? IF  target> target> udtarget ud.              EXIT THEN
+      #ddot      case? IF  target> target> swap dtarget d.           EXIT THEN
+      #uddot     case? IF  target> target> swap udtarget ud.         EXIT THEN
       #cret      case? IF  cr                                        EXIT THEN
-      #here      case? IF  Tdp @ >target                             EXIT THEN
-      #allot     case? IF  target> Tdp +!                            EXIT THEN
       #emit      case? IF  target> emit                              EXIT THEN
       dup $3FFF >      IF  .warning                                  EXIT THEN
       cr ." message: " $.

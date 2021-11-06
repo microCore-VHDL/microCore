@@ -113,6 +113,12 @@ BEGIN
 bitout <= ctrl(c_bitout);
 
 -- ---------------------------------------------------------------------
+-- clk generation (perhaps a PLL will be used)
+-- ---------------------------------------------------------------------
+
+clk <= clock;
+
+-- ---------------------------------------------------------------------
 -- input signal synchronization
 -- ---------------------------------------------------------------------
 
@@ -122,12 +128,6 @@ reset <= reset_a OR reset_s;
 
 synch_dsu_rxd:   synchronize   PORT MAP(clk, dsu_rxd, dsu_rxd_s);
 synch_interrupt: synchronize_n PORT MAP(clk, int_n,   flags(i_ext));
-
--- ---------------------------------------------------------------------
--- clk generation (perhaps a PLL will be used)
--- ---------------------------------------------------------------------
-
-clk <= clock;
 
 -- ---------------------------------------------------------------------
 -- ctrl-register (bitwise)

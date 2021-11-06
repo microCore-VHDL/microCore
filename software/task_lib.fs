@@ -2,7 +2,7 @@
 \ @file : task_lib.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 10.04.2021 18:08:28
+\ Last change: KS 27.08.2021 19:13:10
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -48,10 +48,9 @@ Variable 'do-robin       0 'do-robin     !
 
 \ ----------------------------------------------------------------------
 \ Application dependent:
-\ Make OS performance observable with a scope.
-\
-\ gon should set an output signal,
-\ goff should reset said output signal.
+\ Make OS performance observable with a scope:
+\    gon should set an output signal,
+\    goff should reset said output signal.
 \
 \ The output signal will be '0' as long as the scheduler is active,
 \ it is '1' when application code is being executed.
@@ -73,9 +72,7 @@ Macro: goff ( -- )  ; \ 1 not lit, T IO ! H ;
 T Variable Sema-link   0 Sema-link !        \ The anchor of a linked list of all semaphors
 
 H : Semaphore  ( <name> -- )  Tcreate T here 0 , 0 , Sema-link @ , Sema-link ! H ;
-
 T
-
 Taskvariable #t-exec     \ task state = execution addr
 Taskvariable #t-link     \ link to next task
 Taskvariable #t-dsp      \ data stack address
@@ -105,7 +102,7 @@ Target
 
 ~ Variable Tptr          \ points to the currently active task control block (TCB)
 
-  Macro: TCB  ( -- task )   T Tptr @ H ;
+  Macro: TCB  ( -- task )       T Tptr @ H ;
 
   : tcb@      ( offset -- n )   Tcb + @ ;
   : tcb!      ( n offset -- )   Tcb + ! ;
@@ -116,8 +113,9 @@ Target
 
   : task>dsp ( task-nr -- dsp )   ds_addr_width shift ;
 
-  : task>rsp ( task-nr -- rsp )   rs_addr_width shift #rstack + ;
-
+  : task>rsp ( task-nr -- rsp-1 )  \ rstack grows towards lower addresses
+     1+ rs_addr_width shift 1- #rstack +
+  ;
 \ ----------------------------------------------------------------------
 \ The data structure at RoundRobin and RRLink:
 \          0      1
@@ -141,10 +139,10 @@ Target
   : do-wake ( lfa -- )  [ H there 'do-wake ! T ]
      ['] go-next swap 1- st >r  ( R: new-task )  \ mark task as not ready to run
      TCB   dup r@ -                              \ is the new task different from the running task?
-     IF  Rsp @ Dsp @ rot #t-dsp + !              \ save RSP on stack and DSP in TCB
+     IF  Rsp @   Dsp @ rot #t-dsp + !            \ save RSP on stack and DSP in TCB
          r@ Tptr !                               \ switch task
   Label wake-up
-         #t-dsp r@ + @ >dstack                   \ restore dsp, fill TOS, NOS
+         r@ #t-dsp + @ >dstack                   \ restore dsp, fill NOS & TOS
          >rstack gon EXIT                        \ restore rsp, fill TOR
      THEN
      rdrop drop gon                              \ if myself nothing else to do
@@ -152,7 +150,7 @@ Target
   : force-wake ( lfa -- )  \ used by activate
      ['] go-next swap 1- st >r  ( R: new-task )  \ mark task as not ready to run
      TCB   dup r@ -                              \ is the new task not the running task?
-     IF  Rsp @ Dsp @ rot #t-dsp + !              \ save RSP on stack and DSP in TCB
+     IF  Rsp @   Dsp @ rot #t-dsp + !            \ save RSP on stack and DSP in TCB
          r@ Tptr !                               \ switch task
      THEN
      GOTO wake-up
@@ -335,20 +333,18 @@ Target
       [THEN]
    EXIT THEN
   \ Tasks
-     dup [ T #t-exec H ] Literal + t_@ T .task-exec H &25 position          \ print task exec
+     dup [ T #t-exec H ] Literal + t_@ T .task-exec H &25 position        \ print task exec
      dup [ T #t-dsp  H ] Literal + t_@ ." DSP " $. &35 position           \ print task DSP
      [ T #t-sema H ] Literal + t_@ ?dup 0= ?EXIT
      ." waiting on " variables .listname
   ;
   Host Command definitions Forth
 
-  : .semas  ( -- )  dis-output T .semas H std-output ;
-
   : .tasks  ( -- )  dis-output
      [t'] task-links t_execute   t> ( #tasks )
      dup >r 0 ?DO  t>  LOOP
          r> 0 ?DO  cr T .task H LOOP
-     std-output
+     T .semas H  std-output
   ;
   Target
 \ ----------------------------------------------------------------------
@@ -391,7 +387,7 @@ Target
      REPEAT
   ; noexit
 
-  : signal ( sema -- )   dup #s-count + inc   @ ?dup 0= ?EXIT wake ;
+  : signal ( sema -- )   dup #s-count + inc   @ ?dup IF wake THEN ;
 
 \ ----------------------------------------------------------------------
 \ Task management
@@ -461,7 +457,7 @@ Target
 
 ~ : do-poll       ( lfa -- lfa' )   [ H there 'do-poll ! T ]
      dup [ #t-poll #t-link - ] Literal + @ execute
-     0= ?GOTO do-wake   GOTO go-next
+     0= ?GOTO go-next   GOTO do-wake
   ; noexit
 
   : poll         ( xt -- )   ['] do-poll poll-exec ;
@@ -511,5 +507,6 @@ Target
      r> #t-catch tcb!  ( err# )      \ Restore previous #t-catch
      r> swap >r        ( saved-dsp ) \ save err# temporarily on rstack
      >dstack r>        ( err# )      \ Change stack pointer
-  ; \ EXIT will return to the caller of CATCH, because the return stack has
+  ; \ The final EXIT will return to the caller of CATCH, because the return stack has
     \ been restored to the state that existed when CATCH was executed.
+    

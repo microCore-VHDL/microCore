@@ -2,7 +2,7 @@
 \ @file : microcross.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 10.04.2021 18:19:51
+\ Last change: KS 09.08.2021 17:02:07
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -102,10 +102,12 @@ data_width #lit-width /mod swap 0= 1+ + Constant #nibbles    \ nibbles needed to
 \ accessing the target's program memory
 \ ----------------------------------------------------------------------
 
-Create Memory   #datamask #maxprog umin 5 + cells allot
+Create Memory   #datamask #maxprog umin 5 + cells allot  \ shadow program memory
+Create Data     #maxdata cells allot                     \ shadow data memory
 
 Variable Verbose   Verbose off
 Variable Tcp                              \ TargetCodePointer
+Variable Tcp-origin                       \ below are trap vectors
 Variable Transferred                      \ Target image transfer pointer
 Variable Tdp                              \ TargetDataPointer
 Variable Sequential                       \ number of past opcodes available for peep-hole optimization
@@ -115,6 +117,7 @@ Variable Libfile     Libfile off          \ pointer to library filepath string (
 Variable Libload     2 cells allot        \ | flag | host xt | target xt |
 Variable Trash                            \ Dummy countfield when not lib-loading
 Variable Countfield  1 cells allot        \ Holds countfield and countfield address during lib-loading
+Variable Deflength   2 Deflength !        \ holds the length of the target's last definition's name length
 Create Tmarker  ( here ) 0 , ( there ) 0 , ( depth ) 0 , ( Current ) 0 , ( save-input stream ) 6 cells allot
 
 Variable Class-context  Class-context off \ Momentary class context
@@ -151,6 +154,10 @@ Variable Goto-nibbles                     \ default number of nibbles to be used
    there macro!  1 tallot
 ;
 : trap-addr ( n -- addr )     trap_width 2** * ;
+
+: >data     ( daddr -- addr )  dup #maxdata u> abort" data memory access out of range"  cells Data + ;
+: d!        ( n daddr -- )     >data ! ; \ dbg? IF  T ! H  EXIT THEN  ! ;
+: d@        ( daddr -- n )     >data @ ; \ dbg? IF  T @ H  EXIT THEN  @ ;
 
 \ ----------------------------------------------------------------------
 \ peep-hole optimizer
@@ -425,19 +432,18 @@ Vocabulary Target          \ Vocabulary for all Target definitions
 
 : Method ( -- )   Class-context off ;
 
-: Macro:  ( <name> -- context addr :noname # )
-   get-order   Current @   [ ' parser >body ] Literal @
-   'interpreter @   'compiler @   Targeting @
-   (Macro: :noname #macro   postpone Method
+: save-tcontext     ( -- <context> )
+   get-order   Current @   [ ' parser >body ] Literal @   'interpreter @   'compiler @   Targeting @
 ;
-: Host:  ( <name> -- # )  : drop #host   postpone Method ;
-
+: restore-tcontext  ( <context> -- )
+   Targeting !   'compiler !   'interpreter !   IS parser   Current !   set-order
+;
+: Macro:  ( <name> -- <context> addr :noname # )
+   save-tcontext (Macro: :noname #macro   postpone Method
+;
 : ;  ( # -- )  \ redefine ; so that it can be used to terminate macro definitions
-   #macro case? IF  postpone ;  ( context addr xt -- )    swap !
-                    Targeting !   'compiler !   'interpreter !
-                    IS parser   Current !   set-order
-                EXIT THEN
-   #host  case? IF  Target  0  THEN  postpone ;
+   #macro case? IF  postpone ;   ( <context> addr xt -- )  swap !  restore-tcontext  EXIT THEN
+   postpone ;
 ; immediate
 
 Root definitions
@@ -577,8 +583,10 @@ Target definitions Forth
    #begin case? ?EXIT
    #while ?pairs >resolve ?dup IF  (if  THEN
 ;
-: UNTIL  ( sca caddr #begin -- )
-   ?comp  #begin ?pairs   Prefix @ <resolve conditional,
+: UNTIL  ( sca caddr #begin | sca2 caddr2 sca1 caddr1 #while -- )
+   ?comp  -rot   Prefix @ <resolve conditional,
+   #begin case? ?EXIT
+   #while ?pairs >resolve ?dup IF  (if  THEN
 ;
 : FOR    ( -- sca caddr #for )
    ?comp prev@ r>? IF  -1 tallot  ELSE  T >r H  THEN  <mark #for ;
@@ -611,12 +619,6 @@ EXTENDED [IF]
 \ ----------------------------------------------------------------------
 Forth definitions
 
-Create Data     #maxdata cells allot    \ shadow data memory
-
-: >data     ( daddr -- addr )  dup #maxdata u> abort" data memory access out of range"  cells Data + ;
-: d!        ( n daddr -- )     >data ! ;
-: d@        ( daddr -- n )     >data @ ;
-
 Create Initials  0 , 0 , 0 ,  \ linked list for data memory initialization
 
 : last-initial   ( -- addr )  Initials BEGIN  dup @ WHILE  @  REPEAT ;
@@ -624,15 +626,21 @@ Create Initials  0 , 0 , 0 ,  \ linked list for data memory initialization
 : uninitialized? ( -- f )     last-initial cell+ cell+ @ ;
 
 : save-dp-block  ( from to -- )
-   over lit,
-   swap ?DO  I d@ lit, T op_DATA t, H  LOOP       \ save values in progmem
-   T op_DROP t, H
+   0 -rot ( count of repeated 0's )   over lit,
+   swap ?DO  I d@ ?dup                                     ( count n )
+            IF  swap dup IF  lit, T op_ADD t, H  0  THEN   ( n 0 )
+               swap lit, T op_DATA t, H                    ( 0 )
+            ELSE
+               1+                                          ( count )
+            THEN
+   LOOP  drop T op_DROP t, H
 ;
 : compile-inits  ( -- )
    0 Init-link BEGIN  @ ?dup WHILE  dup  REPEAT
    ]  BEGIN  ?dup WHILE  4 cells - execute  REPEAT   postpone [
 ;
 : save-data   ( -- )
+   s" have Dp" evaluate IF  Tdp @ s" Dp !" evaluate  THEN
    Initials BEGIN  dup cell+ @ ?dup               \ anything to initialize?
       IF not   over cell+ cell+ @ ?dup 0=
          IF  Tdp @ not  THEN  not  save-dp-block
@@ -656,14 +664,11 @@ Variable (signed   (signed on   \ interpret numbers as signed or unsigned
 
 : host-target  ( -- u )   cell_width data_width - dup 0< abort" target data width > host data width" ;
 
-: dtarget ( high low -- dtarget )    \ handles different word widths on host and target
-   swap signextend swap
-   host-target 0 ?DO  2*  LOOP swap
-   host-target 0 ?DO  d2/  LOOP
+: dtarget ( dhost -- dtarget )    \ handles different word widths on host and target
+   signextend swap   host-target 0 ?DO  2*  LOOP swap   host-target 0 ?DO  d2/  LOOP
 ;
-: udtarget ( high low -- udtarget ) \ handles different word widths on host and target
-   host-target 0 ?DO  2*  LOOP swap
-   host-target 0 ?DO  ud2/  LOOP
+: udtarget ( udhost -- udtarget ) \ handles different word widths on host and target
+   swap host-target 0 ?DO  2*  LOOP swap   host-target 0 ?DO  ud2/  LOOP
 ;
 : tu.  ( addr -- )  #datamask and u. ;
 
@@ -675,7 +680,7 @@ Target definitions Forth
 : code-origin ( caddr -- )
    ?exec dbg? IF t> THEN
    Tcp @ abort" CODE-ORIGIN can only be used once."
-   Tcp !
+   dup Tcp !   Tcp-origin !
 ;
 : data-origin ( taddr -- )  ?exec dbg? IF t> THEN  Tdp ! ;
 
@@ -814,7 +819,7 @@ Does> ( -- ) [ here (doGoto ! ]
 ' unsigned    Alias unsigned
 ' .version    Alias .version
 ' .(          Alias .(
-' (*          Alias (*
+' \*          Alias \*
 ' [IF]        Alias [IF]    immediate
 ' [NOTIF]     Alias [NOTIF] immediate
 ' [ELSE]      Alias [ELSE]  immediate
@@ -822,18 +827,6 @@ Does> ( -- ) [ here (doGoto ! ]
 ' (           Alias (       immediate
 ' \           Alias \       immediate
 ' \\          Alias \\
-
-\ ----------------------------------------------------------------------
-\ for interactive use and inside Create ... Does> in the target
-\ ----------------------------------------------------------------------
-
-: allot  ( n -- )            Tdp +! ;
-
-: ,      ( n -- )            Tdp @   1 Tdp +!   d! ;
-
-: !      ( n addr -- )       dbg? comp? or IF  T ! H  EXIT THEN  d! ;
-
-: @      ( addr -- n )       dbg? comp? or IF  T @ H  EXIT THEN  d@ ;
 
 \ ----------------------------------------------------------------------
 \ Trap and Method defining words
@@ -847,8 +840,8 @@ Does> ( -- ) [ here (doGoto ! ]
    ['] don't ,                          \ embed "don't" to be consistent with OP:-definitions
    here  Operators @ , Operators !
 Does> ( -- )
-   comp? IF  @ t,  EXIT THEN
-   dbg? IF tempcode EXIT THEN
+   comp? IF  @ t,      EXIT THEN
+   dbg?  IF  tempcode  EXIT THEN
    don't
 ;
 : ;    ( i*x # -- )
@@ -880,7 +873,7 @@ Does> ( -- )
    THEN   Tcp !
 ; immediate
 
-: noexit     ( -- )   prev@ exit? IF  -1 tallot  THEN ;
+: noexit     ( -- )   prev@ exit? IF  -1 tallot  Tcp @ Tmarker cell+ !  THEN ;
 
 \ ----------------------------------------------------------------------
 \ Commands are always searched first during target debugging
@@ -1056,9 +1049,47 @@ Does> @       ( -- addr )
    #host case? IF  target-compile 0  THEN   postpone ;
 ; immediate
 
+: libdef?  ( xt -- f )  \ library definition? - but not during class definitions
+   cell+ @ doLibdef =   Current @ cell- @ doClass - and
+;
+: do-libdef  ( xt >in -- )  >r
+\   cr ." Libload: "  dup >name .name .s
+   dup >name ?dup IF  cell+ dup   dup @ swap Countfield 2!   off  THEN  \ hide name to make redefinitions possible
+   dup Libload cell+   there over cell+  ! !
+   r> >in !   advance-libsource   name 2drop
+   if-prefix   ]
+;
 Target definitions Forth
 
-: Host:   ( <name> -- # )                          ?exec Host: host-compile ;
+: preload ( <name> -- )
+   ?exec  8 Deflength ! mark-target   have ?dup 0= ?EXIT  >r
+   BEGIN  r@ libdef?
+   WHILE  Verbose @ IF  cr ." preload   " r@ >name .name  THEN
+          ] r@ execute
+   REPEAT
+   rdrop  postpone [
+;
+: :     ( <name> -- # )   ?exec
+   |   Trash Countfield !   >in @ >r   have ?dup
+   IF  dup cell+ @ doGoto =                                        \ is it a forward reference?
+       IF  doColon over cell+ !                                    \ convert a goto into a colon definition
+           >body   dup cell+ >r   dup @ there rot !                \ patch the real target address
+           BEGIN  dup link@ swap resolve-goto ?dup 0= UNTIL        \ resolve all forward references
+           Labels BEGIN  dup @ r@ - WHILE  @  REPEAT  r@ @ swap !  \ link word out of LABELS list
+           Colons @ r@ !   r> Colons !                             \ and link it into COLONS list
+           rdrop   if-prefix   ]   #colon
+       EXIT THEN
+       dup libdef? IF  r> do-libdef #lib  EXIT THEN
+       drop
+   THEN   r> >in !
+   mark-target   Create-hide   there ,
+   here Colons @ , Colons !
+   if-prefix ] #colon                                              \ leaves #colon for ";" to recognize
+Does> ( -- ) [ here (doColon ! ]  Method   @
+   comp? IF  source> swap #docall <resolve T JSR H  EXIT THEN
+   ?dbg t_execute
+;
+: Host:  ( <name> -- # )   ?exec : drop #host host-compile postpone Method ;
 
 : Macro:  ( <name> -- context addr xt :noname # )  ?exec Macro: host-compile ;
 
@@ -1072,34 +1103,7 @@ Target definitions Forth
    postpone ;  Tcp @ @create @ ! ] #colon
 ; immediate
 
-: :     ( <name> -- # )   ?exec
-   Trash Countfield !   >in @ >r   have ?dup
-   IF  dup cell+ @ doGoto =                                        \ is it a forward reference?
-       IF  doColon over cell+ !                                    \ convert a goto into a colon definition
-           >body   dup cell+ >r   dup @ there rot !                \ patch the real target address
-           BEGIN  dup link@ swap resolve-goto ?dup 0= UNTIL        \ resolve all forward references
-           Labels BEGIN  dup @ r@ - WHILE  @  REPEAT  r@ @ swap !  \ link word out of LABELS list
-           Colons @ r@ !   r> Colons !                             \ and link it into COLONS list
-           rdrop   if-prefix   ]   #colon
-       EXIT THEN
-       dup cell+ @ doLibdef =                                      \ is it a library definition?
-       Current @ cell- @ doClass - and                             \ but not during class definitions
-       IF  \ cr ." Libload: "  dup >name .name
-           dup >name ?dup IF  cell+ dup   dup @ swap Countfield 2!   off  THEN  \ hide name to make redefinitions possible
-           dup Libload cell+   there over cell+  ! !
-           r> >in !   advance-libsource   name 2drop
-           if-prefix   ]   #lib                                    \ leaves #lib for ";" to recognize
-       EXIT THEN
-       drop
-   THEN   r> >in !
-   mark-target   Create-hide   there ,
-   here Colons @ , Colons !
-   |  if-prefix ] #colon                                           \ leaves #colon for ";" to recognize
-Does> ( -- ) [ here (doColon ! ]  Method   @
-   comp? IF  source> swap #docall <resolve T JSR H  EXIT THEN
-   ?dbg t_execute
-;
-: init:  ( <name> -- # )   T : H here Init-link @ , Init-link ! ;
+: init:  ( <name> -- # )   6 Deflength ! T : H here Init-link @ , Init-link ! ;
 
 : new      ( -- )   \ Initialize cross-compiler for another compilation run
    cr ." microCross version " .version ." by ks, gforth port and debugger by uho"
@@ -1117,9 +1121,9 @@ Does> ( -- ) [ here (doColon ! ]  Method   @
    [ Doers      @ ] Literal Doers !
 ;
 : end  ( -- )    \ Finish target compilation run
-   s" Label Initialization" evaluate
-   save-data   host-compile definitions   temp-decimal
-   cr there . ." instructions compiled
+   s" Label Initialization" evaluate   save-data
+   host-compile definitions
+   cr there #. ." instructions compiled
 ;
 : Host   ( -- )  host-compile definitions ;
 
@@ -1143,6 +1147,7 @@ Root definitions Forth
 ;
 : [t']  ( <name> -- caddr )   t' postpone Literal ; immediate
 
+' have        Alias have
 ' '           Alias h'
 T h' Host H   Alias Host
 ' Target      Alias Target

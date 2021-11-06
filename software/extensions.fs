@@ -2,7 +2,7 @@
 \ @file : extensions.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 10.04.2021 19:31:44
+\ Last change: KS 16.06.2021 16:49:53
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -90,6 +90,7 @@ cr .( gforth ) version-string type .(  not supported)  abort
 : clear   ( xxx -- )       BEGIN  depth WHILE drop REPEAT ;
 : rdepth  ( -- u )         rp0 @ rp@ - 1 cells / ;
 : case?   ( n1 n2 -- n1 ff | tf )   over = dup IF  nip  THEN ;  \ the most primitive case operator
+: ud*     ( ud u  -- udprod )       tuck um* drop >r um* r> + ;
 
 \ ----------------------------------------------------------------------
 \ Number input
@@ -196,8 +197,6 @@ gforth_062 [IF]
 
    ' (search-wordlist) Alias find-name-in
 
-   : parse-name  ( -- caddr u )   parse-word ;  \ gforth_0.6.2 misnomer
-
 [THEN] gforth_072 [IF]
 
    Create save[     2 cells allot   ' [    >body save[    2 cells cmove
@@ -254,7 +253,7 @@ gforth_062 [IF]
 : ?missing ( f -- ) ABORT" not found" ;
 
 : defined ( <name> -- xxxx ff | xt tf )
-   parse-name over swap   name-too-short?
+   name over swap   name-too-short?
    find-name dup IF  name?int nip true  THEN
 ; 
 : get-context  ( -- wid )   Context @ ;
@@ -278,6 +277,8 @@ $0D Constant #cr
 : .name      ( nt -- )    ?dup IF  name>string type space EXIT THEN  ." ??? " ;
 
 : .wordname  ( pfa -- )   body> >name .name ;
+
+: decomp  ( addr -- )   BEGIN  cr dup 6 u.r ." : " dup @ dup 6 u.r space .wordname cell+ key #cr = UNTIL drop ;
 
 : have ( ccc -- xt | false )  BL word find 0<> and ;
 
@@ -338,15 +339,15 @@ Defer [THEN]    ( -- )        immediate
 : <eof> ( -- ) ; \ used to signal "end of file"
 
 : forth-word  ( -- xt )
-   BEGIN BEGIN  parse-word ?dup
+   BEGIN BEGIN  name ?dup
          WHILE  forth-wordlist search-wordlist ?EXIT
          REPEAT
          drop   refill 0=
    UNTIL  ['] <eof>
 ;
-: *)   ( -- )  ; \ used to signal "end of multi-line comment"
+: *\   ( -- )  ; \ used to signal "end of multi-line comment"
 
-: (*   ( -- )   BEGIN  forth-word dup ['] <eof> = swap ['] *) = or UNTIL ; immediate
+: \*   ( -- )   BEGIN  forth-word dup ['] <eof> = swap ['] *\ = or UNTIL ; immediate
 
 Variable Level   0 Level !
 
@@ -361,7 +362,7 @@ Variable Level   0 Level !
    ['] [THEN]    case? IF  Level @ 0=   level-1  EXIT THEN
    ['] \         case? IF  postpone \     false  EXIT THEN  \ needed to be able to e.g. comment out [THEN]
    ['] (         case? IF  postpone (     false  EXIT THEN  \ needed to be able to e.g. comment out [THEN]
-   ['] (*        case? IF  postpone (*    false  EXIT THEN  \ needed to be able to e.g. comment out [THEN]
+   ['] \*        case? IF  postpone \*    false  EXIT THEN  \ needed to be able to e.g. comment out [THEN]
    ['] <eof> = abort" [THEN] missing"
    \ all oter xt's are just ignored
    false

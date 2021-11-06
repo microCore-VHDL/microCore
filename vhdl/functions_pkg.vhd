@@ -2,7 +2,7 @@
 -- @file : functions_pkg.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 10.04.2021 17:22:18
+-- Last change: KS 18.05.2021 16:56:59
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -780,11 +780,12 @@ BEGIN
             END IF;
          END IF;
       END IF;
-      do <= ram(to_integer(addr_d));
 -- pragma translate_off
    END IF;
 -- pragma translate_on
 END PROCESS initialized_ram;
+
+do <= ram(to_integer(addr_d));
 
 END inference_model;
 
@@ -883,12 +884,13 @@ BEGIN
             END IF;
          END IF;
       END IF;
-      doa <= ram(to_integer(addra_d));
-      dob <= ram(to_integer(addrb_d));
 -- pragma translate_off
    END IF;
 -- pragma translate_on
 END PROCESS initialized_ram;
+
+doa <= ram(to_integer(addra_d));
+dob <= ram(to_integer(addrb_d));
 
 END inference_model;
 

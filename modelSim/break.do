@@ -34,17 +34,17 @@ add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.rsp
 add wave -noupdate -divider Debugger
 add wave -noupdate /bench/myFPGA/uCore/debug_unit/rxd
 add wave -noupdate -divider Dsu
-add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(28)
+add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/ram(29)
 add wave -noupdate -divider Rerun
-add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(17)
+add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/ram(18)
 add wave -noupdate -divider Counter
-add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(16)
+add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/ram(17)
 add wave -noupdate -divider Tptr
-add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(18)
+add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/ram(19)
 add wave -noupdate -divider Background
-add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(9)
+add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/ram(10)
 add wave -noupdate -divider Terminal
-add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/initialized_ram/ram(19)
+add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/ram(20)
 TreeUpdate [SetDefaultTree]
 WaveRestoreCursors {{Cursor 1} {248996 ns} 0} {{Cursor 2} {24400 ns} 0}
 quietly wave cursor active 1

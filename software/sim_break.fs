@@ -1,5 +1,5 @@
 \ 
-\ Last change: KS 06.03.2021 22:52:44
+\ Last change: KS 04.11.2021 17:32:39
 \
 \ MicroCore load screen for simulating the umbilical's break function.
 \ Constant break has to be set to '1' in bench.vhd.
@@ -14,6 +14,8 @@ Only Forth also definitions
 include extensions.fs           \ Some System word (re)definitions for a more sympathetic environment
 include ../vhdl/architecture_pkg_sim.vhd
 include microcross.fs           \ the cross-compiler
+
+\ Verbose on
 
 Target new initialized          \ go into target compilation mode and initialize target compiler
 
@@ -36,7 +38,8 @@ Variable Rerun
       and IF  #c-bitout Ctrl !  THEN
    REPEAT
 ;
-: boot  ( -- )   CALL INITIALIZATION
+: boot  ( -- )
+   0 Dsu 1+ erase  CALL INITIALIZATION
    Terminal Background ['] bg_task spawn
    BEGIN pause REPEAT
 ;

@@ -2,7 +2,7 @@
 \ @file : debugger.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 10.04.2021 18:30:53
+\ Last change: KS 17.07.2021 18:27:04
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -204,7 +204,7 @@ data_width 4 /mod swap 0<> - Constant #hex/word
 \ ... handshake
 \ ----------------------------------------------------------------------
 
-Variable Broken  Broken off   \ break issued to Target as a command if ON
+Variable Broken  Broken off   \ break issued to Target as a command when ON
 
 : handshake ( -- )
    Broken @ IF  mark_nbreak tx   &10 ms   Broken off  THEN
@@ -336,7 +336,11 @@ Defer do-handle-breakpoint
 
 : t_@    ( addr -- x )  >t  [t'] \@ t_execute  t> ;
 
+: t_2@   ( addr -- d )  dup 1+ t_@ swap t_@ ;
+
 : t_!    ( x addr -- )  swap >t >t  [t'] \! t_execute ;
+
+: t_2!   ( d addr -- )  dup >r t_!  r> 1+ t_! ;
 
 : (t_execute ( xt -- )  >target  ?OK ; ' (t_execute is t_execute
 
@@ -481,7 +485,12 @@ gforth_062 [IF]
        ['] (debugger catch ?dup
        IF #bye case? IF  .host Warnings off   Debugging off   Host  EXIT THEN
           handle-debug-error
-       ELSE comp? IF ." ]" ELSE ." ok" THEN
+       ELSE
+          comp? IF ." ]"
+          ELSE ." ok"   s" have Dp" evaluate
+             \ keep Tdp and Dp in the Target (when it exists!) synchronized
+             IF  s" Dp @" evaluate t> Tdp @ max dup Tdp ! >t s" Dp !" evaluate  THEN
+          THEN
        THEN
    AGAIN
 ;
@@ -515,8 +524,11 @@ gforth_062 [IF]
 
 : breakpoint-prompt ( -- )  space nests table-length 1+ 0 DO ." >" LOOP space ;
 
+Variable temp-TOR
+
 : handle-breakpoint ( addr -- )
    temporary-breakpoints remove-all-breakpoints
+   [t'] saveTOR t_execute
    BEGIN                                                   ( addr )
       dis-output   dup show-breakpoint                     ( addr nextaddr )
       &60 position breakpoint-prompt  input
@@ -525,6 +537,7 @@ gforth_062 [IF]
       another-command?
    WHILE  drop
    REPEAT                                                  ( addr nextaddr )
+   [t'] restoreTOR t_execute
    over swap 2dup -
    IF  over restore-instruction   advance-breakpoint
    ELSE  2drop
@@ -682,14 +695,19 @@ Root definitions Forth
 \ ----------------------------------------------------------------------
 Target SIMULATION [NOTIF]
 
+Variable Dp   \ initialized by the word "end" (microcross.fs)
+\ in addition, Dp (target) and Tdp (host) are synchronised in debugger (debugger.fs)
+\ Macro: here  ( -- addr )   T Dp @ H ;
+
+Host: here  ( -- addr )      comp? dbg? or IF  T Dp @  H  EXIT THEN  Tdp @ ;
+Host: allot ( n -- )         comp? dbg? or IF  T Dp +! H  EXIT THEN  Tdp +! ;
+
 Host: .     ( n -- )         comp? IF  #dot   lit, T message >host       H EXIT THEN  dbg? IF  t> signextend         THEN  . ;
 Host: .r    ( n u -- )       comp? IF  #dotr  lit, T message >host >host H EXIT THEN  dbg? IF  t> t> signextend swap THEN  .r ;
 Host: u.    ( u -- )         comp? IF  #udot  lit, T message >host       H EXIT THEN  dbg? IF  t>                    THEN  tu. ;
-Host: d.    ( d -- )         comp? IF  #ddot  lit, T message >host >host H EXIT THEN  dbg? IF  t> t> dtarget         THEN  d. ;
-Host: ud.   ( ud -- )        comp? IF  #uddot lit, T message >host >host H EXIT THEN  dbg? IF  t> t> udtarget        THEN  ud. ;
+Host: d.    ( d -- )         comp? IF  #ddot  lit, T message >host >host H EXIT THEN  dbg? IF  t> t> swap dtarget    THEN  d. ;
+Host: ud.   ( ud -- )        comp? IF  #uddot lit, T message >host >host H EXIT THEN  dbg? IF  t> t> swap udtarget   THEN  ud. ;
 Host: cr    ( -- )           comp? IF  #cret  lit, T message             H EXIT THEN                                       cr ;
-Host: here  ( -- addr )      comp? IF  #here  lit, T message host>       H EXIT THEN  Tdp @   dbg? IF  >t            THEN ;
-Host: allot ( n -- )         comp? IF  #allot lit, T message >host       H EXIT THEN  dbg? IF  t>                    THEN  Tdp +! ;
 Host: emit  ( char -- )      comp? IF  #emit  lit, T message >host       H EXIT THEN  dbg? IF  t>                    THEN  emit ;
 Host: 2//   ( u1 -- u2 )     ?exec                                                    dbg? IF  t> 2// >t        EXIT THEN  2// ;
 Host: $.    ( u -- )         ?exec                                                    dbg? IF  t>                    THEN  $. ;

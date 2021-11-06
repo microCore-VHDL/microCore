@@ -1,4 +1,28 @@
 ************************************************************************
+*** uCore 2.331   5-Nov-2021 ks
+************************************************************************
+
+uCntrl.vhd: Bugfix in 'WHEN op_STORE'. Code for RSP_REG simplified.
+
+uCore.vhd: Bugfix in core.mem_en
+
+debugger.fs: Synchronising Tdp (data memory pointer in the host) and
+   Dp (data memory pointer in the target) if the latter has been
+   defined.
+   Saving/Restoring TOR during breakpoint debugging.
+   Order of input-arguments changed for dtarget and udtarget.
+
+library.fs: Major bugfixes. 'preload' added to the wordset in order
+   to load a library definition explicitly before using it.
+
+microcross.fs: Data memory initialization optimized by not storing 0.
+   This assumes that at first the used data memory is zeroed during
+   reset.
+   UNTIL will now resolve a preceeding WHILE. (BEGIN .. WHILE .. UNTIL)
+
+task_lib.fs: Bugfix in do-poll.
+
+************************************************************************
 *** uCore 2.320   1-Apr-2021 ks
 ************************************************************************
 

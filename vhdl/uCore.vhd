@@ -2,7 +2,7 @@
 -- @file : uCore.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 05.04.2021 16:53:29
+-- Last change: KS 04.11.2021 16:51:41
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -214,7 +214,7 @@ uCntrl: microcontrol PORT MAP (
 
 core.clk_en    <= '1' WHEN  delay = '0' AND cycle_ctr = 0  ELSE '0';
 core.reg_en    <= uCtrl.reg_en;
-core.mem_en    <= uCtrl.mem_en;
+core.mem_en    <= uCtrl.mem_en OR deb_denable;
 core.ext_en    <= uCtrl.ext_en OR deb_ext_en;
 core.tick      <= uCtrl.tick;
 core.chain     <= uCtrl.chain;
