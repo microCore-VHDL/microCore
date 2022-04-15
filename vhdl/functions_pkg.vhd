@@ -22,6 +22,9 @@
 --   210     ks    8-Jun-2020  initial version
 --  2300     ks    8-Mar-2021  Converted to NUMERIC_STD
 -- ---------------------------------------------------------------------
+--
+-- Note: This code must be compiled as VHDL-93
+--
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
 USE IEEE.NUMERIC_STD.ALL;
@@ -169,6 +172,22 @@ COMPONENT external_ram GENERIC (
    data   : INOUT UNSIGNED
 ); END COMPONENT;
 
+COMPONENT fifo_dpram GENERIC (
+   data_width : INTEGER;
+   ram_size   : INTEGER;
+   ramstyle   : STRING := "block_ram"
+); PORT (
+   wclk  : IN    STD_LOGIC;
+   wen   : IN    STD_LOGIC;
+   we    : IN    STD_LOGIC;
+   waddr : IN    UNSIGNED;
+   wdata : IN    UNSIGNED;
+   rclk  : IN    STD_LOGIC;
+   ren   : IN    STD_LOGIC;
+   raddr : IN    UNSIGNED;
+   rdata : OUT   UNSIGNED
+); END COMPONENT;
+
 COMPONENT monoflop GENERIC (
    ptime : integer         -- Pulsdauer in clk Perioden
 ); PORT (
@@ -191,6 +210,21 @@ COMPONENT fifo GENERIC (
    full     : OUT STD_LOGIC;
    din      : IN  UNSIGNED(width-1 DOWNTO 0);
    dout     : OUT UNSIGNED(width-1 DOWNTO 0)
+); END COMPONENT;
+
+COMPONENT dpfifo GENERIC (
+   width    : INTEGER;
+   depth    : INTEGER
+); PORT (
+   reset    : IN  STD_LOGIC;
+   wclk     : IN  STD_LOGIC;
+   push     : IN  STD_LOGIC;
+   din      : IN  UNSIGNED(width-1 DOWNTO 0);
+   full     : OUT STD_LOGIC;
+   rclk     : IN  STD_LOGIC;
+   pop      : IN  STD_LOGIC;
+   dout     : OUT UNSIGNED(width-1 DOWNTO 0);
+   empty    : OUT STD_LOGIC
 ); END COMPONENT;
 
 END functions_pkg;
@@ -987,6 +1021,64 @@ END PROCESS initialized_ram;
 END sim_model;
 
 -- ---------------------------------------------------------------------
+-- fifo dual port ram using blockram with separate write and read ports
+-- ---------------------------------------------------------------------
+
+LIBRARY IEEE;
+USE IEEE.STD_LOGIC_1164.ALL;
+USE IEEE.NUMERIC_STD.ALL;
+USE work.functions_pkg.ALL;
+
+ENTITY fifo_dpram IS GENERIC (
+   data_width : INTEGER;
+   ram_size   : INTEGER;
+   ramstyle   : STRING
+); PORT (
+   wclk  : IN    STD_LOGIC;
+   wen   : IN    STD_LOGIC;
+   we    : IN    STD_LOGIC;
+   waddr : IN    UNSIGNED(log2(ram_size)-1 DOWNTO 0);
+   wdata : IN    UNSIGNED(data_width-1 DOWNTO 0);
+   rclk  : IN    STD_LOGIC;
+   ren   : IN    STD_LOGIC;
+   raddr : IN    UNSIGNED(log2(ram_size)-1 DOWNTO 0);
+   rdata : OUT   UNSIGNED(data_width-1 DOWNTO 0)
+); END fifo_dpram;
+
+ARCHITECTURE inference_model OF fifo_dpram IS
+
+ATTRIBUTE syn_ramstyle : STRING;
+
+TYPE ram_type IS ARRAY (ram_size-1 DOWNTO 0) OF UNSIGNED(data_width-1 DOWNTO 0);
+
+SIGNAL ram        : ram_type; ATTRIBUTE syn_ramstyle OF ram : SIGNAL IS ramstyle;
+SIGNAL raddr_d    : UNSIGNED(log2(ram_size)-1 DOWNTO 0);
+
+BEGIN
+
+ram_write: PROCESS(wclk)
+BEGIN
+   IF  rising_edge(wclk)   THEN
+      IF  (wen AND we) = '1'  THEN
+         ram(to_integer(waddr)) <= wdata;
+      END IF;
+   END IF;
+END PROCESS ram_write;
+
+ram_read: PROCESS(rclk)
+BEGIN
+   IF  rising_edge(rclk)   THEN
+      IF  ren = '1'  THEN
+         raddr_d <= raddr;
+      END IF;
+   END IF;
+END PROCESS ram_read;
+
+rdata <= ram(to_integer(raddr_d));
+
+END inference_model;
+
+-- ---------------------------------------------------------------------
 -- DONKA - Hardware & VHDL Design
 -- Monoflop
 -- Target: independent
@@ -1149,5 +1241,105 @@ BEGIN
 		END IF;
 	END IF;
 END PROCESS fifo_reg_proc;
+
+END rtl;
+
+-- ---------------------------------------------------------------------
+-- Dual clock FIFO with generic WIDTH and DEPTH
+-- based on asynchronous RAM
+-- ---------------------------------------------------------------------
+
+LIBRARY IEEE;
+USE ieee.std_logic_1164.all;
+USE ieee.NUMERIC_STD.all;
+USE work.functions_pkg.ASYNC_RESET;
+
+ENTITY dpfifo IS GENERIC (
+   width    : INTEGER;
+   depth    : INTEGER
+); PORT (
+   reset    : IN  STD_LOGIC;
+   wclk     : IN  STD_LOGIC;
+   push     : IN  STD_LOGIC;
+   din      : IN  UNSIGNED(width-1 DOWNTO 0);
+   full     : OUT STD_LOGIC;
+   rclk     : IN  STD_LOGIC;
+   pop      : IN  STD_LOGIC;
+   dout     : OUT UNSIGNED(width-1 DOWNTO 0);
+   empty    : OUT STD_LOGIC
+); END dpfifo;
+
+ARCHITECTURE rtl OF dpfifo IS
+
+ATTRIBUTE syn_ramstyle : STRING;
+
+TYPE fifoarr IS ARRAY (NATURAL RANGE 0 TO depth-1) OF UNSIGNED(width-1 DOWNTO 0);
+
+SIGNAL fifomem   : fifoarr; ATTRIBUTE syn_ramstyle OF fifomem : SIGNAL IS "registers";
+SIGNAL write_ptr : NATURAL RANGE 0 TO depth-1;
+SIGNAL read_ptr  : NATURAL RANGE 0 TO depth-1;
+SIGNAL read_addr : NATURAL RANGE 0 TO depth-1;
+SIGNAL cnt       : NATURAL RANGE 0 TO depth-1;
+
+BEGIN
+
+dout  <= fifomem(read_addr);
+full  <= '1' WHEN cnt = depth-1  ELSE '0';
+empty <= '1' WHEN cnt = 0        ELSE '0';
+
+make_addr_proc : PROCESS (read_ptr, write_ptr, cnt)  -- when the FIFO is empty
+BEGIN                                     -- the last valid data will be accessed
+   IF  read_ptr <= write_ptr  THEN
+      cnt <= write_ptr - read_ptr;
+   ELSE
+      cnt <= write_ptr + depth - read_ptr;
+   END IF;
+
+   read_addr <= read_ptr;
+	IF  read_ptr = write_ptr  THEN
+		IF  read_ptr = 0  THEN
+			read_addr <= depth-1;
+		ELSE
+			read_addr <= read_ptr-1;
+		END IF;
+	END IF;
+END PROCESS make_addr_proc;
+
+fifo_wr_proc : PROCESS(wclk, reset, cnt)
+BEGIN
+   IF  reset = '1' AND ASYNC_RESET  THEN
+		write_ptr <= depth-3;
+	ELSIF  rising_edge(wclk)  THEN
+		IF  push = '1' AND cnt /= depth-1  THEN
+			fifomem(write_ptr) <= din;
+			IF  write_ptr = depth-1  THEN
+				write_ptr <= 0;
+			ELSE
+				write_ptr <= write_ptr+1;
+			END IF;
+		END IF;
+		IF  reset = '1' AND NOT ASYNC_RESET  THEN
+			write_ptr <= depth-3;
+		END IF;
+	END IF;
+END PROCESS fifo_wr_proc;
+
+fifo_rd_proc : PROCESS(rclk, reset, cnt)
+BEGIN
+   IF  reset = '1' AND ASYNC_RESET  THEN
+		read_ptr <= depth-3;
+	ELSIF  rising_edge(rclk)  THEN
+		IF  pop = '1' AND cnt /= 0  THEN
+			IF  read_ptr = depth-1  THEN
+				read_ptr <= 0;
+			ELSE
+				read_ptr <= read_ptr+1;
+			END IF;
+		END IF;
+		IF  reset = '1' AND NOT ASYNC_RESET  THEN
+			read_ptr <= depth-3;
+		END IF;
+	END IF;
+END PROCESS fifo_rd_proc;
 
 END rtl;

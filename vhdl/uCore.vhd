@@ -2,7 +2,7 @@
 -- @file : uCore.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 04.11.2021 16:51:41
+-- Last change: KS 13.04.2022 12:49:04
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -22,6 +22,7 @@
 --   210     ks    8-Jun-2020  initial version
 --   2300    ks    8-Mar-2021  compiler switch WITH_PROG_RW eliminated
 --                             Conversion to NUMERIC_STD
+--  2332     ks   13-Apr-2022  enable_proc moved to fpga.vhd
 -- ---------------------------------------------------------------------
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
@@ -47,11 +48,8 @@ ATTRIBUTE init      : STRING;
 ALIAS  reset     : STD_LOGIC IS uBus.reset;
 ALIAS  clk       : STD_LOGIC IS uBus.clk;
 ALIAS  clk_en    : STD_LOGIC IS uBus.clk_en;
-ALIAS  delay     : STD_LOGIC IS uBus.delay;
 ALIAS  pause     : STD_LOGIC IS uBus.pause;
 ALIAS  mem_rdata : data_bus IS  uBus.rdata;
-
-SIGNAL cycle_ctr : NATURAL RANGE 0 TO cycles - 1;
 
 COMPONENT microcontrol PORT (
    uBus        : IN  uBus_port;
@@ -133,23 +131,6 @@ REPORT "reg_addr_width too small"
 SEVERITY error;
 
 -- ---------------------------------------------------------------------
--- sub-uCore cycle control
--- ---------------------------------------------------------------------
-
-enable_proc: PROCESS (clk)
-BEGIN
-   IF  rising_edge(clk)  THEN
-      IF  cycle_ctr = 0  THEN
-         IF  delay = '0'  THEN
-            cycle_ctr <= cycles - 1;
-         END IF;
-      ELSE
-         cycle_ctr <= cycle_ctr - 1;
-      END IF;
-   END IF;
-END PROCESS enable_proc;
-
--- ---------------------------------------------------------------------
 -- internal program memory
 -- ---------------------------------------------------------------------
 
@@ -212,7 +193,6 @@ uCntrl: microcontrol PORT MAP (
    mem_rdata   => mem_rdata
 );
 
-core.clk_en    <= '1' WHEN  delay = '0' AND cycle_ctr = 0  ELSE '0';
 core.reg_en    <= uCtrl.reg_en;
 core.mem_en    <= uCtrl.mem_en OR deb_denable;
 core.ext_en    <= uCtrl.ext_en OR deb_ext_en;

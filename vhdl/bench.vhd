@@ -2,7 +2,7 @@
 -- @file : bench.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 04.11.2021 17:34:48
+-- Last change: KS 02.03.2022 21:56:46
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -98,7 +98,7 @@ SIGNAL responding   : STD_LOGIC;
 
 CONSTANT xtal_cycle : TIME := (1000000000 / xtal_frequency) * 1 ns;
 CONSTANT cycle      : TIME := (1000000000 / clk_frequency) * 1 ns;
-CONSTANT baud       : TIME := (cycle*clk_frequency)/umbilical_rate;
+CONSTANT baud       : TIME := (cycle * clk_frequency) / umbilical_rate;
 CONSTANT int_time   : TIME := 29 us + 6 * 80 ns;
 
 SIGNAL ext_ce_n     : STD_LOGIC;
@@ -334,7 +334,7 @@ BEGIN
 
 END PROCESS umbilical_proc;
 
-to_target_proc : PROCESS
+to_target_proc: PROCESS
 
    VARIABLE number : byte := (OTHERS => 'Z');
 

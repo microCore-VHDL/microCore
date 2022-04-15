@@ -64,6 +64,7 @@ make_sim_mem: IF  SIMULATION  GENERATE
       addra   => addr(cache_addr_width-1 DOWNTO 0),
       dia     => wdata,
       doa     => rdata,
+   -- dma port
       enb     => dma_enable,
       web     => dma_write,
       addrb   => dma_addr(cache_addr_width-1 DOWNTO 0),

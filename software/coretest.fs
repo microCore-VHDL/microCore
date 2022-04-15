@@ -2,7 +2,7 @@
 \ @file : coretest.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 05.04.2021 16:46:58
+\ Last change: KS 03.03.2022 16:35:56
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -321,12 +321,21 @@ SIMULATION [IF]
 ;
 Variable Intvar
 
+HAVE #i_ext [IF]
+
 : test-interrupt ( -- )   1 Intvar !   ei   #i-ext int-enable ;
 
 : interrupt  ( -- )   intflags
    #i-ext and IF  Intvar @ 1- Intvar !   EXIT THEN
    $55 Intvar !  \ invalid interrupt source
 ;
+[ELSE]
+
+: test-interrupt ( -- )  0 Intvar ! ;
+: interrupt      ( -- )  Intflags drop ;
+
+[THEN]
+
 Variable save-DSP
 
 : (coretest  ( -- err# | 0 )

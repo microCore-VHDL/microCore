@@ -2,7 +2,7 @@
 -- @file : architecture_pkg_sim.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 27.08.2021 19:20:26
+-- Last change: KS 13.04.2022 17:13:10
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -24,6 +24,7 @@
 --   210     ks    8-Jun-2020  initial version
 --   2300    ks   12-Feb-2021  compiler switch WITH_PROG_RW eliminated.
 --                             STD_LOGIC_(UN)SIGNED replaced by NUMERIC_STD
+--   2332    ks   13-Apr-2022  Bugfix in semaphor_proc
 -- ---------------------------------------------------------------------
 --VHDL --~  \ at this point the cross compiler activates vhdl context.
 LIBRARY IEEE;
@@ -34,7 +35,7 @@ USE work.functions_pkg.ALL;
 PACKAGE architecture_pkg IS
 --~--  \ when loaded by the microForth cross-compiler, code between "--~" up to "--~--" will be skipped.
 
-CONSTANT version            : NATURAL := 2331; -- <major_release> <functionality_added> <HW_fix> <SW_fix> <pre-release#>
+CONSTANT version            : NATURAL := 2332; -- <major_release> <functionality_added> <HW_fix> <SW_fix> <pre-release#>
 
 -- ---------------------------------------------------------------------
 -- Configuration flags
@@ -201,7 +202,6 @@ TYPE  uBus_port  IS RECORD
 END RECORD;
 
 TYPE  core_signals  IS RECORD
-   clk_en      : STD_LOGIC;
    reg_en      : STD_LOGIC;
    mem_en      : STD_LOGIC;
    ext_en      : STD_LOGIC;      -- enable signal for external data memory
@@ -533,7 +533,7 @@ ARCHITECTURE rtl OF semaphor IS
 
 BEGIN
 
-semaphor_proc : PROCESS (uBus.clk)
+semaphor_proc : PROCESS (uBus)
 BEGIN
    IF  uBus.reset = '1' AND ASYNC_RESET  THEN
       sema <= '0';
@@ -541,7 +541,7 @@ BEGIN
       IF  uReg_write(uBus, FLAG_REG) AND (uBus.wdata(signbit) XOR uBus.wdata(flag)) = '1'  THEN
          sema <= uBus.wdata(flag);
       END IF;
-      IF  uReg_write(uBus, reg)  THEN
+      IF  uReg_write(uBus, reg) AND uBus.pause = '0'  THEN
          sema <= '1';
       ELSIF  uReg_read(uBus, reg) AND uBus.pause = '0'  THEN
          sema <= '0';

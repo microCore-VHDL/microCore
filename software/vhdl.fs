@@ -2,7 +2,7 @@
 \ @file : vhdl.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 02.04.2021 12:04:43
+\ Last change: KS 01.03.2022 18:48:14
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -43,6 +43,7 @@
 \ CONSTANT flag_reg    : INTEGER   := -2;
 \ CONSTANT op_NOOP     : byte      := "00000000";
 \ CONSTANT op_NOOP     : byte      := X"00";
+\ CONSTANT video_rate  : REAL      := 55.0;
 \ ----------------------------------------------------------------------
 Forth definitions
 
@@ -61,6 +62,8 @@ Forth definitions
 ;
 : VHDL-number  ( <source> -- n )   Base save   BL skip-input   [char] ; parse base>number ;
 
+: dec_parameter ( <source> -- n )   Base save   BL skip-input   [char] ; parse decimal s>number drop ;
+
 Vocabulary --VHDL   --VHDL definitions
 
 1 Constant STD_LOGIC
@@ -68,6 +71,7 @@ Vocabulary --VHDL   --VHDL definitions
 1 Constant NATURAL
 1 Constant INTEGER
 2 Constant BOOLEAN
+3 Constant REAL
 
 : STD_LOGIC_VECTOR  ( -- type )  postpone ( byte ;    \ )
 : UNSIGNED          ( -- type )  postpone ( byte ;    \ )
@@ -77,6 +81,7 @@ Vocabulary --VHDL   --VHDL definitions
 : vhdl-types  ( type -- n )
    1 case? IF  VHDL-number                   EXIT THEN
    2 case? IF  [char] ; word count evaluate  EXIT THEN  \ for conditional compilation
+   3 case? IF  dec_parameter &10 /           EXIT THEN
    abort" unknown type"
 ;
 : :=      ( type -- )   Base save  vhdl-types   here cell- ! ; \ patch constant created before

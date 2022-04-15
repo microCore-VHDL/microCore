@@ -2,7 +2,7 @@
 -- @file : fpga.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 02.04.2021 18:34:55
+-- Last change: KS 13.04.2021 18:34:55
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -23,6 +23,7 @@
 -- Version Author   Date       Changes
 --   210     ks    8-Jun-2020  initial version
 --  2300     ks    8-Mar-2021  converted to NUMERIC_STD
+--  2332     ks   13-Apr-2022  enable_proc moved from uCore.vhd
 -- ---------------------------------------------------------------------
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
@@ -52,11 +53,13 @@ SIGNAL uBus       : uBus_port;
 ALIAS  reset      : STD_LOGIC IS uBus.reset;
 ALIAS  clk        : STD_LOGIC IS uBus.clk;
 ALIAS  clk_en     : STD_LOGIC IS uBus.clk_en;
+ALIAS  delay      : STD_LOGIC IS uBus.delay;
 
 SIGNAL reset_a    : STD_LOGIC; -- asynchronous reset positive logic
 SIGNAL reset_s    : STD_LOGIC; -- synchronized reset_n
 SIGNAL dsu_rxd_s  : STD_LOGIC;
 SIGNAL dsu_break  : STD_LOGIC;
+SIGNAL cycle_ctr  : NATURAL RANGE 0 TO cycles - 1; -- sub-uCore_clk counter
 
 COMPONENT microcore PORT (
    uBus        : IN    uBus_port;
@@ -82,7 +85,7 @@ COMPONENT uDatacache PORT (
    dma_rdata   : OUT data_bus
 ); END COMPONENT uDatacache;
 
-SIGNAL dcache_rdata : data_bus;
+SIGNAL cache_rdata  : data_bus;
 SIGNAL mem_rdata    : data_bus;
 SIGNAL dma_mem      : datamem_port;
 SIGNAL dma_rdata    : data_bus;
@@ -118,6 +121,23 @@ bitout <= ctrl(c_bitout);
 
 clk <= clock;
 
+enable_proc: PROCESS (clk)
+BEGIN
+   IF  rising_edge(clk)  THEN
+      IF  cycle_ctr = 0  THEN
+         IF  delay = '0'  THEN
+            cycle_ctr <= cycles - 1;
+         END IF;
+      ELSE
+         cycle_ctr <= cycle_ctr - 1;
+      END IF;
+   END IF;
+END PROCESS enable_proc;
+
+delay <= SRAM_delay;
+
+clk_en <= '1' WHEN  delay = '0' AND cycle_ctr = 0  ELSE '0';
+
 -- ---------------------------------------------------------------------
 -- input signal synchronization
 -- ---------------------------------------------------------------------
@@ -129,7 +149,15 @@ reset <= reset_a OR reset_s;
 synch_dsu_rxd:   synchronize   PORT MAP(clk, dsu_rxd, dsu_rxd_s);
 synch_interrupt: synchronize_n PORT MAP(clk, int_n,   flags(i_ext));
 
--- ---------------------------------------------------------------------
+-----------------------------------------------------------------------
+-- flags
+-----------------------------------------------------------------------
+
+-- synopsys translate_off
+flags         <= (OTHERS => 'L');
+-- synopsys translate_on
+
+------------------------------------------------------------------------
 -- ctrl-register (bitwise)
 -- ---------------------------------------------------------------------
 
@@ -151,8 +179,6 @@ BEGIN
 END PROCESS ctrl_proc;
 
 flags(f_bitout) <= ctrl(c_bitout);
-
-uBus.sources(CTRL_REG) <= resize(ctrl, data_width);
 
 -- ---------------------------------------------------------------------
 -- software semaphor f_sema using flag register
@@ -197,10 +223,10 @@ uCore: microcore PORT MAP (
 -- control signals
 --ALIAS  reset        : STD_LOGIC IS uBus.reset;
 --ALIAS  clk          : STD_LOGIC IS uBus.clk;
-uBus.clk_en               <= core.clk_en;
+--ALIAS  clk_en       : STD_LOGIC IS uBus.clk_en;
 uBus.chain                <= core.chain;
 uBus.pause                <= flags_pause;
-uBus.delay                <= SRAM_delay;
+--ALIAS  delay        : STD_LOGIC IS uBus.delay;
 uBus.tick                 <= core.tick;
 -- registers
 uBus.sources(STATUS_REG)  <= resize(core.status, data_width);
@@ -211,6 +237,7 @@ uBus.sources(FLAG_REG)    <= resize(flags, data_width);
 uBus.sources(VERSION_REG) <= to_unsigned(version, data_width);
 uBus.sources(DEBUG_REG)   <= core.debug;
 uBus.sources(TIME_REG)    <= core.time;
+uBus.sources(CTRL_REG)    <= resize(ctrl, data_width);
 -- data memory and return stack
 uBus.reg_en               <= core.reg_en;
 uBus.mem_en               <= core.mem_en;
@@ -231,14 +258,14 @@ dma_mem.wdata  <= (OTHERS => '0');
 
 internal_data_mem: uDatacache PORT MAP (
    uBus         => uBus,
-   rdata        => dcache_rdata,
+   rdata        => cache_rdata,
    dma_mem      => dma_mem,
    dma_rdata    => dma_rdata
 );
 
-mem_rdata_proc : PROCESS (uBus, dcache_rdata, ext_rdata)
+mem_rdata_proc : PROCESS (uBus, cache_rdata, ext_rdata)
 BEGIN
-   mem_rdata <= dcache_rdata;
+   mem_rdata <= cache_rdata;
    IF  uBus.ext_en = '1' AND WITH_EXTMEM  THEN
       mem_rdata <= ext_rdata;
    END IF;

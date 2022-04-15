@@ -2,7 +2,7 @@
 -- @file : uCntrl.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 26.08.2021 22:47:00
+-- Last change: KS 16.03.2022 18:47:36
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -30,8 +30,8 @@ USE IEEE.NUMERIC_STD.ALL;
 USE work.functions_pkg.ALL;
 USE work.architecture_pkg.ALL;
 
-ENTITY microcontrol IS PORT (
-   uBus        : IN  uBus_port;
+ENTITY microcontrol IS PORT
+(  uBus        : IN  uBus_port;
    deb_reset   : IN  STD_LOGIC;    -- reset issued by debugger
    deb_pause   : IN  STD_LOGIC;    -- pause issued by debugger
    deb_penable : IN  STD_LOGIC;    -- program memory ready for write by debugger
@@ -44,10 +44,10 @@ ENTITY microcontrol IS PORT (
 
 ARCHITECTURE rtl OF microcontrol IS
 
-ALIAS  clk           : STD_LOGIC IS uBus.clk;
-ALIAS  clk_en        : STD_LOGIC IS uBus.clk_en;
-ALIAS  sources       : data_sources  IS uBus.sources;
-ALIAS  flags         : flag_bus      IS uBus.sources(FLAG_REG)(flag_width-1 DOWNTO 0);
+ALIAS  clk           : STD_LOGIC    IS uBus.clk;
+ALIAS  clk_en        : STD_LOGIC    IS uBus.clk_en;
+ALIAS  sources       : data_sources IS uBus.sources;
+ALIAS  flags         : flag_bus     IS uBus.sources(FLAG_REG)(flag_width-1 DOWNTO 0);
 
 SIGNAL reset         : STD_LOGIC;
 SIGNAL pause         : STD_LOGIC;
@@ -158,7 +158,6 @@ progmem.read      <= pread;
 progmem.addr      <= paddr;
 progmem.wdata     <= r.nos(inst_width-1 DOWNTO 0);
 
-uCtrl.clk_en      <= clk_en;
 uCtrl.mem_en      <= mem_en;
 uCtrl.reg_en      <= reg_en;
 uCtrl.ext_en      <= ext_en;
@@ -289,8 +288,8 @@ interrupt_services: IF  interrupts /= 0  GENERATE
          ienable <= (OTHERS => '0');
          pending <= (OTHERS => '0');
       ELSIF  rising_edge(clk)  THEN
-         pending <= flags(pending'high DOWNTO 0) AND ienable; -- synchronized twice, flags first time
-         IF  core_en = '1'  THEN
+         IF  clk_en = '1'  THEN
+            pending <= flags(pending'high DOWNTO 0) AND ienable; -- synchronized twice, flags first time
             IF  uReg_write(uBus, INT_REG)  THEN
                IF  r.nos(r.nos'high) = '0'  THEN
                   ienable <= ienable OR  r.nos(ienable'high DOWNTO 0);

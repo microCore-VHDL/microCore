@@ -4,8 +4,8 @@ add wave -noupdate /bench/myFPGA/uCore/warmboot
 add wave -noupdate /bench/myFPGA/reset_n
 add wave -noupdate /bench/myFPGA/reset
 add wave -noupdate /bench/myFPGA/clk
-add wave -noupdate /bench/myFPGA/uCore/cycle_ctr
 add wave -noupdate /bench/myFPGA/uCore/clk_en
+add wave -noupdate /bench/myFPGA/cycle_ctr
 add wave -noupdate /bench/myFPGA/uCore/uBus
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/s
