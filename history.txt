@@ -1,9 +1,11 @@
 ************************************************************************
-*** uCore 2.332  13-Apr-2022 ks
+*** uCore 2.342  13-Apr-2022 ks
 ************************************************************************
 
 Bugfix in semaphor_proc in architecture_pkg.vhd
 Moved enable_proc for clk_en generation from uCore.vhd to fpga.vhd
+1+ replaced by cell+ in various places in preparation
+for byte addressed memory.
 
 ************************************************************************
 *** uCore 2.331   5-Nov-2021 ks

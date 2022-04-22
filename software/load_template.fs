@@ -1,5 +1,5 @@
 \ 
-\ Last change: KS 13.03.2021 19:11:19
+\ Last change: KS 17.04.2022 19:08:05
 \
 \ Basic microCore load screen for execution on the target.
 \
@@ -28,7 +28,7 @@ library forth_lib.fs
 \ Interrupt
 \ ----------------------------------------------------------------------
 
-: interrupt ( -- )  intflags drop ;
+: interrupt ( -- )  Intflags @ drop ;
 
 \ ----------------------------------------------------------------------
 \ Booting and TRAPs

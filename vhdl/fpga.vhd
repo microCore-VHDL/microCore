@@ -2,7 +2,7 @@
 -- @file : fpga.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 13.04.2021 18:34:55
+-- Last change: KS 21.04.2022 19:21:52
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -75,6 +75,7 @@ SIGNAL core         : core_signals;
 SIGNAL flags        : flag_bus;
 SIGNAL flags_pause  : STD_LOGIC;
 SIGNAL ctrl         : UNSIGNED(ctrl_width-1 DOWNTO 0);
+SIGNAL flag_sema    : STD_LOGIC;    -- a software semaphor for testing
 SIGNAL memory       : datamem_port; -- multiplexed memory signals
 
 -- data memory
@@ -157,6 +158,10 @@ synch_interrupt: synchronize_n PORT MAP(clk, int_n,   flags(i_ext));
 flags         <= (OTHERS => 'L');
 -- synopsys translate_on
 
+flags(f_dsu)    <= NOT dsu_break;   -- '1' if debug terminal present
+flags(f_sema)   <= flag_sema;
+flags(f_bitout) <= ctrl(c_bitout);    -- for coretest
+
 ------------------------------------------------------------------------
 -- ctrl-register (bitwise)
 -- ---------------------------------------------------------------------
@@ -178,24 +183,22 @@ BEGIN
    END IF;
 END PROCESS ctrl_proc;
 
-flags(f_bitout) <= ctrl(c_bitout);
-
 -- ---------------------------------------------------------------------
 -- software semaphor f_sema using flag register
 -- ---------------------------------------------------------------------
 
-sema_proc : PROCESS (clk, reset)
+sema_proc: PROCESS (clk, reset)
 BEGIN
    IF  reset = '1' AND ASYNC_RESET  THEN
-      flags(f_sema) <= '0';
+      flag_sema <= '0';
    ELSIF  rising_edge(clk)  THEN
       IF  uReg_write(uBus, FLAG_REG)  THEN
          IF  (uBus.wdata(signbit) XOR uBus.wdata(f_sema)) = '1'  THEN
-            flags(f_sema) <= uBus.wdata(f_sema);
+            flag_sema <= uBus.wdata(f_sema);
          END IF;
       END IF;
       IF  reset = '1' AND NOT ASYNC_RESET  THEN
-         flags(f_sema) <= '0';
+         flag_sema <= '0';
       END IF;
    END IF;
 END PROCESS sema_proc;
@@ -207,8 +210,6 @@ flags_pause <= '1' WHEN  uReg_write(uBus, FLAG_REG) AND uBus.wdata(signbit) = '0
 -- ---------------------------------------------------------------------
 -- microcore interface
 -- ---------------------------------------------------------------------
-
-flags(f_dsu) <= NOT dsu_break; -- '1' if debug terminal present
 
 uCore: microcore PORT MAP (
    uBus       => uBus,

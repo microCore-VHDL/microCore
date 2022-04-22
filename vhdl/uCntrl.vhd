@@ -384,7 +384,7 @@ uCore_control: PROCESS
    VARIABLE nos_zero     : STD_LOGIC;
    VARIABLE registers    : BOOLEAN;
    VARIABLE dcache       : BOOLEAN;
-   VARIABLE asyncRAM     : BOOLEAN; -- external asynchronous RAM
+   VARIABLE ext_RAM      : BOOLEAN; -- external asynchronous RAM
 -- floating point
    VARIABLE fexp         : exponent;
    VARIABLE mantissa     : data_bus;
@@ -545,10 +545,9 @@ BEGIN
    rsp_addr := rstack_addr(rsp_addr'high DOWNTO rsp_width) & r.rsp;
 
 -- data memory
-   registers := false; IF  signed(r.tos(r.tos'high DOWNTO reg_addr_width)) = -1          THEN    registers := true;  END IF;
-   dcache    := false; IF  r.tos(r.tos'high DOWNTO cache_addr_width) = 0                 THEN       dcache := true;  END IF;
-   asyncRAM  := false; IF  WITH_EXTMEM AND r.tos(r.tos'high DOWNTO data_addr_width) = 0
-                           AND r.tos(data_addr_width-1 DOWNTO cache_addr_width) /= 0     THEN    asyncRAM  := true;  END IF;
+   registers := false; IF  signed(r.tos(r.tos'high DOWNTO reg_addr_width)) = -1          THEN  registers := true;  END IF;
+   dcache    := false; IF  r.tos(data_addr_width-1 DOWNTO cache_addr_width) = 0          THEN     dcache := true;  END IF;
+   ext_RAM   := false; IF  mem_addr >= addr_extern                                       THEN    ext_RAM := true;  END IF;
 
    mem_en <= '0';
    ext_en <= '0';
@@ -706,7 +705,7 @@ BEGIN
                              r_in.nos(s_lit) <= '0';
                           END IF;
 
-                       ELSIF  asyncRAM  THEN -- external memory
+                       ELSIF  ext_RAM  THEN -- external memory
                           ext_en <= '1';
                           r_in.nos <= mem_rdata;
                        ELSIF  dcache  THEN   -- internal data memory
@@ -733,7 +732,7 @@ BEGIN
                              r_in.rsp <= r.nos(r.rsp'range);
                           END IF;
 
-                       ELSIF  asyncRAM  THEN -- external memory
+                       ELSIF  ext_RAM  THEN -- external memory
                           ext_en <= '1';
                        ELSIF  dcache  THEN   -- internal data memory
                           mem_en <= '1';
@@ -753,7 +752,7 @@ BEGIN
                                 r_in.tos(s_lit) <= '0';
                              END IF;
 
-                          ELSIF  asyncRAM  THEN
+                          ELSIF  ext_RAM  THEN
                              ext_en <= '1';
                              r_in.tos <= mem_rdata;
                           ELSIF  dcache  THEN   -- internal data memory
@@ -777,7 +776,7 @@ BEGIN
                              cin <= '0';
                              mem_wr <= '1';
                           ELSE
-                             IF  asyncRAM  THEN
+                             IF  ext_RAM  THEN
                                 ext_en <= '1';
                                 r_in.data <= mem_rdata;
                              ELSIF  dcache  THEN   -- internal data memory
@@ -796,7 +795,7 @@ BEGIN
                           mem_addr <= r.tos(mem_addr'range);
                           mem_wdata <= sum;
                           mem_wr <= '1';
-                          IF  asyncRAM  THEN
+                          IF  ext_RAM  THEN
                              ext_en <= '1';
                              add_x <= r.data;
                           ELSIF  dcache  THEN   -- internal data memory

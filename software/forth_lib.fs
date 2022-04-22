@@ -2,7 +2,7 @@
 \ @file : forth.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 17.06.2021 18:47:26
+\ Last change: KS 02.04.2022 19:29:11
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -65,10 +65,10 @@ Target
 ~ [THEN]
 ~ : u+sat      ( u n -- u' )      swap #signbit tuck xor rot +sat xor ;
 
-~ : 2@      ( addr -- d )         ld 1+ @ swap ;
-  Host: 2@  ( addr -- d )         comp? dbg? or IF T 2@ H EXIT THEN  dup 1+ d@  swap d@ dtarget ;
-~ : 2!      ( d addr -- )         st 1+ ! ;
-  Host: 2!  ( d addr -- )         comp? dbg? or IF T 2! H EXIT THEN  >r d>target r@ d!  r> 1+ d! ;
+~ : 2@      ( addr -- d )         ld cell+ @ swap ;
+  Host: 2@  ( addr -- d )         comp? dbg? or IF T 2@ H EXIT THEN  dup cell+ d@  swap d@ dtarget ;
+~ : 2!      ( d addr -- )         st cell+ ! ;
+  Host: 2!  ( d addr -- )         comp? dbg? or IF T 2! H EXIT THEN  >r d>target r@ d!  r> cell+ d! ;
 ~ : m+      ( d n -- d )          extend ; noexit                    \ fall into d+
   : d+      ( d1 d2 -- d3 )       >r rot + swap r> +c ;
 ~ : d-      ( d1 d2 -- d3 )       >r rot swap- swap r> not +c ;
@@ -190,15 +190,15 @@ Target
 ~ : on       ( addr -- )        -1 swap ! ;
 ~ : off      ( addr -- )         0 swap ! ;
 ~ : erase    ( addr len -- )     0 ; noexit  \ fall into fill
-  : fill     ( addr len u -- )   -rot ?FOR  under st 1+  NEXT  2drop ;
+  : fill     ( addr len u -- )   -rot ?FOR  under st cell+  NEXT  2drop ;
 ~ : move     ( addr_from addr_to ucount -- )
      >r 2dup u< IF ( cmove> )
-        r@ + swap r@ +  r> ?FOR  1- ld -rot  swap 1- st  swap  NEXT
+        r@ + swap r@ +  r> ?FOR  cell- ld -rot  swap cell- st  swap  NEXT
      ELSE    ( cmove )
-         1 - swap  1 -  r> ?FOR  1+ ld -rot  swap 1+ st  swap  NEXT
+         1 - swap  1 -  r> ?FOR  cell+ ld -rot  swap cell+ st  swap  NEXT
      THEN  2drop
   ;
-~ : place    ( addr len to -- )  over swap st 1+ swap move ;
+~ : place    ( addr len to -- )  over swap st cell+ swap move ;
 
 ~ : ,        ( n -- )  here ! 1 allot ;
   Host: ,    ( n -- )  comp? dbg? or IF T , H EXIT THEN Tdp @ d!   1 Tdp +! ;
@@ -244,4 +244,3 @@ Target
      >dstack r>        ( err# )      \ Change stack pointer
   ; \ EXIT will return to the caller of CATCH, because the return stack has
     \ been restored to the state that existed when CATCH was executed.
-

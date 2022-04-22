@@ -2,7 +2,7 @@
 \ @file : constants.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 05.04.2021 16:46:52
+\ Last change: KS 17.04.2022 18:52:08
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -54,9 +54,9 @@ H DSP_REG       T Register Dsp
 
 H RSP_REG       T Register Rsp
 
-H INT_REG       T Register Int-reg
+H INT_REG       T Register Intflags
 H i_ext     T Bit #i-ext
-H FLAG_REG      T Register Flag-reg
+H FLAG_REG      T Register Flags         
 H f_dsu     T Bit #f-dsu      \ set while umbilical is active (no break on rxd)
 H f_sema    T Bit #f-sema
 H f_bitout  T Bit #f-bitout

@@ -2,7 +2,7 @@
 -- @file : uDatacache.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 10.04.2021 16:58:59
+-- Last change: KS 18.04.2022 17:54:27
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -39,6 +39,8 @@ ENTITY uDatacache IS PORT (
 ARCHITECTURE rtl OF uDatacache IS
 
 ALIAS clk        : STD_LOGIC IS uBus.clk;
+ALIAS clk_en     : STD_LOGIC IS uBus.clk_en;
+ALIAS mem_en     : STD_LOGIC IS uBus.mem_en;
 ALIAS write      : STD_LOGIC IS uBus.write;
 ALIAS addr       : data_addr IS uBus.addr;
 ALIAS wdata      : data_bus  IS uBus.wdata;
@@ -51,7 +53,7 @@ SIGNAL enable    : STD_LOGIC;
 
 BEGIN
 
-enable <= uBus.clk_en AND uBus.mem_en WHEN  uBus.ext_en = '0'  ELSE '0';
+enable <= clk_en AND mem_en;
 
 make_sim_mem: IF  SIMULATION  GENERATE
 
@@ -83,6 +85,7 @@ END GENERATE make_sim_mem; make_syn_mem: IF  NOT SIMULATION  GENERATE
       addra   => addr(cache_addr_width-1 DOWNTO 0),
       dia     => wdata,
       doa     => rdata,
+   -- dma port
       enb     => dma_enable,
       web     => dma_write,
       addrb   => dma_addr(cache_addr_width-1 DOWNTO 0),

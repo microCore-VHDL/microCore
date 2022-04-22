@@ -2,7 +2,7 @@
 \ @file : debugger.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 17.07.2021 18:27:04
+\ Last change: KS 20.03.2022 00:27:01
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -336,6 +336,10 @@ Defer do-handle-breakpoint
 
 : t_@    ( addr -- x )  >t  [t'] \@ t_execute  t> ;
 
+HAVE c@ [IF]
+: t_c@   ( caddr -- c ) >t  [t'] \c@ t_execute t> ;
+[THEN]
+
 : t_2@   ( addr -- d )  dup 1+ t_@ swap t_@ ;
 
 : t_!    ( x addr -- )  swap >t >t  [t'] \! t_execute ;
@@ -583,6 +587,15 @@ Command definitions
         I 8 bounds DO  I t_@ addr. space  LOOP
    8 +LOOP
 ;
+HAVE c@ [IF]
+: cdump  ( -- )  ( T caddr len -- )
+   t> t> swap bounds
+   ?DO  cr I .addr
+        I #24 bounds DO  I 3 bounds DO  I t_c@ 3 u.r  LOOP  2 spaces 3 +LOOP
+   #24 +LOOP
+;
+[THEN]
+
 : ' ( <name> -- )  ( T -- xt )  t' >t ;
 
 WITH_UP_DOWNLOAD [IF]

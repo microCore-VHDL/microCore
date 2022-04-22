@@ -2,7 +2,7 @@
 \ @file : images.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 05.04.2021 16:47:42
+\ Last change: KS 03.04.2022 18:25:39
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -43,7 +43,10 @@ Only Forth also definitions
 ;
 \ ----------------------------------------------------------------------
 \ Create bootable code for 8-bit EEPROM
-\ length-field | program image | 2 byte crc
+\ CRC16-CCITT Width = 16 bits
+\ CRC computed following the algorithm specified in the ECSS-E-70-41A
+\
+\ 2 byte length-field | program image | 2 byte crc
 \ ----------------------------------------------------------------------
 
 $1021 Constant #polynom
@@ -51,27 +54,28 @@ $FFFF Constant #crc-init
 $8000 Constant #X15-bit
 $FFFF Constant #crc-mask
     2 Constant #bytes/crc
+    2 Constant #bytes/len
 
 : crc-step  ( w crc1 -- w' crc2 ) \ process one bit
    2dup xor >r   2* swap 2* swap
    r> #X15-bit and IF  #polynom xor  THEN
 ;
 : crc8  ( crc1 c -- crc2 )  \ process one byte
-   8 lshift swap &7 FOR  crc-step  NEXT  nip
+   8 lshift swap 7 FOR  crc-step  NEXT  nip
 ;
 : crc-check ( addr length -- crc )  \ process string of bytes
    #crc-init -rot 1- FOR  dup >r   c@ crc8   r> 1+  NEXT  drop
    #crc-mask and
 ;
 : pack_image ( -- addr len )
-   Pad    dup #bytes/cell + 0
+   Pad    dup #bytes/len + 0
    0 >memory there cells bounds
    DO  I c@   swap >r swap >r   r@ c!  r> 1+  r> 1+  1 cells +LOOP
-   swap >r   over #bytes/cell + over crc-check
+   swap >r   over #bytes/len + over crc-check
    unpack r@ c!  r> 1+ c!                                         \ append two CRC bytes
-   swap over #bytes/cell 2 - FOR  unpack  NEXT                    \ fill in length-field
-   Pad #bytes/cell + 1-   #bytes/cell 1- FOR  tuck c! 1-  NEXT drop
-   swap #bytes/cell + #bytes/crc +                                \ compute total image length
+   swap over #bytes/len 2 - FOR  unpack  NEXT                     \ fill in length-field
+   Pad #bytes/len + 1-   #bytes/len 1- FOR  tuck c! 1-  NEXT drop
+   swap #bytes/len + #bytes/crc +                                 \ compute total image length
 ;
 : CRC-file   ( <name> -- )  \ write program memory image length field and CRC
    BL word          dup c@ 0= abort" file name required"

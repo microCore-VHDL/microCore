@@ -2,7 +2,7 @@
 \ @file : coretest.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 03.03.2022 16:35:56
+\ Last change: KS 17.04.2022 19:07:56
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -76,7 +76,7 @@ Variable Location  1 allot
    #signbit 2/ #signbit dup u2/ or -   IF  $1D throw THEN      ( -- )
    1 2/                      cc carry? IF  $1E throw THEN cc   ( -- 0 )
    0= not                              IF  $1F throw THEN      ( -- )
-   0 1+   dup 1 -                      IF  $120 throw THEN     ( -- 1 )
+   0 1+   dup 1-                       IF  $120 throw THEN     ( -- 1 )
    1-                                  IF  $121 throw THEN     ( -- )
    #signbit -8 shift
    1 data_width 9 - shift -            IF  $122 throw THEN
@@ -325,14 +325,14 @@ HAVE #i_ext [IF]
 
 : test-interrupt ( -- )   1 Intvar !   ei   #i-ext int-enable ;
 
-: interrupt  ( -- )   intflags
+: interrupt  ( -- )   Intflags @
    #i-ext and IF  Intvar @ 1- Intvar !   EXIT THEN
    $55 Intvar !  \ invalid interrupt source
 ;
 [ELSE]
 
 : test-interrupt ( -- )  0 Intvar ! ;
-: interrupt      ( -- )  Intflags drop ;
+: interrupt      ( -- )  Intflags @ drop ;
 
 [THEN]
 

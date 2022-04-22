@@ -2,7 +2,7 @@
 \ @file : task_lib.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 27.08.2021 19:13:10
+\ Last change: KS 02.04.2022 19:31:00
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -125,7 +125,7 @@ Target
   Variable RoundRobin
   Variable RRLink
 
-  Macro: do-next  ( task -- lfa ) T ld 1+ swap BRANCH H ;
+  Macro: do-next  ( task -- lfa ) T ld cell+ swap BRANCH H ;
 
 \ ----------------------------------------------------------------------
 \ Words that characterize a tasks state.
@@ -137,21 +137,21 @@ Target
   ; noexit
 
   : do-wake ( lfa -- )  [ H there 'do-wake ! T ]
-     ['] go-next swap 1- st >r  ( R: new-task )  \ mark task as not ready to run
-     TCB   dup r@ -                              \ is the new task different from the running task?
-     IF  Rsp @   Dsp @ rot #t-dsp + !            \ save RSP on stack and DSP in TCB
-         r@ Tptr !                               \ switch task
+     ['] go-next swap cell- st >r  ( R: new-task )  \ mark task as not ready to run
+     TCB   dup r@ -                                 \ is the new task different from the running task?
+     IF  Rsp @   Dsp @ rot #t-dsp + !               \ save RSP on stack and DSP in TCB
+         r@ Tptr !                                  \ switch task
   Label wake-up
-         r@ #t-dsp + @ >dstack                   \ restore dsp, fill NOS & TOS
-         >rstack gon EXIT                        \ restore rsp, fill TOR
+         r@ #t-dsp + @ >dstack                      \ restore dsp, fill NOS & TOS
+         >rstack gon EXIT                           \ restore rsp, fill TOR
      THEN
-     rdrop drop gon                              \ if myself nothing else to do
+     rdrop drop gon                                 \ if myself nothing else to do
   ;
   : force-wake ( lfa -- )  \ used by activate
-     ['] go-next swap 1- st >r  ( R: new-task )  \ mark task as not ready to run
-     TCB   dup r@ -                              \ is the new task not the running task?
-     IF  Rsp @   Dsp @ rot #t-dsp + !            \ save RSP on stack and DSP in TCB
-         r@ Tptr !                               \ switch task
+     ['] go-next swap cell- st >r  ( R: new-task )  \ mark task as not ready to run
+     TCB   dup r@ -                                 \ is the new task not the running task?
+     IF  Rsp @   Dsp @ rot #t-dsp + !               \ save RSP on stack and DSP in TCB
+         r@ Tptr !                                  \ switch task
      THEN
      GOTO wake-up
   ; noexit
@@ -167,15 +167,15 @@ Target
   PERFORMANCE-MEASUREMENT [IF]   \ cr .( with performance measurement )
   
     : do-priority  ( lfa -- lfa' )   [ H there 'do-priority ! T ]
-     \  kick-watchdog       \ here the watchdog would be kicked in a real system
-        True over 1+ st     \ set Prioflag @ #p-flag      ( -- lfa addr-flag )
-        1+ ld >r            \ fetch previous #p-time      ( -- lfa time )        ( R: addr-time )
-        time   dup r@ !  swap -                           ( -- lfa delta-t )     ( R: addr-time )
-        r> 1+ ld >r         \ fetch previous #p-max       ( -- lfa delta-t max ) ( R: addr-max )
+     \  kick-watchdog          \ here the watchdog would be kicked in a real system
+        True over cell+ st     \ set Prioflag @ #p-flag      ( -- lfa addr-flag )
+        cell+ ld >r            \ fetch previous #p-time      ( -- lfa time )        ( R: addr-time )
+        time   dup r@ !  swap -                              ( -- lfa delta-t )     ( R: addr-time )
+        r> cell+ ld >r         \ fetch previous #p-max       ( -- lfa delta-t max ) ( R: addr-max )
         over - drop carry? IF  drop rdrop @ do-next  THEN ( -- lfa delta-t )     ( R: addr-max )
-        r> st               \ store #p-max                ( -- lfa addr-max )
-        TCB swap 1+ st      \ store #p-task               ( -- lfa addr-task )
-        r@ swap 1+ !        \ store #p-pc                 ( -- lfa )
+        r> st                  \ store #p-max                ( -- lfa addr-max )
+        TCB swap cell+ st      \ store #p-task               ( -- lfa addr-task )
+        r@ swap cell+ !        \ store #p-pc                 ( -- lfa )
         @ do-next
      ; noexit
   
@@ -187,7 +187,7 @@ Target
   
     : do-priority  ( lfa -- lfa' )   [ H there 'do-priority ! T ]
     \  kick-watchdog       \ here the watchdog would be kicked in a real system
-       True over 1+ !      \ set Prioflag @ #p-flag      ( -- lfa addr-flag )
+       True over cell+ !   \ set Prioflag @ #p-flag      ( -- lfa addr-flag )
        @ do-next
     ; noexit
   
@@ -206,7 +206,7 @@ Target
      #t-dsp + @ dsp>task              \ determine task number
      dup task>dsp 2 + r@ #t-dsp + !   \ initialize dsp for one element - rsp - on the stack
      task>rsp ['] halt swap st        \ put a "halt" into the bottom position of the return stack
-     1- st   >r                       \ and the word to be executed above
+     cell- st   >r                    \ and the word to be executed above
      #t-dsp + @ 1-                    \ compute "empty" dsp of new task
      dstack> >r   >dstack             \ save dsp and switch into stack of new task
      r> r> dup   rot >dstack drop     \ initialize its stack with 2 elements and switch back to own stack
@@ -236,12 +236,12 @@ Target
 
   : do-robin ( lfa -- lfa' )  [ H there 'do-robin ! T ]
      False Prioflag !
-     dup @ 1+ @ dup rot !                                   \ advance pointer into the circular task list to the next task in the list
+     dup @ cell+ @ dup rot !                              \ advance pointer into the circular task list to the next task in the list
      Dsu @   #f-dsu flag?   dup Dsu !
-     IF  0= IF  Terminal ['] debug-service activate  THEN    \ Break vanished, start the Terminal task
+     IF  0= IF  Terminal ['] debug-service activate  THEN \ Break vanished, start the Terminal task
          do-next
      THEN \ #f-dsu not set
-     IF  Terminal stop  THEN                                \ New break, stop the Terminal task
+     IF  Terminal stop  THEN                              \ New break, stop the Terminal task
      do-next
   ; noexit
 
@@ -374,7 +374,7 @@ Target
      0 r> #s-task + !
   ;
 ~ : force-unlock  ( sema -- )
-     dup 1+   dup dec @ IF  drop EXIT THEN
+     dup cell+   dup dec @ IF  drop EXIT THEN
      semaphore-available pause
   ;
 ~ : unlock ( sema -- )   dup @ TCB - IF  #not-my-semaphore message  THEN force-unlock ;
