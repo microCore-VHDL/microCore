@@ -2,7 +2,7 @@
 \ @file : microcross.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 09.08.2021 17:02:07
+\ Last change: KS 04.06.2022 18:29:50
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -312,12 +312,14 @@ gforth_062 [IF]
 : .constants ( -- )  Constants  BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
 : .colons            Colons     BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
 : .inits     ( -- )  Init-link  BEGIN  @ ?dup WHILE  dup 4 cells - >name .name  REPEAT ;
+: .does      ( -- )  Doers      BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
 [THEN] gforth_079 gforth_072 or [IF]
 : .macros    ( -- )  Macro-link BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
 : .variables ( -- )  Variables  BEGIN  @ ?dup WHILE  dup 2 cells - >name .name  REPEAT ;
 : .constants ( -- )  Constants  BEGIN  @ ?dup WHILE  dup 2 cells - >name .name  REPEAT ;
 : .colons            Colons     BEGIN  @ ?dup WHILE  dup 2 cells - >name .name  REPEAT ;
 : .inits     ( -- )  Init-link  BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
+: .does      ( -- )  Doers      BEGIN  @ ?dup WHILE  dup 2 cells - >name .name  REPEAT ;
 [THEN]
 \ ----------------------------------------------------------------------
 \ Arithmetic optimizer, looking for "2dup <arithop>" and "swap -"
@@ -705,7 +707,8 @@ Target definitions Forth
    dbg? IF t> THEN  Constant
    here  Constants @ , Constants !
 Does> @        ( -- n )
-   comp? IF  lit,  EXIT THEN    dbg? IF  >t  THEN
+   comp? IF  lit,  EXIT THEN
+    dbg? IF  >t         THEN
 ;
 : 2constant    ( n1 n2 -- )
    dbg? IF t> t> swap THEN   Constant ,
@@ -812,6 +815,7 @@ Does> ( -- ) [ here (doGoto ! ]
 ' .constants  Alias .constants
 ' .colons     Alias .colons
 ' .inits      Alias .inits
+' .does       Alias .does
 ' binary      Alias binary
 ' decimal     Alias decimal
 ' hex         Alias hex
@@ -1033,17 +1037,16 @@ include images.fs    \ object code output files
 \ Various target defining words
 \ ----------------------------------------------------------------------
 
-Variable @create  @create off
-Variable Init-status
+Variable Initialize-state
 
-: Hcreate  ( -- )
+: Hcreate  ( tcp -- )
    ?exec   Tdp @ Constant
+   dbg? IF  >t s" ," evaluate  ELSE  Tdp @ d!   1 Tdp +!  THEN
    here Doers @ , Doers !
-   uninitialized? dup IF  T initialized H  THEN  Init-status !
-   [ here cell+ @create ! ] 0 T , H
-Does> @       ( -- addr )
-   comp? IF  lit,   op_DOES t,  EXIT THEN
-    dbg? IF  >t s" \does" evaluate   THEN
+   uninitialized? dup IF  T initialized H  THEN  Initialize-state !
+Does> @  ( -- TDP )
+   comp? IF  lit,  op_DOES t,  EXIT THEN
+    dbg? IF  >t s" \does" evaluate  THEN
 ;
 : ;  ( # -- )
    #host case? IF  target-compile 0  THEN   postpone ;
@@ -1059,26 +1062,29 @@ Does> @       ( -- addr )
    r> >in !   advance-libsource   name 2drop
    if-prefix   ]
 ;
+: do-forward
+   doColon over cell+ !                                    \ convert a goto into a colon definition
+   >body   dup cell+ >r   dup @ there rot !                \ patch the real target address
+   BEGIN  dup link@ swap resolve-goto ?dup 0= UNTIL        \ resolve all forward references
+   Labels BEGIN  dup @ r@ - WHILE  @  REPEAT  r@ @ swap !  \ link word out of LABELS list
+   Colons @ r@ !   r> Colons !                             \ and link it into COLONS list
+   if-prefix   ]   #colon
+;
 Target definitions Forth
 
-: preload ( <name> -- )
-   ?exec  8 Deflength ! mark-target   have ?dup 0= ?EXIT  >r
-   BEGIN  r@ libdef?
-   WHILE  Verbose @ IF  cr ." preload   " r@ >name .name  THEN
-          ] r@ execute
-   REPEAT
-   rdrop  postpone [
-;
+: Create  ( # -- # )
+   comp? IF  Tcp @ postpone Literal   postpone Hcreate  EXIT THEN
+   Tcreate   class-def? IF  Last-class @ ,  THEN
+; immediate
+
+: Does>   ( #host -- #colon )
+   Initialize-state @ IF  T uninitialized H  THEN
+   postpone ;   ] #colon
+; immediate
+
 : :     ( <name> -- # )   ?exec
    |   Trash Countfield !   >in @ >r   have ?dup
-   IF  dup cell+ @ doGoto =                                        \ is it a forward reference?
-       IF  doColon over cell+ !                                    \ convert a goto into a colon definition
-           >body   dup cell+ >r   dup @ there rot !                \ patch the real target address
-           BEGIN  dup link@ swap resolve-goto ?dup 0= UNTIL        \ resolve all forward references
-           Labels BEGIN  dup @ r@ - WHILE  @  REPEAT  r@ @ swap !  \ link word out of LABELS list
-           Colons @ r@ !   r> Colons !                             \ and link it into COLONS list
-           rdrop   if-prefix   ]   #colon
-       EXIT THEN
+   IF  dup cell+ @ doGoto = IF  do-forward rdrop EXIT THEN
        dup libdef? IF  r> do-libdef #lib  EXIT THEN
        drop
    THEN   r> >in !
@@ -1093,18 +1099,16 @@ Does> ( -- ) [ here (doColon ! ]  Method   @
 
 : Macro:  ( <name> -- context addr xt :noname # )  ?exec Macro: host-compile ;
 
-: Create  ( # -- # )
-   comp? IF  postpone Hcreate  EXIT THEN
-   Tcreate   class-def? IF  Last-class @ ,  THEN
-; immediate
-
-: Does>   ( #host -- #colon )
-   Init-status @ IF  T uninitialized H  THEN
-   postpone ;  Tcp @ @create @ ! ] #colon
-; immediate
-
 : init:  ( <name> -- # )   6 Deflength ! T : H here Init-link @ , Init-link ! ;
 
+: preload ( <name> -- )
+   ?exec  8 Deflength ! mark-target   have ?dup 0= ?EXIT  >r
+   BEGIN  r@ libdef?
+   WHILE  Verbose @ IF  cr ." preload   " r@ >name .name  THEN
+          ] r@ execute
+   REPEAT
+   rdrop  postpone [
+;
 : new      ( -- )   \ Initialize cross-compiler for another compilation run
    cr ." microCross version " .version ." by ks, gforth port and debugger by uho"
    Memory [ #datamask #maxprog umin 1+ cells ] Literal erase

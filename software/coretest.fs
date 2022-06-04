@@ -2,7 +2,7 @@
 \ @file : coretest.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 17.04.2022 19:07:56
+\ Last change: KS 01.06.2022 19:59:22
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -321,7 +321,7 @@ SIMULATION [IF]
 ;
 Variable Intvar
 
-HAVE #i_ext [IF]
+HAVE #i-ext [IF]
 
 : test-interrupt ( -- )   1 Intvar !   ei   #i-ext int-enable ;
 

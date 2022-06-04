@@ -2,7 +2,7 @@
 \ @file : forth.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 02.04.2022 19:29:11
+\ Last change: KS 04.06.2022 19:26:47
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -42,7 +42,7 @@ Target
 ~ EXTENDED [NOTIF]
 
    ~ : I       ( -- i )           r> r> r@ over >r swap - swap BRANCH ; noexit
-   ~ : flag?   ( mask -- f )      Flag-reg @ and ;
+   ~ : flag?   ( mask -- f )      Flags @ and ;
 
 ~ [THEN]
 
@@ -199,9 +199,6 @@ Target
      THEN  2drop
   ;
 ~ : place    ( addr len to -- )  over swap st cell+ swap move ;
-
-~ : ,        ( n -- )  here ! 1 allot ;
-  Host: ,    ( n -- )  comp? dbg? or IF T , H EXIT THEN Tdp @ d!   1 Tdp +! ;
 
 ~ : sleep    ( n -- )           ahead | ; noexit   \ fall into continue
   : continue ( time -- )        BEGIN  dup time? UNTIL drop ;

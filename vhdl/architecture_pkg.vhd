@@ -2,7 +2,7 @@
 -- @file : architecture_pkg.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 13.04.2022 17:13:10
+-- Last change: KS 01.06.2022 21:59:39
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -35,7 +35,7 @@ USE work.functions_pkg.ALL;
 PACKAGE architecture_pkg IS
 --~--  \ when loaded by the microForth cross-compiler, code between "--~" up to "--~--" will be skipped.
 
-CONSTANT version            : NATURAL := 2332; -- <major_release> <functionality_added> <HW_fix> <SW_fix> <pre-release#>
+CONSTANT version            : NATURAL := 2353; -- <major_release> <functionality_added> <HW_fix> <SW_fix> <pre-release#>
 
 -- ---------------------------------------------------------------------
 -- Configuration flags
@@ -227,7 +227,7 @@ TYPE  progmem_port  IS RECORD
    write       : STD_LOGIC;    -- 1 => write, 0 => read
    read        : STD_LOGIC;    -- 1 => read program as data (2 cycle)
    addr        : program_addr;
-   wdata       : inst_bus;     -- write to program memory
+   wdata       : inst_bus;     -- write to program memory during boot phase
 END RECORD;
 
 -- ---------------------------------------------------------------------

@@ -73,7 +73,3 @@ Variable tmpTOR
 : \@      ( addr -- n )       @ ;
 : \!      ( n addr -- )       ! ;
 : \does   ( addr -- addr+1 )  H op_DOES t, T ;
-HAVE c@ [IF]
-: \c@     ( caddr -- c )      c@ ;
-[THEN]
-

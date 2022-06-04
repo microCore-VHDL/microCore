@@ -2,7 +2,7 @@
 \ @file : messages.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 04.06.2021 16:15:57
+\ Last change: KS 04.06.2022 17:53:16
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -60,13 +60,14 @@ Forth definitions
    $.
 ;
 \ ----------------------------------------------------------------------
-\ target words, which can be executed during compilation
+\ target words, which can be executed during compilation for simulation
 \ ----------------------------------------------------------------------
 SIMULATION [IF] Target definitions Forth
 
    : here  ( -- addr )      ?exec Tdp @ ;
    : allot ( n -- )         ?exec Tdp +! ;
-   
+   : ,     ( n -- )         ?exec Tdp @ d!  1 Tdp +! ;
+
    : .     ( n -- )         ?exec  . ;
    : .r    ( n u -- )       ?exec .r ;
    : u.    ( u -- )         ?exec tu. ;

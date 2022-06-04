@@ -38,3 +38,11 @@ synplify/syntmp/
 synplify/synwork/
 
 *.log
+
+*.mti
+
+modelSim/transcript
+
+*.wlf
+
+software/program.mem

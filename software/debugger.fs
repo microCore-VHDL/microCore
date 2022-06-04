@@ -2,7 +2,7 @@
 \ @file : debugger.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 20.03.2022 00:27:01
+\ Last change: KS 04.06.2022 18:07:14
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -336,10 +336,6 @@ Defer do-handle-breakpoint
 
 : t_@    ( addr -- x )  >t  [t'] \@ t_execute  t> ;
 
-HAVE c@ [IF]
-: t_c@   ( caddr -- c ) >t  [t'] \c@ t_execute t> ;
-[THEN]
-
 : t_2@   ( addr -- d )  dup 1+ t_@ swap t_@ ;
 
 : t_!    ( x addr -- )  swap >t >t  [t'] \! t_execute ;
@@ -587,15 +583,6 @@ Command definitions
         I 8 bounds DO  I t_@ addr. space  LOOP
    8 +LOOP
 ;
-HAVE c@ [IF]
-: cdump  ( -- )  ( T caddr len -- )
-   t> t> swap bounds
-   ?DO  cr I .addr
-        I #24 bounds DO  I 3 bounds DO  I t_c@ 3 u.r  LOOP  2 spaces 3 +LOOP
-   #24 +LOOP
-;
-[THEN]
-
 : ' ( <name> -- )  ( T -- xt )  t' >t ;
 
 WITH_UP_DOWNLOAD [IF]
@@ -704,16 +691,18 @@ Root definitions Forth
 : .s  ( i*x -- i*x )    dbg? IF  show-dstack  EXIT THEN .s ;
 
 \ ----------------------------------------------------------------------
-\ target words, which can be executed and compiled into debug words for the target
+\ target words, which can be executed and compiled into debug words
+\ for the target system
 \ ----------------------------------------------------------------------
 Target SIMULATION [NOTIF]
 
 Variable Dp   \ initialized by the word "end" (microcross.fs)
 \ in addition, Dp (target) and Tdp (host) are synchronised in debugger (debugger.fs)
-\ Macro: here  ( -- addr )   T Dp @ H ;
 
-Host: here  ( -- addr )      comp? dbg? or IF  T Dp @  H  EXIT THEN  Tdp @ ;
-Host: allot ( n -- )         comp? dbg? or IF  T Dp +! H  EXIT THEN  Tdp +! ;
+Host: here  ( -- addr )      comp? dbg? or IF  T Dp @  H            EXIT THEN  Tdp @ ;
+Host: allot ( n -- )         comp? dbg? or IF  T Dp +! H            EXIT THEN  Tdp +! ;
+    : ,     ( n -- )         here ! 1 allot ;
+Host: ,     ( u -- )         comp? dbg? or IF  T , H  EXIT THEN  Tdp @ d!   1 Tdp +! ;
 
 Host: .     ( n -- )         comp? IF  #dot   lit, T message >host       H EXIT THEN  dbg? IF  t> signextend         THEN  . ;
 Host: .r    ( n u -- )       comp? IF  #dotr  lit, T message >host >host H EXIT THEN  dbg? IF  t> t> signextend swap THEN  .r ;

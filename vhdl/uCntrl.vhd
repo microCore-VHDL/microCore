@@ -2,7 +2,7 @@
 -- @file : uCntrl.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 16.03.2022 18:47:36
+-- Last change: KS 01.06.2022 19:50:50
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -140,7 +140,7 @@ SIGNAL pending      : int_flags; -- register of triggered interrupts
 SIGNAL interrupt    : STD_LOGIC;
 
 -- timer
-CONSTANT time_cnt   : NATURAL := (clk_frequency/(1000*ticks_per_ms))-1;
+CONSTANT time_cnt   : NATURAL := (clk_frequency / (1000 * ticks_per_ms)) - 1;
 SIGNAL time_ctr     : NATURAL RANGE 0 TO time_cnt; -- divides system clock
 SIGNAL time         : data_bus;
 SIGNAL tick         : STD_LOGIC;
@@ -394,7 +394,7 @@ uCore_control: PROCESS
    CONSTANT zero_pos     : data_bus := ('0' & slice('0', data_width-1));
    CONSTANT zero_neg     : data_bus := ('1' & slice('0', data_width-1));
 
-   ALIAS lit_bit         : STD_LOGIC                    IS instruction(7);
+   ALIAS lit_bit         : STD_LOGIC            IS instruction(7);
    ALIAS i_lit           : UNSIGNED(6 DOWNTO 0) IS instruction(6 DOWNTO 0);
    ALIAS i_usr           : UNSIGNED(4 DOWNTO 0) IS instruction(4 DOWNTO 0);
 
@@ -545,9 +545,10 @@ BEGIN
    rsp_addr := rstack_addr(rsp_addr'high DOWNTO rsp_width) & r.rsp;
 
 -- data memory
-   registers := false; IF  signed(r.tos(r.tos'high DOWNTO reg_addr_width)) = -1          THEN  registers := true;  END IF;
-   dcache    := false; IF  r.tos(data_addr_width-1 DOWNTO cache_addr_width) = 0          THEN     dcache := true;  END IF;
-   ext_RAM   := false; IF  mem_addr >= addr_extern                                       THEN    ext_RAM := true;  END IF;
+   registers := false; IF  signed(r.tos(r.tos'high DOWNTO reg_addr_width)) = -1  THEN  registers := true;  END IF;
+   dcache    := false; IF  r.tos(data_addr_width-1 DOWNTO cache_addr_width) = 0
+                           OR NOT WITH_EXTMEM                                    THEN     dcache := true;  END IF;
+   ext_RAM   := false; IF  WITH_EXTMEM AND mem_addr >= addr_extern               THEN    ext_RAM := true;  END IF;
 
    mem_en <= '0';
    ext_en <= '0';
@@ -1043,9 +1044,9 @@ BEGIN
 
       WHEN op_SUB  => pop_stack;
                       add_x <= NOT r.tos;
+                      cin <= '1';
                       add_y <= r.nos;
                       r_in.tos <= sum;
-                      cin <= '1';
                       r_in.status(s_c) <= add_carry;
                       r_in.status(s_ovfl) <= add_ovfl;
 

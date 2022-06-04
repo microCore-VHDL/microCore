@@ -1,10 +1,29 @@
 ************************************************************************
+*** uCore 2.354   4-Jun-2022 ks
+************************************************************************
+
+Bugfix in uCtrl:
+   dcache was always false when data_addr_width = cache_addr_width
+   and therefore, @ and ! would not work.
+
+Bugfix in constant.fs and various .fs files:
+   Flag-reg replaced by Flags, Int-reg replaced by Intflags.
+
+Bugfix in microcross.fs:
+   Create ... Does> now allows multiple data object definitions.
+   Additional data objects can be defined while debugging interactively.
+
+forth_lib.fs, debugger.fs, and messages.fs:
+   The target's , moved from forth_lib to debugger and messages and
+   therefore, it will be permanently present outside of the library.
+
+************************************************************************
 *** uCore 2.342  13-Apr-2022 ks
 ************************************************************************
 
 Bugfix in semaphor_proc in architecture_pkg.vhd
 Moved enable_proc for clk_en generation from uCore.vhd to fpga.vhd
-1+ replaced by cell+ in various places in preparation
+1+ / 1- replaced by cell+ / cell- in various places in preparation
 for byte addressed memory.
 
 ************************************************************************
