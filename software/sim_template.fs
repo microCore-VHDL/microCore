@@ -1,5 +1,5 @@
 \ 
-\ Last change: KS 02.04.2022 19:09:19
+\ Last change: KS 02.10.2022 16:34:45
 \
 \ MicroCore load screen for simulation.
 \ It produces program.mem for initialization of the program memory during simulation.
@@ -39,7 +39,7 @@ library forth_lib.fs
 
 #reset TRAP: rst    ( -- )            boot                 ;  \ compile branch to boot at reset vector location
 #isr   TRAP: isr    ( -- )            interrupt IRET       ;
-#psr   TRAP: psr    ( -- )                                 ;  \ reexecute the previous instruction
+#psr   TRAP: psr    ( -- )            pause                ;  \ reexecute the previous instruction
 #does> TRAP: dodoes ( addr -- addr' ) ld cell+ swap BRANCH ;  \ the DOES> runtime primitive
 #data! TRAP: data!  ( dp n -- dp+1 )  swap st cell+        ;  \ Data memory initialization
 

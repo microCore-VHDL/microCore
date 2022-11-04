@@ -2,7 +2,7 @@
 \ @file : disasm.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 05.04.2021 16:47:10
+\ Last change: KS 07.07.2022 16:58:10
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -70,7 +70,7 @@ Variable out     out off
    temp-hex   cells bounds
    ?DO  cr I .addr space
         I >memory $10 cells bounds
-        DO  I @ .opcode  1 cells +LOOP
+        DO  I @ .opcode  #cell +LOOP
    $10 +LOOP
 ;
 : .listname?  ( caddr link -- f )

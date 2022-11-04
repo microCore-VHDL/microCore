@@ -9,22 +9,6 @@ add wave -noupdate /bench/myFPGA/uCore/uCntrl/r
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/s
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/pause
 add wave -noupdate /bench/bitout
-add wave -noupdate -divider Sequencer
-add wave -noupdate /bench/myFPGA/uCore/uCntrl/s.lit
-add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.chain
-add wave -noupdate /bench/myFPGA/uCore/uCntrl/instruction
-add wave -noupdate /bench/myFPGA/uCore/uCntrl/prog_addr
-add wave -noupdate /bench/myFPGA/uCore/uCntrl/paddr
-add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.pc
-add wave -noupdate -divider Datenpfad
-add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.tos
-add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.nos
-add wave -noupdate /bench/myFPGA/uCore/uCntrl/ds_rdata
-add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.dsp
-add wave -noupdate -divider {Return Stack}
-add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.tor
-add wave -noupdate /bench/myFPGA/uCore/mem_rdata
-add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.rsp
 add wave -noupdate -divider Debugger
 add wave -noupdate /bench/myFPGA/uCore/debug_unit/rxd
 add wave -noupdate /bench/myFPGA/uCore/debug_unit/rx_data
@@ -43,14 +27,27 @@ add wave -noupdate /bench/myFPGA/uCore/debug_unit/tx_write
 add wave -noupdate /bench/myFPGA/uCore/debug_unit/send_ack
 add wave -noupdate /bench/myFPGA/uCore/debug_unit/txd
 add wave -noupdate -divider host
-add wave -noupdate /bench/send_ack
-add wave -noupdate /bench/send_debug
 add wave -noupdate /bench/sending
-add wave -noupdate /bench/responding
 add wave -noupdate /bench/host_ack
 add wave -noupdate /bench/host_buf
 add wave -noupdate /bench/host_full
 add wave -noupdate /bench/host_reg
+add wave -noupdate -divider Sequencer
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/s.lit
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.chain
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/instruction
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/prog_addr
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/paddr
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.pc
+add wave -noupdate -divider Datenpfad
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.tos
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.nos
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/ds_rdata
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.dsp
+add wave -noupdate -divider {Return Stack}
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.tor
+add wave -noupdate /bench/myFPGA/uCore/mem_rdata
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.rsp
 TreeUpdate [SetDefaultTree]
 WaveRestoreCursors {{Cursor 1} {65715 ns} 0} {{Cursor 2} {45674 ns} 0}
 quietly wave cursor active 1
@@ -68,4 +65,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {0 ns} {168 us}
+WaveRestoreZoom {0 ns} {105 us}

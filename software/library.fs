@@ -2,7 +2,7 @@
 \ @file : library.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 21.07.2021 17:06:40
+\ Last change: KS 03.08.2022 18:05:44
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -198,6 +198,8 @@ Predefined definitions Forth
 ' WITH_MULT          Alias WITH_MULT      \ hardware multiply available?
 ' WITH_FLOAT         Alias WITH_FLOAT
 ' WITH_UP_DOWNLOAD   Alias WITH_UP_DOWNLOAD
+byte_addr_width 0<>  Constant WITH_BYTES
+data_width 1 and 0<> Constant ODD_DATA_WIDTH
 
 : ~   ( -- )   libgroup-start ;
 
@@ -241,4 +243,3 @@ Target definitions Forth
    Libload @ IF  BEGIN  refill 0= UNTIL  THEN
 ;
 Forth definitions
-

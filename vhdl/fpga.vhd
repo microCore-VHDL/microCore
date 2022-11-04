@@ -2,7 +2,7 @@
 -- @file : fpga.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 21.04.2022 19:21:52
+-- Last change: KS 31.10.2022 19:11:44
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -24,6 +24,7 @@
 --   210     ks    8-Jun-2020  initial version
 --  2300     ks    8-Mar-2021  converted to NUMERIC_STD
 --  2332     ks   13-Apr-2022  enable_proc moved from uCore.vhd
+--  2400     ks   03-Nov-2022  byte addressing using byte_addr_width
 -- ---------------------------------------------------------------------
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
@@ -158,7 +159,7 @@ synch_interrupt: synchronize_n PORT MAP(clk, int_n,   flags(i_ext));
 flags         <= (OTHERS => 'L');
 -- synopsys translate_on
 
-flags(f_dsu)    <= NOT dsu_break;   -- '1' if debug terminal present
+flags(f_dsu)    <= NOT dsu_break;     -- '1' if debug terminal present
 flags(f_sema)   <= flag_sema;
 flags(f_bitout) <= ctrl(c_bitout);    -- for coretest
 
@@ -232,7 +233,7 @@ uBus.tick                 <= core.tick;
 -- registers
 uBus.sources(STATUS_REG)  <= resize(core.status, data_width);
 uBus.sources(DSP_REG)     <= resize(core.dsp, data_width);
-uBus.sources(RSP_REG)     <= addr_rstack_v(data_width-1 DOWNTO rsp_width) & core.rsp;
+uBus.sources(RSP_REG)     <= resize(core.rsp, data_width);
 uBus.sources(INT_REG)     <= resize(core.int, data_width);
 uBus.sources(FLAG_REG)    <= resize(flags, data_width);
 uBus.sources(VERSION_REG) <= to_unsigned(version, data_width);
@@ -243,6 +244,7 @@ uBus.sources(CTRL_REG)    <= resize(ctrl, data_width);
 uBus.reg_en               <= core.reg_en;
 uBus.mem_en               <= core.mem_en;
 uBus.ext_en               <= core.ext_en;
+uBus.bytes                <= memory.bytes;
 uBus.write                <= memory.write;
 uBus.addr                 <= memory.addr;
 uBus.wdata                <= memory.wdata;
@@ -252,10 +254,11 @@ uBus.rdata                <= mem_rdata;
 -- data memory consisting of dcache, ext_mem, and debugmem
 -- ---------------------------------------------------------------------
 
-dma_mem.enable <= '0';
-dma_mem.write  <= '0';
-dma_mem.addr   <= (OTHERS => '0');
-dma_mem.wdata  <= (OTHERS => '0');
+dma_mem.enable   <= '0';
+dma_mem.write    <= '0';
+dma_mem.bytes    <= 0;
+dma_mem.addr     <= (OTHERS => '0');
+dma_mem.wdata    <= (OTHERS => '0');
 
 internal_data_mem: uDatacache PORT MAP (
    uBus         => uBus,
@@ -289,7 +292,7 @@ END PROCESS memaddr_proc;
 with_external_mem: IF  WITH_EXTMEM  GENERATE
 
    SRAM: external_SRAM
-   GENERIC MAP (ram_addr_width, ram_data_width, 1)
+   GENERIC MAP (ram_addr_width, ram_data_width, 2)
    PORT MAP (
       uBus        => uBus,
       ext_rdata   => ext_rdata,

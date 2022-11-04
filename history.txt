@@ -1,4 +1,38 @@
 ************************************************************************
+*** uCore 2.400   3-Nov-2022 ks
+************************************************************************
+
+Functional enhancement:
+   Byte addressing implemented using constant byte_addr_width. This only
+   makes sense for 16 and 32 bit data_width. 
+   New instructions when byte_addr_width /= 0: 
+   cST (c-STORE), cLD (c-LOAD), c@, wST (w-STORE), wLD (w-LOAD),
+   ALIGN, #CELL, CELLS, CELL+, and CELL-.
+
+   See vhdl/architectures for a collection of various architecture_pkg 
+   and uDatachache files.
+
+functions_pkg.vhd:
+   New internal_dpbram entity defined. Synplify will infer byte 
+   addressable dual port memory.
+   
+Bugfix and changes of uCtrl.vhd:
+   Overflow generation of the last signed division step op_SDIVL.
+   Now a complete testbench exists for signed and unsigned divison/
+   multiplication. On a 10 bit system it takes about 4 hours.
+   See: software/test/division directory.   
+   -rot, nip, tuck, and under deprecated, because they can be realized 
+   as two instruction macros.
+   
+bench.vhd
+   Several bugfixes in the umbilical interface tests.
+   
+task_lib.fs:
+   It has been split into two files: multitask.vhd which can be included
+   with definitions that will always be needed. At the very end of 
+   multitask.fs, library task_lib.fs will be loaded.
+
+************************************************************************
 *** uCore 2.354   4-Jun-2022 ks
 ************************************************************************
 

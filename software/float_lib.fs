@@ -2,7 +2,7 @@
 \ @file : float_lib.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 05.04.2021 16:47:18
+\ Last change: KS 14.07.2022 19:04:54
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -303,8 +303,8 @@ Target
 ~ : fabs    ( r -- |r| )      dup 0< IF  fnegate  THEN ;
   Host: fabs ( r -- |r| )     comp? dbg? or IF  T fabs H  EXIT THEN  fabs ; immediate
 
-~ : f>      ( r1 r2 -- f )    swap | ; noexit  \ fall into f<
-  : f<      ( r1 r2 -- f )    f- 0< ;
+~ : f<      ( r1 r2 -- f )    f- 0< ;
+~ : f>      ( r1 r2 -- f )    swap f< ; 
 ~ : f<=     ( r1 r2 -- f )    f> 0= ;
 ~ : f>=     ( r1 r2 -- f )    f< 0= ;
 ~ : f0=     ( r -- f )        2* 0= ;

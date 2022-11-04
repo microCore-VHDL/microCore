@@ -2,7 +2,7 @@
 \ @file : monitor.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 16.03.2022 18:59:36
+\ Last change: KS 07.10.2022 12:04:19
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -31,45 +31,48 @@ Target
 
 Variable tmpStatus
 
+: monitor  ( -- )       BEGIN  0 host!   host@ execute  REPEAT ;
+
 : debugger ( -- )      \ main debugger loop called via break instruction
-   Status @ tmpStatus !   #breakpoint >host  r> 1- >host
-; noexit  \ fall into monitor
-
-: monitor  ( -- )       BEGIN  0 >host   host> execute  REPEAT ; noexit
-
+   Status @ tmpStatus !   #breakpoint host!   r> 1- host!   monitor
+;
 : clear    ( ? -- )     Dsp @ [ #ds-depth 1- not ] Literal and Dsp ! ;
 
-: rclear   ( r: ? -- )  r>   Rsp @ [ #rs-depth 1- ] Literal or Rsp !   >r ;
-
-: debug-service     ( -- )  
-   rclear  clear   host> drop
-   BEGIN  #warmboot >host   host> $5F5 = UNTIL
-   BEGIN  $505 >host   host> 0= UNTIL  \ synchronise Host <-> Target communication
+: rclear   ( r: ? -- )  r>   Rsp @ [ #rs-depth cell- ] Literal or
+                        [ #cell 1- not ] Literal and Rsp !   >r
+;
+: debug-service     ( -- )
+   rclear clear   host@ drop
+   BEGIN  #warmboot host!  host@ $3F5 = UNTIL
+   BEGIN  $305 host!   host@ 0= UNTIL  \ synchronise Host <-> Target communication
    GOTO monitor
-; noexit
+;
 
 \ ----------------------------------------------------------------------
 \ Some words that are needed by the debugger
 \ ----------------------------------------------------------------------
 
 : message      ( n -- )  \ transfer message number to host
-   dup >host   0< IF  clear rclear GOTO monitor  THEN
+   dup host!   0< IF  clear rclear GOTO monitor  THEN
 ;
-: nextstep ( -- ) rdrop  host> >r   tmpStatus @ Status ! ;  \ call and jump (modified via >r)
+: nextstep ( -- ) rdrop  host@ >r   tmpStatus @ Status ! ;  \ call and jump (modified via >r)
 
 : depth    ( -- depth )   Dsp @ [ #ds-depth 1- ] Literal and ;
 
-: copyds  ( -- )   depth   dup >host
+: copyds  ( -- )   depth  dup host!
    dup ?FOR  swap r> swap >r >r         NEXT
-       ?FOR  r> r>  swap >r  dup >host  NEXT
+       ?FOR  r> r>  swap >r  dup host!  NEXT
 ;
 Variable tmpTOR
 
 : saveTOR     ( -- )          r> r> tmpTOR ! >r ;
 : restoreTOR  ( -- )          r> tmpTOR @ >r >r ;
 
-: \>host  ( n -- )            >host ;
-: \host>  ( -- n )            host> ;
+: \host!  ( n -- )            host! ;
+: \host@  ( -- n )            host@ ;
 : \@      ( addr -- n )       @ ;
 : \!      ( n addr -- )       ! ;
 : \does   ( addr -- addr+1 )  H op_DOES t, T ;
+byte_addr_width [IF]
+: \c@     ( caddr -- char )   c@ ;
+[THEN]

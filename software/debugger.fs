@@ -2,7 +2,7 @@
 \ @file : debugger.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 04.06.2022 18:07:14
+\ Last change: KS 03.11.2022 19:05:54
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -40,7 +40,8 @@
 \                             search order
 \          uho   11-Apr-2009  Breakpoints, nest, end-trace
 \          uho   21-Jun-2009  added abort to stop debugging immediately
-\   2300    ks   04-Feb-2021  #bytes/cell moved to microcross.fs
+\  2300     ks   04-Feb-2021  #octetts moved to microcross.fs
+\  2400     ks   03-Nov-2022  byte addressing using byte_addr_width
 \ ----------------------------------------------------------------------
 Host
 
@@ -66,7 +67,7 @@ Host
    table-bounds
    ?DO ( i*x xt )
       I @  swap  dup >r  execute  r>
-   1 cells +LOOP ( j*x xt )
+   cell +LOOP ( j*x xt )
    drop
 ;
 : table-2iterate ( i*x xt table -- j*x )
@@ -76,7 +77,6 @@ Host
    2 cells +LOOP ( j*x xt )
    drop
 ;
-
 \ : table-show ( table -- )
 \    ['] . swap table-iterate ;
 
@@ -175,19 +175,24 @@ data_width 4 /mod swap 0<> - Constant #hex/word
 ;
 : transmit ( x -- )
    dup log-word
-   0 #bytes/cell 1- ?DO  dup I 8 * rshift term-emit  -1 +LOOP  drop
+   0 #octetts 1- ?DO  dup I 8 * rshift term-emit  -1 +LOOP  drop
    term-flush
 ;
 : receive ( -- x )
-   0   #bytes/cell 0 ?DO  8 lshift term-key or  LOOP  dup log-word
+   0   #octetts 0 ?DO  8 lshift term-key or  LOOP  dup log-word
 ;
+byte_addr_width [IF]
+   : ctransmit  ( c -- )   dup log-word  term-emit term-flush ;
+
+   : creceive   ( -- c )   term-key dup log-word ;
+[THEN]
 \ ----------------------------------------------------------------------
 \ ... target communications protocol
 \ ----------------------------------------------------------------------
 
 : ack ( -- )   mark_ack  tx ;
 : nack ( -- )  mark_nack tx ;
-: *nack ( -- ) umbilical @ umbilical off #bytes/cell 0 ?DO nack LOOP umbilical ! ;
+: *nack ( -- ) umbilical @ umbilical off #octetts 0 ?DO nack LOOP umbilical ! ;
 
  &18 Constant #nack-detected
  &19 Constant #protocol-error
@@ -210,9 +215,9 @@ Variable Broken  Broken off   \ break issued to Target as a command when ON
    Broken @ IF  mark_nbreak tx   &10 ms   Broken off  THEN
    rxflush ."  H"
    BEGIN  0 >target  ." A"  target> #warmboot = UNTIL
-   BEGIN ." N"
-      rx? 0= IF $5F5 >target THEN \ shorten replies if target still sends data
-      ." D" target> $505 -
+   BEGIN  ." N"
+      rx? 0= IF $3F5 >target  THEN \ shorten replies if target still sends data
+      ." D" target> $305 -
    WHILE
       key? IF  break-key? IF  #handshake-error throw  THEN THEN
    REPEAT
@@ -224,10 +229,6 @@ Variable Broken  Broken off   \ break issued to Target as a command when ON
    ." KE "
 ;
 : do-handshake ( -- ) ." , " handshake ." done" ;
-
-\ ----------------------------------------------------------------------
-\ ... upload program image and up/downmove data memory areas
-\ ----------------------------------------------------------------------
 
 : imgtx ( x -- )   Umbilical @ IF dup space .hex## THEN  term-emit ;
 
@@ -243,50 +244,88 @@ Variable Broken  Broken off   \ break issued to Target as a command when ON
 : boot-image ( -- )
     0 there  true send-image  there Transferred ! ;
 
+\ ----------------------------------------------------------------------
+\ ... upload program image and up/downmove data memory areas
+\ followed by up/download files, one number/line according to base
+\ ----------------------------------------------------------------------
+
 WITH_UP_DOWNLOAD [IF]
+   byte_addr_width [IF] \ byte addressing
 
-   : upmove  ( from.host to.target quan -- )
-      mark_upload tx   swap transmit   dup transmit  \ from.host quan
-      cells bounds ?DO  I @ transmit   cell +LOOP
-      ?ack
-   ;
-   : downmove  ( from.target to.host quan -- )
-      mark_download tx   rot transmit   dup transmit  \ to.host quan
-      cells bounds ?DO  receive ?signed  I !  cell +LOOP
-      ack
-   ;
-\ ----------------------------------------------------------------------
-\ up/download files, one number/line according to base
-\ ----------------------------------------------------------------------
+      : upmove  ( from.host to.target #bytes -- )
+         mark_upload tx   swap transmit   dup transmit  \ from.host bytes
+         bounds ?DO  I c@ ctransmit  LOOP   ?ack
+      ;
+      : downmove  ( from.target to.host #bytes -- )
+         mark_download tx   rot transmit   dup transmit  \ to.host bytes
+         bounds ?DO  creceive I c!  LOOP   ack
+      ;
+      : write_number   ( n pid -- )
+         >r   dup 0< tuck IF  abs  THEN
+         0 <# #s [char] $ hold rot sign #>
+         r> write-line abort" file write error"
+      ;
+      : move>file  ( <filename> addr len -- )
+         depth 2 u< abort" Target addr len needed."
+         BL word dup c@ 0= abort" Destination file name required"
+         count R/W create-file abort" File could not be created" -rot  \ pid addr len
+         bounds DO  I c@ over write_number  LOOP
+         close-file abort" File close failed"
+      ;
+      : download  ( from.target #cells <filename> -- )
+         temp-hex   >r pad r@ downmove   pad r> move>file
+      ;
+      : read_number  ( pid -- n tf | ff )
+         here [ data_width 2 + ] Literal rot read-line abort" read line failed"
+         IF  here swap s>number drop true  ELSE  drop false  THEN
+      ;
+      : upload  ( to.target <filename> -- )
+         depth 1 u< abort" Target addr needed."
+         BL word dup c@ 0= abort" Source file name required"
+         count R/O open-file abort" File not found" >r
+         pad BEGIN  r@ read_number WHILE  over c!  1+  REPEAT
+         r> close-file abort" File close failed"
+         pad -   pad -rot upmove
+      ;
 
-   : write_number   ( n pid -- )
-      >r   dup 0< tuck IF  abs  THEN
-      0 <# #s [char] $ hold rot sign #>
-      r> write-line abort" file write error"
-   ;
-   : move>file  ( <filename> addr len -- )
-      depth 2 u< abort" Target addr len needed."
-      BL word dup c@ 0= abort" Destination file name required"
-      count R/W create-file abort" File could not be created" -rot  \ pid addr len
-      cells bounds DO  I @ over write_number  cell +LOOP
-      close-file abort" File close failed"
-   ;
-   : download  ( from.target quan <filename> -- )
-      temp-hex   >r pad r@ downmove   pad r> move>file
-   ;
-   : read_number  ( pid -- n tf | ff )
-      here [ data_width 2 + ] Literal rot read-line abort" read line failed"
-      IF  here swap s>number drop true  ELSE  drop false  THEN
-   ;
-   : upload  ( to.target <filename> -- )
-      depth 1 u< abort" Target addr needed."
-      BL word dup c@ 0= abort" Source file name required"
-      count R/O open-file abort" File not found" >r
-      pad BEGIN  r@ read_number WHILE  over !  cell+  REPEAT
-      r> close-file abort" File close failed"
-      pad - cell /   pad -rot upmove
-   ;
+   [ELSE] \ cell addressing
 
+      : upmove  ( from.host to.target #cells -- )
+         mark_upload tx   swap transmit   dup transmit  \ from.host cells
+         cells bounds ?DO  I @ transmit   cell +LOOP   ?ack
+      ;
+      : downmove  ( from.target to.host #cells -- )
+         mark_download tx   rot transmit   dup transmit  \ to.host cells
+         cells bounds ?DO  receive ?signed I !  cell +LOOP  ack
+      ;
+      : write_number   ( n pid -- )
+         >r   dup 0< tuck IF  abs  THEN
+         0 <# #s [char] $ hold rot sign #>
+         r> write-line abort" file write error"
+      ;
+      : move>file  ( <filename> addr len -- )
+         depth 2 u< abort" Target addr len needed."
+         BL word dup c@ 0= abort" Destination file name required"
+         count R/W create-file abort" File could not be created" -rot  \ pid addr len
+         cells bounds DO  I @ over write_number  cell +LOOP
+         close-file abort" File close failed"
+      ;
+      : download  ( from.target #cells <filename> -- )
+         temp-hex   >r pad r@ downmove   pad r> move>file
+      ;
+      : read_number  ( pid -- n tf | ff )
+         here [ data_width 2 + ] Literal rot read-line abort" read line failed"
+         IF  here swap s>number drop true  ELSE  drop false  THEN
+      ;
+      : upload  ( to.target <filename> -- )
+         depth 1 u< abort" Target addr needed."
+         BL word dup c@ 0= abort" Source file name required"
+         count R/O open-file abort" File not found" >r
+         pad BEGIN  r@ read_number WHILE  over !  cell+  REPEAT
+         r> close-file abort" File close failed"
+         pad - cell /   pad -rot upmove
+      ;
+   [THEN]
 [THEN]
 \ ----------------------------------------------------------------------
 \ ... setting breakpoints
@@ -330,9 +369,11 @@ Defer do-handle-breakpoint
 \ send addresses and literals
 \ ----------------------------------------------------------------------
 
-: (t>    ( -- x )       [t'] \>host >target target> ?OK ;            ' (t> IS t>
+:noname  ( -- x )       [t'] \host! >target target> ?OK ;
+IS t>
 
-: (>t    ( x -- )       [t'] \host> >target  >target ?OK ;           ' (>t IS >t
+:noname  ( x -- )       [t'] \host@ >target  >target ?OK ;
+IS >t
 
 : t_@    ( addr -- x )  >t  [t'] \@ t_execute  t> ;
 
@@ -342,12 +383,18 @@ Defer do-handle-breakpoint
 
 : t_2!   ( d addr -- )  dup >r t_!  r> 1+ t_! ;
 
-: (t_execute ( xt -- )  >target  ?OK ; ' (t_execute is t_execute
+:noname  ( xt -- )      >target  ?OK ;
+IS t_execute
 
-: (>target   ( x -- )   mark_debug tx transmit ?ack ;                ' (>target IS >target
+:noname  ( x -- )       mark_debug tx transmit ?ack ;
+IS >target
 
-: (target>   ( -- x )   BEGIN  rx mark_debug = UNTIL  receive ack ;  ' (target> IS target>
+:noname  ( -- x )       BEGIN  rx mark_debug = UNTIL  receive ack ;
+IS target>
 
+byte_addr_width [IF]
+: t_c@   ( caddr -- c ) >t [t'] \c@ t_execute t> ;
+[THEN]
 \ ----------------------------------------------------------------------
 \ permanent and temporary breakpoints
 \ ----------------------------------------------------------------------
@@ -487,14 +534,17 @@ gforth_062 [IF]
           handle-debug-error
        ELSE
           comp? IF ." ]"
-          ELSE ." ok"   s" have Dp" evaluate
-             \ keep Tdp and Dp in the Target (when it exists!) synchronized
-             IF  s" Dp @" evaluate t> Tdp @ max dup Tdp ! >t s" Dp !" evaluate  THEN
+          ELSE ." ok"  class-context @ 0=
+             IF  s" have Dp" evaluate  \ keep Tdp and Dp in the Target (when it exists!) synchronized
+                 IF  s" Dp @" evaluate t> Tdp @ max dup Tdp ! >t s" Dp !" evaluate  THEN
+             THEN
           THEN
        THEN
    AGAIN
 ;
+' debugger Alias ucore
 ' debugger Alias dbg
+
 \ ----------------------------------------------------------------------
 \ ... breakpoint action
 \ ----------------------------------------------------------------------
@@ -572,17 +622,27 @@ Command definitions
 : show ( <name> -- ) show ;
 
 : dump  ( -- )  ( T addr len -- )
-   t> t> swap bounds
+   t> tcells t> swap bounds
    ?DO  cr I .addr
-        I 8 bounds DO  I t_@ signed. space  LOOP
-   8 +LOOP
+        I 8 tcells bounds DO  I t_@ signed. space  #cell +LOOP
+   8 tcells +LOOP
 ;
 : udump  ( -- )  ( T addr len -- )
+   temp-hex   t> tcells t> swap bounds
+   ?DO  cr I .addr
+        I 8 tcells bounds DO  I t_@ addr. space  #cell +LOOP
+   8 tcells +LOOP
+;
+byte_addr_width [IF]
+
+: cdump  ( -- ) ( T caddr len -- )
    temp-hex   t> t> swap bounds
    ?DO  cr I .addr
-        I 8 bounds DO  I t_@ addr. space  LOOP
-   8 +LOOP
+        I $20 bounds DO  I t_c@ 2 u.r space  LOOP
+   $20 +LOOP
 ;
+[THEN]
+
 : ' ( <name> -- )  ( T -- xt )  t' >t ;
 
 WITH_UP_DOWNLOAD [IF]
@@ -699,18 +759,18 @@ Target SIMULATION [NOTIF]
 Variable Dp   \ initialized by the word "end" (microcross.fs)
 \ in addition, Dp (target) and Tdp (host) are synchronised in debugger (debugger.fs)
 
-Host: here  ( -- addr )      comp? dbg? or IF  T Dp @  H            EXIT THEN  Tdp @ ;
-Host: allot ( n -- )         comp? dbg? or IF  T Dp +! H            EXIT THEN  Tdp +! ;
-    : ,     ( n -- )         here ! 1 allot ;
-Host: ,     ( u -- )         comp? dbg? or IF  T , H  EXIT THEN  Tdp @ d!   1 Tdp +! ;
+Host: here  ( -- addr )      comp? dbg? or IF  T Dp @         H EXIT THEN  Tdp @ ;
+Host: allot ( n -- )         comp? dbg? or IF  T Dp @ + Dp !  H EXIT THEN  Tdp +! ;
+    : ,     ( n -- )         here !   #cell allot ;
+Host: ,     ( u -- )         comp? dbg? or IF  T , H  EXIT THEN  Tdp @ d!   #cell Tdp +! ;
 
-Host: .     ( n -- )         comp? IF  #dot   lit, T message >host       H EXIT THEN  dbg? IF  t> signextend         THEN  . ;
-Host: .r    ( n u -- )       comp? IF  #dotr  lit, T message >host >host H EXIT THEN  dbg? IF  t> t> signextend swap THEN  .r ;
-Host: u.    ( u -- )         comp? IF  #udot  lit, T message >host       H EXIT THEN  dbg? IF  t>                    THEN  tu. ;
-Host: d.    ( d -- )         comp? IF  #ddot  lit, T message >host >host H EXIT THEN  dbg? IF  t> t> swap dtarget    THEN  d. ;
-Host: ud.   ( ud -- )        comp? IF  #uddot lit, T message >host >host H EXIT THEN  dbg? IF  t> t> swap udtarget   THEN  ud. ;
+Host: .     ( n -- )         comp? IF  #dot   lit, T message host!       H EXIT THEN  dbg? IF  t> signextend         THEN  . ;
+Host: .r    ( n u -- )       comp? IF  #dotr  lit, T message host! host! H EXIT THEN  dbg? IF  t> t> signextend swap THEN  .r ;
+Host: u.    ( u -- )         comp? IF  #udot  lit, T message host!       H EXIT THEN  dbg? IF  t>                    THEN  tu. ;
+Host: d.    ( d -- )         comp? IF  #ddot  lit, T message host! host! H EXIT THEN  dbg? IF  t> t> swap dtarget    THEN  d. ;
+Host: ud.   ( ud -- )        comp? IF  #uddot lit, T message host! host! H EXIT THEN  dbg? IF  t> t> swap udtarget   THEN  ud. ;
 Host: cr    ( -- )           comp? IF  #cret  lit, T message             H EXIT THEN                                       cr ;
-Host: emit  ( char -- )      comp? IF  #emit  lit, T message >host       H EXIT THEN  dbg? IF  t>                    THEN  emit ;
+Host: emit  ( char -- )      comp? IF  #emit  lit, T message host!       H EXIT THEN  dbg? IF  t>                    THEN  emit ;
 Host: 2//   ( u1 -- u2 )     ?exec                                                    dbg? IF  t> 2// >t        EXIT THEN  2// ;
 Host: $.    ( u -- )         ?exec                                                    dbg? IF  t>                    THEN  $. ;
 Host: &.    ( n -- )         ?exec                                                    dbg? IF  t>                    THEN  &. ;

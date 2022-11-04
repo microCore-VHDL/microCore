@@ -1,5 +1,5 @@
 \ 
-\ Last change: KS 25.03.2021 18:03:52
+\ Last change: KS 30.07.2022 23:00:10
 \
 \ microCore load screen for simulation.
 \ It produces program.mem for initialization of the program memory during simulation.
@@ -14,12 +14,12 @@ include extensions.fs           \ Some System word (re)definitions for a more sy
 include ../vhdl/architecture_pkg_sim.vhd
 include microcross.fs           \ the cross-compiler
 
-Target new                      \ go into target compilation mode and initialize target compiler
+Target new initialized          \ go into target compilation mode and initialize target compiler
 
-8 trap-addr code-origin
+6 trap-addr code-origin
           0 data-origin
 
-include constants.fs            \ microCore Register addresses and bits
+include constants.fs            \ MicroCore Register addresses and bits
 library forth_lib.fs
 
 \ ----------------------------------------------------------------------
@@ -33,7 +33,7 @@ library forth_lib.fs
 
 #reset TRAP: rst    ( -- )            boot              ;  \ compile branch to boot at reset vector location
 #isr   TRAP: isr    ( -- )            di IRET           ;
-#psr   TRAP: psr    ( -- )                              ;  \ reexecute the previous instruction
+#psr   TRAP: psr    ( -- )            pause             ;  \ reexecute the previous instruction
 
 end
 

@@ -1,12 +1,12 @@
 onerror {resume}
 quietly WaveActivateNextPane {} 0
-add wave -noupdate /bench/myFPGA/uCore/warmboot
-add wave -noupdate /bench/myFPGA/reset_n
 add wave -noupdate /bench/myFPGA/reset
+add wave -noupdate /bench/myFPGA/uCore/warmboot
 add wave -noupdate /bench/myFPGA/clk
-add wave -noupdate /bench/myFPGA/uCore/clk_en
 add wave -noupdate /bench/myFPGA/cycle_ctr
-add wave -noupdate /bench/myFPGA/uCore/uBus
+add wave -noupdate /bench/myFPGA/delay
+add wave -noupdate /bench/myFPGA/clk_en
+add wave -noupdate /bench/myFPGA/uBus
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/s
 add wave -noupdate /bench/myFPGA/flags
@@ -30,8 +30,8 @@ add wave -noupdate -divider {Return Stack}
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.tor
 add wave -noupdate /bench/myFPGA/uCore/mem_rdata
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.rsp
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/uCore_control/rstack_addr
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/mem_addr
-add wave -noupdate /bench/myFPGA/cache_addr
 add wave -noupdate -divider Alu
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/cin
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/ladd_x
@@ -51,7 +51,7 @@ add wave -noupdate /bench/myFPGA/uCore/uCntrl/pending
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/interrupt
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/s.iis
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {2178 ns} 0} {{Cursor 2} {121737 ns} 0}
+WaveRestoreCursors {{Cursor 1} {1900 ns} 0} {{Cursor 2} {121737 ns} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 111
 configure wave -valuecolwidth 68

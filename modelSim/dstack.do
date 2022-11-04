@@ -4,7 +4,7 @@ add wave -noupdate /bench/myFPGA/uCore/warmboot
 add wave -noupdate /bench/myFPGA/reset_n
 add wave -noupdate /bench/myFPGA/reset
 add wave -noupdate /bench/myFPGA/clk
-add wave -noupdate /bench/myFPGA/uCore/cycle_ctr
+add wave -noupdate /bench/myFPGA/cycle_ctr
 add wave -noupdate /bench/myFPGA/uCore/clk_en
 add wave -noupdate /bench/myFPGA/uCore/uBus
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/s
@@ -25,13 +25,14 @@ add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.nos
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/ds_rdata
 add wave -noupdate -radix unsigned /bench/myFPGA/uCore/uCntrl/r.dsp
 add wave -noupdate -divider dstack
-add wave -noupdate /bench/myFPGA/uCore/uCntrl/data_stack/initialized_ram/ram(75)
-add wave -noupdate /bench/myFPGA/uCore/uCntrl/data_stack/initialized_ram/ram(74)
-add wave -noupdate /bench/myFPGA/uCore/uCntrl/data_stack/initialized_ram/ram(231)
-add wave -noupdate /bench/myFPGA/uCore/uCntrl/data_stack/initialized_ram/ram(230)
-add wave -noupdate /bench/myFPGA/uCore/uCntrl/data_stack/initialized_ram/ram(229)
-add wave -noupdate /bench/myFPGA/uCore/uCntrl/data_stack/initialized_ram/ram(228)
-add wave -noupdate /bench/myFPGA/uCore/uCntrl/data_stack/initialized_ram/ram(227)
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/data_stack/ram(896)
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/data_stack/ram(897)
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/data_stack/ram(265)
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/data_stack/ram(266)
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/data_stack/ram(267)
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/data_stack/ram(268)
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/data_stack/ram(269)
+add wave -noupdate /bench/myFPGA/uCore/uCntrl/data_stack/ram(270)
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/data_stack/en
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/data_stack/we
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/data_stack/addr
@@ -59,7 +60,7 @@ add wave -noupdate /bench/myFPGA/uCore/uCntrl/ienable
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/pending
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/s.iis
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {12199 ns} 0} {{Cursor 2} {8487 ns} 0}
+WaveRestoreCursors {{Cursor 1} {125420 ns} 0} {{Cursor 2} {2340 ns} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 111
 configure wave -valuecolwidth 68
@@ -75,4 +76,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {0 ns} {220500 ns}
+WaveRestoreZoom {0 ns} {136500 ns}

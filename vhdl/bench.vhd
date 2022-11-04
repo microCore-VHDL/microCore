@@ -2,7 +2,7 @@
 -- @file : bench.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 02.03.2022 21:56:46
+-- Last change: KS 03.11.2022 18:58:14
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -44,12 +44,12 @@ END bench;
 ARCHITECTURE testbench OF bench IS
 
 CONSTANT prog_len   : NATURAL := 10;    -- length of sim_boot.fs
-CONSTANT progload   : STD_LOGIC := '0'; -- use sim_progload.fs   progload.do   MEM_file := ""                        150 usec
-CONSTANT debug      : STD_LOGIC := '0'; -- use sim_debug.fs      debug.do      MEM_FILE := "../software/program.mem" 155 usec
-CONSTANT handshake  : STD_LOGIC := '0'; -- use sim_handshake.fs  handshake.do  MEM_FILE := "../software/program.mem" 320 usec
-CONSTANT upload     : STD_LOGIC := '0'; -- use sim_upload.fs     upload.do     MEM_FILE := "../software/program.mem" 260 usec
-CONSTANT download   : STD_LOGIC := '0'; -- use sim_download.fs   download.do   MEM_FILE := "../software/program.mem" 205 usec
-CONSTANT break      : STD_LOGIC := '0'; -- use sim_break.fs      break.do      MEM_FILE := "../software/program.mem" 260 usec
+CONSTANT progload   : STD_LOGIC := '0'; -- use sim_progload.fs   progload.do   MEM_file := ""                         60 usec
+CONSTANT debug      : STD_LOGIC := '0'; -- use sim_debug.fs      debug.do      MEM_FILE := "../software/program.mem"  65 usec
+CONSTANT handshake  : STD_LOGIC := '0'; -- use sim_handshake.fs  handshake.do  MEM_FILE := "../software/program.mem" 130 usec
+CONSTANT upload     : STD_LOGIC := '0'; -- use sim_upload.fs     upload.do     MEM_FILE := "../software/program.mem" 110 usec
+CONSTANT download   : STD_LOGIC := '0'; -- use sim_download.fs   download.do   MEM_FILE := "../software/program.mem" 130 usec
+CONSTANT break      : STD_LOGIC := '0'; -- use sim_break.fs      break.do      MEM_FILE := "../software/program.mem" 210 usec
 
 COMPONENT fpga PORT (
    reset_n     : IN    STD_LOGIC;
@@ -83,22 +83,19 @@ SIGNAL debug_addr   : program_addr;
 SIGNAL dsu_rxd      : STD_LOGIC;
 SIGNAL dsu_txd      : STD_LOGIC;
 SIGNAL tx_buf       : byte;
-SIGNAL send_ack     : STD_LOGIC;
-SIGNAL send_debug   : STD_LOGIC;
+SIGNAL send_byte    : STD_LOGIC;
 SIGNAL sending      : STD_LOGIC;
 SIGNAL downloading  : STD_LOGIC;
 SIGNAL uploading    : STD_LOGIC;
 SIGNAL host_reg     : UNSIGNED((octetts*8)-1 DOWNTO 0);
 SIGNAL out_buf      : UNSIGNED((octetts*8)-1 DOWNTO 0);
 SIGNAL host_buf     : byte;
-SIGNAL host_ready   : STD_LOGIC; -- umbilical received a byte
 SIGNAL host_full    : STD_LOGIC; -- umbilical received a data word
 SIGNAL host_ack     : STD_LOGIC; -- umbilical received an ack
-SIGNAL responding   : STD_LOGIC;
 
 CONSTANT xtal_cycle : TIME := (1000000000 / xtal_frequency) * 1 ns;
 CONSTANT cycle      : TIME := (1000000000 / clk_frequency) * 1 ns;
-CONSTANT baud       : TIME := (cycle * clk_frequency) / umbilical_rate;
+CONSTANT baud       : TIME := (cycle*clk_frequency)/umbilical_rate;
 CONSTANT int_time   : TIME := 29 us + 6 * 80 ns;
 
 SIGNAL ext_ce_n     : STD_LOGIC;
@@ -113,7 +110,7 @@ BEGIN
 -- Test vector generation
 -- ---------------------------------------------------------------------
 
-int_n <= '1', '0' AFTER int_time, '1' AFTER int_time + 2 us;
+int_n <= '1', '0' AFTER int_time, '1' AFTER int_time + 600 ns;
 
 -- ---------------------------------------------------------------------
 -- Communicating with the uCore debugger via umbilical
@@ -127,66 +124,72 @@ umbilical_proc: PROCESS
 
 	VARIABLE text  : line;
 
-   PROCEDURE send_byte (number : IN byte) IS
+   PROCEDURE tx_byte (number : IN byte) IS
    BEGIN
      WHILE  sending = '1' LOOP WAIT FOR cycle; END LOOP;
-     send_debug <= '1';
+     send_byte <= '1';
      tx_buf <= number;
      WAIT UNTIL sending = '1';
-     send_debug <= '0';
+     send_byte <= '0';
      tx_buf <= (OTHERS => 'Z');
-   END send_byte;
+   END tx_byte;
 
-   PROCEDURE send2core (number : IN data_bus) IS
+   PROCEDURE tx_word (number : IN data_bus) IS
    BEGIN
      out_buf <= (OTHERS => '0');
      out_buf(data_width-1 DOWNTO 0) <= number;
      FOR  i IN octetts DOWNTO 1  LOOP
-        send_byte(out_buf(i*8-1 DOWNTO (i-1)*8));
+        tx_byte(out_buf(i*8-1 DOWNTO (i-1)*8));
      END LOOP;
-   END send2core;
+   END tx_word;
 
    PROCEDURE wait_ack IS
    BEGIN
       WHILE NOT (host_full = '1' AND host_buf = mark_ack) LOOP  WAIT FOR cycle;  END LOOP;
-      host_ack <= '1';
       WAIT UNTIL host_full = '0';
-      WAIT FOR cycle;
-      host_ack <= '0';
    END wait_ack;
+
+   PROCEDURE rx_word (number : IN data_bus) IS
+   BEGIN
+      WHILE NOT (host_full = '1' AND host_reg(data_width-1 DOWNTO 0) = number)  LOOP  WAIT FOR cycle;  END LOOP;
+      WAIT UNTIL host_full = '0';
+   END rx_word;
 
    PROCEDURE rx_debug (number : IN data_bus) IS
    BEGIN
-      responding <= '1';
       WHILE NOT (host_full = '1' AND host_reg(data_width-1 DOWNTO 0) = number)  LOOP  WAIT FOR cycle;  END LOOP;
       host_ack <= '1';
       WAIT UNTIL host_full = '0';
       WAIT FOR cycle;
       host_ack <= '0';
-      responding <= '0';
    END rx_debug;
+
+   PROCEDURE rx_byte (number : IN byte) IS
+   BEGIN
+      WHILE NOT (host_full = '1' AND host_reg(7 DOWNTO 0) = number)  LOOP  WAIT FOR cycle;  END LOOP;
+      WAIT FOR cycle;
+   END rx_byte;
 
    PROCEDURE tx_debug ( number : IN data_bus) IS
    BEGIN
-      send_byte(mark_debug);
-      send2core(number);
+      tx_byte(mark_debug);
+      tx_word(number);
       wait_ack;
    END tx_debug;
 
 BEGIN
 
    reset_n      <= '0';
-   send_debug   <= '0';
+   send_byte    <= '0';
    tx_buf       <= "ZZZZZZZZ";
    host_ack     <= '0';
-   responding   <= '0';
    downloading  <= '0';
    uploading    <= '0';
    debug_addr   <= (OTHERS => '0');
    WAIT FOR 1000 ns;
    reset_n      <= '1';
 
-   WAIT FOR 45 us;
+   WAIT FOR 20 us;
 
    IF  prog_len /= 0 AND progload = '1'  THEN
 		text := NEW string'("starting progload test ...");
@@ -194,15 +197,16 @@ BEGIN
 
 -- send a string of NAK's, just in case
       FOR  i IN octetts DOWNTO 1  LOOP
-         send_byte(mark_nack);
+         tx_byte(mark_nack);
       END LOOP;
+
 -- load memory with reset
-      send_byte(mark_reset);  -- $CC
-      send2core(to_unsigned(0, data_width));        -- start address
-      send2core(to_unsigned(prog_len, data_width)); -- length
+      tx_byte(mark_reset);  -- $CC
+      tx_word(to_unsigned(0, data_width));        -- start address
+      tx_word(to_unsigned(prog_len, data_width)); -- length
       FOR  i IN 0 TO  prog_len-1  LOOP         -- transfer memory image
          debug_addr <= to_unsigned(i, prog_addr_width);
-         send_byte(debug_data);
+         tx_byte(debug_data);
       END LOOP;
       wait_ack;
 		text := NEW string'("progload test ok ");
@@ -215,25 +219,26 @@ BEGIN
       writeline(output, text);
       tx_debug(to_unsigned(0, data_width));
       rx_debug(slice('1', data_width));
-      tx_debug(to_unsigned(16#5F5#, data_width));
-      rx_debug(to_unsigned(16#505#, data_width));
+      tx_debug(to_unsigned(16#3F5#, data_width));
+      rx_debug(to_unsigned(16#305#, data_width));
       tx_debug(to_unsigned(0, data_width));
 -- entering monitor loop
       rx_debug (to_unsigned(0, data_width)); -- now monitor waits for executable address
 
 -- transfer "#c-bitout Ctrl-reg ! EXIT" to addr $200 and execute it
-      send_byte(mark_start);
-      send2core(to_unsigned(16#200#, data_width)); -- addr
-      send2core(to_unsigned( 6, data_width));      -- length
-      send_byte(to_unsigned(exp2(c_bitout) + 128, 8));
-      send_byte(op_NOOP);
-      send_byte(unsigned(to_signed(CTRL_REG, 8)));
-      send_byte(op_STORE);
-      send_byte(op_DROP);
-      send_byte(op_EXIT);
+      tx_byte(mark_start);
+      tx_word(to_unsigned(16#200#, data_width)); -- addr
+      tx_word(to_unsigned( 6, data_width));      -- length
+      tx_byte(to_unsigned(exp2(c_bitout) + 128, 8));
+      tx_byte(op_NOOP);
+      tx_byte(unsigned(to_signed(CTRL_REG, 8)));
+      tx_byte(op_STORE);
+      tx_byte(op_DROP);
+      tx_byte(op_EXIT);
       wait_ack; -- now uCore waits for an execution address
       tx_debug(to_unsigned(16#200#, data_width)); -- execute it
       rx_debug (to_unsigned(0, data_width));
+      tx_byte(mark_ack);
 		text := NEW string'("handshake test ok ");
       writeline(output, text);
       WAIT;
@@ -246,6 +251,8 @@ BEGIN
       rx_debug(to_unsigned(16#8001#, data_width));
       tx_debug(to_unsigned(16#4002#, data_width));
       rx_debug(to_unsigned(16#4002#, data_width));
+      tx_byte(mark_ack);
+      WHILE  sending = '1'  LOOP WAIT FOR baud/2;  END LOOP;
 		text := NEW string'("debug register test ok ");
       writeline(output, text);
       WAIT;
@@ -256,22 +263,30 @@ BEGIN
       writeline(output, text);
       WAIT FOR 0 * 40 ns;
       uploading <= '1';
-      send_byte(mark_upload);
-      send2core(to_unsigned(10, data_width)); -- start address internal memory
-      send2core(to_unsigned( 4, data_width)); -- length
-      FOR i IN 1 TO 4 LOOP
-         send2core(to_unsigned((256+i), data_width));
-      END LOOP;
+      tx_byte(mark_upload);
+      IF  byte_addr_width = 0  THEN            -- cell addressing
+         tx_word(to_unsigned( 8, data_width)); -- start address internal memory
+         tx_word(to_unsigned( 4, data_width)); -- length
+         FOR i IN 1 TO 4 LOOP
+            tx_word(to_unsigned((16+i), data_width));
+         END LOOP;
+      ELSE                                     -- byte addressing
+         tx_word(to_unsigned( 8 * bytes_per_cell, data_width)); -- start address internal memory
+         tx_word(to_unsigned( 6, data_width)); -- length
+         FOR i IN 1 TO 6 LOOP
+            tx_byte(to_unsigned((16+i), 8));
+         END LOOP;
+      END IF;
       wait_ack;
       uploading <= '0';
       WAIT FOR cycle;
-      IF  data_addr_width > cache_addr_width  THEN
+      IF  WITH_EXTMEM  THEN
          uploading <= '1';
-         send_byte(mark_upload);
-         send2core(to_unsigned(exp2(cache_addr_width), data_width)); -- start address external memory
-         send2core(to_unsigned( 4, data_width));                     -- length
+         tx_byte(mark_upload);
+         tx_word(to_unsigned(exp2(cache_addr_width), data_width)); -- start address external memory
+         tx_word(to_unsigned( 4, data_width));                     -- length
          FOR i IN 5 TO 8 LOOP
-            send2core(to_unsigned((256+i), data_width));
+            tx_word(to_unsigned((32+i), data_width));
          END LOOP;
          wait_ack;
          uploading <= '0';
@@ -287,26 +302,47 @@ BEGIN
       writeline(output, text);
       WAIT FOR 1200 ns + 3 * 40 ns;
       downloading <= '1';
-      send_byte(mark_download);
-      send2core(to_unsigned(1, data_width)); -- start address internal memory
-      send2core(to_unsigned(2, data_width)); -- length
-      rx_debug(to_unsigned(16#1122#, data_width));
-      rx_debug(to_unsigned(16#3344#, data_width));
-      send_byte(mark_ack);
-      downloading <= '0';
-      WAIT FOR cycle;
-      IF  data_addr_width > cache_addr_width  THEN
-         downloading <= '1';
-         send_byte(mark_download);
-         send2core(to_unsigned(exp2(cache_addr_width), data_width)); -- start address external memory
-         send2core(to_unsigned(2, data_width)); -- length
-         rx_debug(to_unsigned(16#5566#, data_width));
-         rx_debug(to_unsigned(16#7788#, data_width));
-         send_byte(mark_ack);
-         downloading <= '0';
+      tx_byte(mark_download);
+      tx_word(to_unsigned(bytes_per_cell, data_width));     -- start address internal memory
+      tx_word(to_unsigned(8, data_width)); -- length
+      IF  byte_addr_width = 0  THEN
+         rx_word(to_unsigned(16#2211#, data_width));
+         rx_word(to_unsigned(16#2211#, data_width));
+         rx_word(to_unsigned(16#2211#, data_width));
+         rx_word(to_unsigned(16#2211#, data_width));
+         rx_word(to_unsigned(16#2211#, data_width));
+         rx_word(to_unsigned(16#2211#, data_width));
+         rx_word(to_unsigned(16#2211#, data_width));
+         rx_word(to_unsigned(16#2211#, data_width));
+         IF  WITH_EXTMEM  THEN
+            tx_byte(mark_ack);
+            WHILE  sending = '1'  LOOP WAIT FOR baud/2;  END LOOP;
+            downloading <= '0';
+            WAIT FOR baud;
+            downloading <= '1';
+            tx_byte(mark_download);
+            tx_word(to_unsigned(exp2(cache_addr_width), data_width)); -- start address external memory
+            tx_word(to_unsigned(2, data_width)); -- length
+            rx_word(to_unsigned(16#6655#, data_width));
+            rx_word(to_unsigned(16#8877#, data_width));
+         END IF;
+      ELSE
+         rx_byte(to_unsigned(16#11#, 8));
+         rx_byte(to_unsigned(16#22#, 8));
+         rx_byte(to_unsigned(16#00#, 8));
+         rx_byte(to_unsigned(16#00#, 8));
+         rx_byte(to_unsigned(16#11#, 8));
+         rx_byte(to_unsigned(16#22#, 8));
+         rx_byte(to_unsigned(16#00#, 8));
+         rx_byte(to_unsigned(16#00#, 8));
       END IF;
+      tx_byte(mark_ack);
+      WHILE  sending = '1'  LOOP WAIT FOR baud/2;  END LOOP;
+      downloading <= '0';
 		text := NEW string'("download test ok ");
-      writeline(output, text);
+      IF  bitout = '0'  THEN
+         writeline(output, text);
+      END IF;
       WAIT;
    END IF;
 
@@ -314,9 +350,9 @@ BEGIN
 		text := NEW string'("starting break test ...");
       writeline(output, text);
       WAIT FOR 80 us;
-      send_byte(mark_break);  -- put terminal to sleep
+      tx_byte(mark_break);  -- put terminal to sleep
       WAIT FOR 80 us;
-      send_byte(mark_nbreak); -- wake terminal again
+      tx_byte(mark_nbreak); -- wake terminal again
       WHILE  bitout = '0'  LOOP WAIT FOR cycle;  END LOOP;
 		text := NEW string'("break test ok ");
       writeline(output, text);
@@ -335,40 +371,29 @@ BEGIN
 END PROCESS umbilical_proc;
 
 to_target_proc: PROCESS
-
    VARIABLE number : byte := (OTHERS => 'Z');
-
-   PROCEDURE tx_uart IS
-   BEGIN
+BEGIN
+   dsu_txd <= '1';
+   sending <= '0';
+   WAIT FOR 980 ns;
+   LOOP
+      WHILE  host_ack = '0' AND send_byte = '0'  LOOP  WAIT FOR cycle; END LOOP;
       sending <= '1';
-      dsu_txd <= '0';
+      IF  host_ack = '1'  THEN
+         number := mark_ack;
+      ELSE
+         number := tx_buf;
+      END IF;
+      dsu_txd <= '0';  -- start bit
       WAIT FOR baud;
       FOR  i IN 0 TO 7  LOOP
         dsu_txd <= number(i);
         WAIT FOR baud;
       END LOOP;
-      dsu_txd <= '1';
-      WAIT FOR baud/2;
+      dsu_txd <= '1';  -- stop bit
       sending <= '0';
-      WAIT FOR baud/2; -- wait for full stop bit
-   END tx_uart;
-
-BEGIN
-
-  dsu_txd <= '1';
-  sending <= '0';
-  WAIT FOR 980 ns;
-  LOOP
-     WHILE  send_ack = '0' AND send_debug = '0'  LOOP  WAIT FOR cycle; END LOOP;
-     IF  send_ack = '1'  THEN
-        number := mark_ack;
-     ELSE
-        number := tx_buf;
-     END IF;
-     WAIT FOR 1 ns;
-     tx_uart;
-  END LOOP;
-
+      WAIT FOR baud;   -- wait for full stop bit
+   END LOOP;
 END PROCESS to_target_proc ;
 
 from_target_proc : PROCESS
@@ -377,52 +402,42 @@ from_target_proc : PROCESS
    BEGIN
      WHILE  dsu_rxd /= '0'  LOOP WAIT FOR cycle/2; END LOOP;
      WAIT FOR baud/2;
-     host_buf <= (OTHERS => '0');
      FOR  i IN 0 TO 7  LOOP
         WAIT FOR baud;
         host_buf(i) <= dsu_rxd;
      END LOOP;
-     host_ready <= '1';
      WAIT FOR baud/2;
-     host_ready <= '0';
    END rx_uart;
 
 BEGIN
-   send_ack <= '0';
    host_full <= '0';
-   host_buf <= (OTHERS => '0');
    host_reg <= (OTHERS => '1');
    WAIT FOR 1 us;
    LOOP
+      WAIT FOR cycle;
       host_full <= '0';
       WHILE  dsu_rxd = '1'  LOOP WAIT FOR cycle;  END LOOP;
       IF  downloading = '1'  THEN
-         FOR i IN octetts-1 DOWNTO 0 LOOP
+         IF  byte_addr_width = 0  THEN
+            FOR i IN octetts-1 DOWNTO 0 LOOP
+               rx_uart;
+               host_reg <= host_reg(host_reg'high-8 DOWNTO 0) & host_buf;
+            END LOOP;
+         ELSE
             rx_uart;
-            EXIT WHEN i = 0 AND host_buf = mark_ack;
-            host_reg <= host_reg(host_reg'high-8 DOWNTO 0) & host_buf;
-         END LOOP;
+            host_reg <= resize(host_buf, host_reg'length);
+         END IF;
          host_full <= '1';
-         WAIT FOR baud/2;
       ELSE
          rx_uart;
          IF  host_buf = mark_ack  THEN
             host_full <= '1';
-            WAIT UNTIL host_ack = '1';
-            host_full <= '0';
-            WAIT UNTIL host_ack = '0';
          ELSIF  host_buf = mark_debug  THEN
             FOR i IN octetts-1 DOWNTO 0 LOOP
                rx_uart;
                host_reg <= host_reg(host_reg'high-8 DOWNTO 0) & host_buf;
             END LOOP;
             host_full <= '1';
-            WAIT FOR 1 us;
-            WHILE  sending = '1' LOOP WAIT FOR cycle/2; END LOOP;
-            send_ack <= '1';
-            WAIT UNTIL sending = '1';
-            send_ack <= '0';
-            host_full <= '0';
          END IF;
       END IF;
    END LOOP;

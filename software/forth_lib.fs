@@ -2,7 +2,7 @@
 \ @file : forth.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 04.06.2022 19:26:47
+\ Last change: KS 07.10.2022 12:03:50
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -25,6 +25,7 @@
 \
 \ Version Author   Date       Changes
 \   210     ks   14-Jun-2020  initial version
+\  2400     ks   03-Nov-2022  byte addressing using byte_addr_width
 \ ----------------------------------------------------------------------
 Target
 
@@ -37,24 +38,24 @@ Target
 ~ : loop       ( -- ) ; noexit \ dummy definition
   Host: LOOP   ( -- )  ( R: n1 n2 -- n1 n2 )  ( R: n1 0 -- ) ?comp T NEXT rdrop H ;
 
-~ Macro: bounds ( start len -- limit start )  ?comp T over >r + r> H ;
+~ : bounds     ( start len -- limit start )   over swap + swap ;
 
 ~ EXTENDED [NOTIF]
 
-   ~ : I       ( -- i )           r> r> r@ over >r swap - swap BRANCH ; noexit
+   ~ : I       ( -- i )           r> r> r@ over >r swap - swap BRANCH ;
    ~ : flag?   ( mask -- f )      Flags @ and ;
 
 ~ [THEN]
 
 ~ : ctrl?      ( mask -- f )      Ctrl-reg @ and ;
 
-~ : within  ( w [low [high -- flag )   over - >r - r> ; noexit       \ fall into u<
-  : u<      ( n1 n2 -- f )             - drop carry? 0= ;
-~ : u>      ( n1 n2 -- f )        swap - drop carry? 0= ;
+~ : u<      ( n1 n2 -- f )             - drop carry? 0= ;
+~ : u>      ( n1 n2 -- f )             swap u< ;
+~ : within  ( w [low [high -- flag )   over - -rot - swap u< ;
 ~ : case?   ( n1 n2 -- n1 ff | tf ) \ Selection Operator.
      over - IF  false  EXIT THEN  drop true
   ;
-~ : max     ( n1 n2 -- max )      2dup < IF  nip EXIT THEN  drop ;
+~ : max     ( n1 n2 -- max )      2dup < IF  nip  EXIT THEN  drop ;
 ~ : min     ( n1 n2 -- min )      2dup < IF  drop EXIT THEN  nip ;
 ~ : umin    ( n1 n2 -- max )      2dup - drop carry? IF  nip   EXIT THEN  drop ;
 ~ : umax    ( n1 n2 -- min )      2dup - drop carry? IF  drop  EXIT THEN  nip ;
@@ -63,17 +64,17 @@ Target
 ~ EXTENDED [NOTIF]
    ~ : +sat ( n1 n2 -- n3 )       + ovfl? IF  0< #signbit xor  THEN ;
 ~ [THEN]
-~ : u+sat      ( u n -- u' )      swap #signbit tuck xor rot +sat xor ;
+~ : u+sat   ( u n -- u' )         swap #signbit tuck xor rot +sat xor ;
 
 ~ : 2@      ( addr -- d )         ld cell+ @ swap ;
-  Host: 2@  ( addr -- d )         comp? dbg? or IF T 2@ H EXIT THEN  dup cell+ d@  swap d@ dtarget ;
+  Host: 2@  ( addr -- d )         comp? dbg? or IF T 2@ H EXIT THEN  dup tcell+ d@  swap d@ dtarget ;
 ~ : 2!      ( d addr -- )         st cell+ ! ;
-  Host: 2!  ( d addr -- )         comp? dbg? or IF T 2! H EXIT THEN  >r d>target r@ d!  r> cell+ d! ;
-~ : m+      ( d n -- d )          extend ; noexit                    \ fall into d+
-  : d+      ( d1 d2 -- d3 )       >r rot + swap r> +c ;
+  Host: 2!  ( d addr -- )         comp? dbg? or IF T 2! H EXIT THEN  >r d>target r@ d!  r> tcell+ d! ;
+~ : d+      ( d1 d2 -- d3 )       >r rot + swap r> +c ;
+~ : m+      ( d n -- d )          extend d+ ;
 ~ : d-      ( d1 d2 -- d3 )       >r rot swap- swap r> not +c ;
-~ : dabs    ( d -- +d )           dup 0< 0= ?EXIT ; noexit           \ fall into dnegate
-  : dnegate ( d1 -- d2 )          swap negate swap not 0 +c ;
+~ : dnegate ( d1 -- d2 )          swap negate swap not 0 +c ;
+~ : dabs    ( d -- +d )           dup 0< 0= ?EXIT dnegate ;
 ~ : d=      ( d1 d2 -- f )        d- d0= ;
 
 ~ : pack    ( c u -- u' )         8 shift swap $FF and or ;
@@ -87,31 +88,31 @@ Target
 
 ~ WITH_MULT [IF]
 
-   ~ : d2*     ( d1 -- d2 )           1 ; noexit                        \ fall into dshift
-     : dshift  ( ud n -- ud' )  \ Limitation: |n| <= data_width
+   ~ : dshift  ( ud n -- ud' )  \ Limitation: |n| <= data_width
         dup 0< IF  >r r@ mshift rot r> mshift drop or swap  EXIT THEN   \ shift right
         >r   swap r@ mshift   rot r> mshift drop or                     \ shift left
      ;
+   ~ : d2*     ( d1 -- d2 )           1 dshift ;
    ~ : ud2/    ( ud1 -- ud2 )        -1 dshift ;
 
-   ~ : d2/     ( d1 -- d2 )          -1 ; noexit                        \ fall into dashift
-     : dashift ( d n -- d' )
+   ~ : dashift ( d n -- d' )
         dup 0< IF  >r r@ mashift rot r> mshift drop or swap  EXIT THEN  \ shift right
         >r   swap r@ mshift   rot r> mshift drop or                     \ shift left
      ;
+   ~ : d2/     ( d1 -- d2 )          -1 dashift ;
 
 ~ [ELSE]
 
    ~ : d2*     ( ud -- ud' )   swap 2* swap c2* ;
    ~ : ud2/    ( ud -- ud' )   u2/ swap c2/ swap ;
    ~ : dshift  ( ud n -- ud' )
-        dup 0< IF  not FOR  u2/ swap c2/ swap  NEXT  EXIT THEN       \ shift right
-                      ?FOR  swap 2* swap c2*   NEXT                  \ shift left
+        dup 0< IF  not FOR  ud2/  NEXT  EXIT THEN  \ shift right
+                      ?FOR  d2*   NEXT             \ shift left
      ;
    ~ : d2/     ( d -- d' )     2/ swap c2/ swap ;
    ~ : dashift ( d n -- d' )
-        dup 0< IF  not FOR  2/ swap c2/ swap  NEXT  EXIT THEN        \ shift right
-                      ?FOR  swap 2* swap c2*   NEXT                  \ shift left
+        dup 0< IF  not FOR  d2/  NEXT  EXIT THEN   \ shift right
+                      ?FOR  d2*  NEXT              \ shift left
      ;
    ~ : um*     ( u1 u2 -- udprod )   umultiply ;
    ~ : m*      ( n1 n2 -- dprod )    2dup xor >r abs swap abs um* r> 0< IF  dnegate  THEN ;
@@ -131,48 +132,71 @@ Target
 ~ [THEN]
 
 ~ : ud*     ( ud u  -- udprod )       tuck um* drop >r um* r> + ;
-~ : u/mod   ( u1 u2 -- urem uquot )   0 swap ; noexit                \ fall into um/mod
-  : um/mod  ( ud u  -- urem uquot )   udivide ;
+~ : um/mod  ( ud u  -- urem uquot )   udivide ;
+~ : u/mod   ( u1 u2 -- urem uquot )   0 swap um/mod ;
+
 ~ : u/      ( u1 u2 -- uquot )        u/mod nip ;
 ~ : umod    ( u1 u2 -- urem )         u/mod drop ;
 ~ : ud/mod  ( ud u  -- urem udquot )  tuck u/mod >r swap um/mod r> ;
 
 ~ EXTENDED [IF]
 
-   ~ : /mod    ( n1 n2 -- rem quot )     swap extend rot ; noexit    \ fall into m/mod
-     : m/mod   ( d n -- rem quot )       sdivide ;
+   ~ : m/mod   ( d n -- rem quot )       sdivide ;
    ~ : sqrt     ( u -- urem uroot )      uroot ;
 
 ~ [ELSE]
 
-   ~ : +! ( n addr -- )       Status @ -rot di  ld -rot   + swap !   Status ! ;
+   ~ : +! ( n addr -- )    Status @ -rot di   ld -rot + swap !   Status ! ;
 
-   ~ : /mod    ( n1 n2 -- rem quot )     swap extend rot ; noexit    \ fall into m/mod
-     : m/mod   ( d n -- rem quot )
-        dup >r   abs >r   dup 0< IF  r@ +  THEN  r> um/mod
-        r@ 0< IF  negate over IF  swap r@ + swap 1-  THEN THEN  rdrop
+   ~ : m/mod   ( d n -- rem quot )
+        dup >r 0< IF  dnegate  r@ negate  ELSE  r@  THEN
+        over   0< IF  tuck + swap um/mod   ovfl? over 0< not
+                  ELSE            um/mod   ovfl? over 0<
+                  THEN  or -rot  \ the ovfl-bit
+        r> 0< IF  swap negate swap  THEN
+        rot IF  #ovfl st-set  ExIT THEN  #ovfl st-reset
      ;
-   ~ : sqrt    ( u -- urem uroot )
-        0 tuck   [ data_width 2/ 1- ] Literal
-        FOR  2 dshift swap >r   swap 2 shift 1+
-                 2dup - 0< 0= IF  tuck - swap 2 +  THEN
-                 u2/ swap r> swap
-        NEXT  nip swap
-     ;
+   ~ ODD_DATA_WIDTH [IF]  \ odd data width
+
+      ~ : sqrt    ( u -- urem uroot )
+           0 tuck   1 dshift swap >r   swap 2* 1+
+           2dup - 0< 0= IF  tuck - swap 1+  THEN
+           u2/ swap r> swap
+           [ data_width 2/ 1- ] Literal
+           FOR  2 dshift swap >r   swap 2 shift 1+
+                2dup - 0< 0= IF  tuck - swap 2 +  THEN
+                u2/ swap r> swap
+           NEXT  nip swap
+        ;
+
+   ~ [ELSE]   \ even data width
+
+      ~ : sqrt    ( u -- urem uroot )
+           0 tuck   [ data_width 2/ 1- ] Literal
+           FOR  2 dshift swap >r   swap 2 shift 1+
+                2dup - 0< 0= IF  tuck - swap 2 +  THEN
+                u2/ swap r> swap
+           NEXT  nip swap
+        ;
+
+   ~ [THEN]
 ~ [THEN]
 
-~ : /       ( n1 n2 -- quot )         /mod nip ;
-~ : mod     ( n1 n2 -- urem )         /mod drop ;
+~ : +2!     ( n addr -- )          Status @ -rot di   tuck 2@ rot extend d+ rot 2!  Status ! ;
 
-~ : */mod   ( n1 n2 n3 -- n4 n5 )     -rot m*   rot m/mod ;
-~ : */      ( n1 n2 n3 -- n4 )        */mod nip ;
+~ : /mod    ( n1 n2 -- rem quot )  swap extend rot m/mod ;
+~ : /       ( n1 n2 -- quot )      /mod nip ;
+~ : mod     ( n1 n2 -- urem )      /mod drop ;
 
-~ : 2**     ( n -- 2**n )             1 swap shift ;
-  Host: 2**   ( u1 -- u2 )            comp? dbg? or IF T 2** H EXIT THEN  2** ;
+~ : */mod   ( n1 n2 n3 -- n4 n5 )  -rot m*   rot m/mod ;
+~ : */      ( n1 n2 n3 -- n4 )     */mod nip ;
+
+~ : 2**     ( n -- 2**n )          1 swap shift ;
+  Host: 2**   ( u1 -- u2 )         comp? dbg? or IF T 2** H EXIT THEN  2** ;
 
 ~ WITH_MULT [IF]
 
-   : log2   ( u -- u' )               ulog ;
+   : log2   ( u -- u' )            ulog ;
 
 ~ [ELSE]
 
@@ -189,19 +213,39 @@ Target
 ~ : dec      ( addr -- )        -1 swap +! ;
 ~ : on       ( addr -- )        -1 swap ! ;
 ~ : off      ( addr -- )         0 swap ! ;
-~ : erase    ( addr len -- )     0 ; noexit  \ fall into fill
-  : fill     ( addr len u -- )   -rot ?FOR  under st cell+  NEXT  2drop ;
-~ : move     ( addr_from addr_to ucount -- )
-     >r 2dup u< IF ( cmove> )
-        r@ + swap r@ +  r> ?FOR  cell- ld -rot  swap cell- st  swap  NEXT
-     ELSE    ( cmove )
-         1 - swap  1 -  r> ?FOR  cell+ ld -rot  swap cell+ st  swap  NEXT
-     THEN  2drop
-  ;
-~ : place    ( addr len to -- )  over swap st cell+ swap move ;
 
-~ : sleep    ( n -- )           ahead | ; noexit   \ fall into continue
-  : continue ( time -- )        BEGIN  dup time? UNTIL drop ;
+~ WITH_BYTES [IF]  \ byte addressed
+
+  ~ : fill     ( caddr len u -- )  -rot ?FOR  under cst 1+ NEXT  2drop ;
+  ~ : erase    ( addr len -- )     0 fill ;
+  ~ : move     ( caddr_from caddr_to ucount -- )
+       >r 2dup u< IF ( cmove> )
+          r@ + swap r@ +  r> ?FOR  1- cld -rot  swap 1- cst  swap  NEXT
+       ELSE    ( cmove )
+           1 - swap  1 -  r> ?FOR  1+ cld -rot  swap 1+ cst  swap  NEXT
+       THEN  2drop
+    ;
+  ~ : place    ( addr len to -- )  over swap cst 1+ swap move ;
+  ~ : c,       ( char -- )         here c!   1 allot ;
+    Host: c,   ( char -- )         comp? dbg? or IF  T c, H  EXIT THEN  Tdp @ cd!   1 Tdp +! ;
+
+~ [ELSE]  \ cell addressed
+
+  ~ : fill     ( addr len u -- )   -rot ?FOR  under st 1+  NEXT  2drop ;
+  ~ : erase    ( addr len -- )     0 fill ;
+  ~ : move     ( addr_from addr_to ucount -- )
+       >r 2dup u< IF ( cmove> )
+          r@ + swap r@ +  r> ?FOR  1- ld -rot  swap 1- st  swap  NEXT
+       ELSE    ( cmove )
+           1 - swap  1 -  r> ?FOR  1+ ld -rot  swap 1+ st  swap  NEXT
+       THEN  2drop
+    ;
+  ~ : place    ( addr len to -- )  over swap st 1+ swap move ;
+
+~ [THEN]
+
+~ : continue ( time -- )        BEGIN  dup time? UNTIL drop ;
+~ : sleep    ( n -- )           ahead continue ;
 ~ : elapsed  ( time -- ticks )  time swap - ;
 ~ : ms ; noexit   Host: ms ( msec -- ticks )
      ticks_per_ms

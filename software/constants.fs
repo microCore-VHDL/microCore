@@ -2,7 +2,7 @@
 \ @file : constants.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 17.04.2022 18:52:08
+\ Last change: KS 03.08.2022 23:02:10
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -57,7 +57,7 @@ H RSP_REG         T Register Rsp
 H INT_REG         T Register Intflags
 H i_ext        T Bit #i-ext
 H FLAG_REG        T Register Flags   
-H f_dsu        T Bit #f-dsu     \ set when the dsu is connected to the umbilical (no break!)
+H f_dsu        T Bit #f-dsu        \ set when the dsu is connected to the umbilical (no break!)
 H f_sema       T Bit #f-sema
 H f_bitout     T Bit #f-bitout
 

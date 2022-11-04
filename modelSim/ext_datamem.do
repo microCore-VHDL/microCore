@@ -2,7 +2,7 @@ onerror {resume}
 quietly WaveActivateNextPane {} 0
 add wave -noupdate /bench/myFPGA/reset
 add wave -noupdate /bench/myFPGA/clk
-add wave -noupdate /bench/myFPGA/uCore/cycle_ctr
+add wave -noupdate /bench/myFPGA/cycle_ctr
 add wave -noupdate /bench/myFPGA/uCore/clk_en
 add wave -noupdate /bench/myFPGA/uCore/uBus
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r
@@ -11,8 +11,8 @@ add wave -noupdate /bench/myFPGA/flags
 add wave -noupdate /bench/myFPGA/memory
 add wave -noupdate -divider {address diffs}
 add wave -noupdate /architecture_pkg/data_width
-add wave -noupdate /architecture_pkg/chunks
-add wave -noupdate /architecture_pkg/subbits
+add wave -noupdate /architecture_pkg/ram_chunks
+add wave -noupdate /architecture_pkg/ram_subbits
 add wave -noupdate /bench/myFPGA/with_external_mem/SRAM/residue
 add wave -noupdate /bench/myFPGA/with_external_mem/SRAM/leader
 add wave -noupdate /bench/myFPGA/with_external_mem/SRAM/if_wide_data/data_mux_proc/maxdata
@@ -28,10 +28,10 @@ add wave -noupdate /bench/ext_we_n
 add wave -noupdate /bench/ext_oe_n
 add wave -noupdate -radix hexadecimal -childformat {{/bench/ext_addr(13) -radix hexadecimal} {/bench/ext_addr(12) -radix hexadecimal} {/bench/ext_addr(11) -radix unsigned} {/bench/ext_addr(10) -radix unsigned} {/bench/ext_addr(9) -radix unsigned} {/bench/ext_addr(8) -radix unsigned} {/bench/ext_addr(7) -radix unsigned} {/bench/ext_addr(6) -radix unsigned} {/bench/ext_addr(5) -radix unsigned} {/bench/ext_addr(4) -radix unsigned} {/bench/ext_addr(3) -radix unsigned} {/bench/ext_addr(2) -radix unsigned} {/bench/ext_addr(1) -radix unsigned} {/bench/ext_addr(0) -radix unsigned}} -subitemconfig {/bench/ext_addr(13) {-height 15 -radix hexadecimal} /bench/ext_addr(12) {-height 15 -radix hexadecimal} /bench/ext_addr(11) {-height 15 -radix unsigned} /bench/ext_addr(10) {-height 15 -radix unsigned} /bench/ext_addr(9) {-height 15 -radix unsigned} /bench/ext_addr(8) {-height 15 -radix unsigned} /bench/ext_addr(7) {-height 15 -radix unsigned} /bench/ext_addr(6) {-height 15 -radix unsigned} /bench/ext_addr(5) {-height 15 -radix unsigned} /bench/ext_addr(4) {-height 15 -radix unsigned} /bench/ext_addr(3) {-height 15 -radix unsigned} /bench/ext_addr(2) {-height 15 -radix unsigned} /bench/ext_addr(1) {-height 15 -radix unsigned} /bench/ext_addr(0) {-height 15 -radix unsigned}} /bench/ext_addr
 add wave -noupdate /bench/ext_data
-add wave -noupdate /bench/ext_SRAM/initialized_ram/ram(0)
-add wave -noupdate /bench/ext_SRAM/initialized_ram/ram(1)
-add wave -noupdate /bench/ext_SRAM/initialized_ram/ram(2)
-add wave -noupdate /bench/ext_SRAM/initialized_ram/ram(3)
+add wave -noupdate /bench/ext_SRAM/ram(0)
+add wave -noupdate /bench/ext_SRAM/ram(1)
+add wave -noupdate /bench/ext_SRAM/ram(2)
+add wave -noupdate /bench/ext_SRAM/ram(3)
 add wave -noupdate -divider Sequencer
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/s.lit
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.chain

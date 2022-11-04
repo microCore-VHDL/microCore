@@ -5,7 +5,7 @@ add wave -noupdate /bench/myFPGA/reset
 add wave -noupdate /bench/myFPGA/uCore/debug_unit/deb_reset
 add wave -noupdate /bench/myFPGA/uCore/uBus
 add wave -noupdate /bench/myFPGA/clk
-add wave -noupdate /bench/myFPGA/uCore/cycle_ctr
+add wave -noupdate /bench/myFPGA/cycle_ctr
 add wave -noupdate /bench/myFPGA/uCore/clk_en
 add wave -noupdate -divider Debugger
 add wave -noupdate /bench/myFPGA/uCore/debug_unit/send_ack
@@ -38,7 +38,6 @@ add wave -noupdate /bench/myFPGA/uCore/internal_prog_mem/pwrite
 add wave -noupdate -divider bench
 add wave -noupdate /bench/out_buf
 add wave -noupdate /bench/sending
-add wave -noupdate /bench/send_ack
 add wave -noupdate /bench/host_ack
 add wave -noupdate /bench/host_full
 add wave -noupdate -divider Sequencer
@@ -73,4 +72,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {0 ns} {147 us}
+WaveRestoreZoom {0 ns} {68250 ns}

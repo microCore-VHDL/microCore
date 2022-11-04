@@ -1,5 +1,5 @@
 \ 
-\ Last change: KS 06.03.2021 16:44:11
+\ Last change: KS 02.10.2022 18:31:25
 \
 \ MicroCore load screen to simulate the umbilical download function.
 \ Either constant download or upload has to be set to '1' in bench.vhd.
@@ -23,16 +23,18 @@ Target new                      \ go into target compilation mode and initialize
 include constants.fs            \ microCore Register addresses and bits
 
 : boot ( -- )
-   $3344 $1122    1 st 1+ !
-[ H data_addr_width cache_addr_width u> T ] [IF]
-   $7788 $5566 #extern st 1+ !
-[THEN]
-   BEGIN  Debug-reg @ drop  REPEAT
+   $2211 1 cells $20 FOR  over swap st cell+  NEXT  !
+   [ H data_addr_width cache_addr_width u> T ] [IF]
+      $8877 $6655 #extern st cell+ !
+   [THEN]
+   host@
+   #c-bitout Ctrl !
+   BEGIN REPEAT
 ;
 
 #reset TRAP: rst    ( -- )            boot              ;  \ compile branch to boot at reset vector location
 #isr   TRAP: isr    ( -- )            di IRET           ;
-#psr   TRAP: psr    ( -- )                              ;  \ reexecute the previous instruction
+#psr   TRAP: psr    ( -- )            pause             ;  \ reexecute the previous instruction
 
 end
 

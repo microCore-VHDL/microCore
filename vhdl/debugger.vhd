@@ -2,7 +2,7 @@
 -- @file : debugger.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 02.04.2021 12:06:05
+-- Last change: KS 03.11.2022 19:30:56
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -25,6 +25,7 @@
 -- Version Author   Date       Changes
 --   210     ks    8-Jun-2020  initial version
 --  2300     ks    8-Mar-2021  STD_LOGIC_(UN)SiGNED replaced by NUMERIC_STD.
+--  2400     ks   03-Nov-2022  byte addressing using byte_addr_width
 -- ---------------------------------------------------------------------
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
@@ -87,6 +88,7 @@ SIGNAL rx_data     : byte;       -- uart input buffer
 SIGNAL tx_empty    : STD_LOGIC;  -- uart buffer empty
 SIGNAL tx_write    : STD_LOGIC;  -- write byte
 SIGNAL tx_data     : byte;       -- uart output buffer
+SIGNAL tx_busy     : STD_LOGIC;  -- uart transmitter busy
 SIGNAL uart_break  : STD_LOGIC;  -- break from uart
 SIGNAL host_break  : STD_LOGIC;  -- break via umbilical
 
@@ -135,16 +137,17 @@ in_read     <= '0' WHEN  in_state /= full                       ELSE in_rd;  -- 
 out_written <= '0' WHEN  out_state /= idle OR in_state /= idle  ELSE out_wr; -- for simulation only
 -- pragma translate_on
 
-umbilical.enable <= deb_penable;
-umbilical.write  <= write;
-umbilical.read   <= '0';
-umbilical.addr   <= addr_ptr(umbilical.addr'range);
-umbilical.wdata  <= rx_data;
+umbilical.enable  <= deb_penable;
+umbilical.write   <= write;
+umbilical.read    <= '0';
+umbilical.addr    <= addr_ptr(umbilical.addr'range);
+umbilical.wdata   <= rx_data;
 
-debugmem.enable  <= deb_denable;
-debugmem.write   <= write;
-debugmem.addr    <= addr_ptr(debugmem.addr'range);
-debugmem.wdata   <= in_reg(debugmem.wdata'range);
+debugmem.enable   <= deb_denable;
+debugmem.write    <= write;
+debugmem.bytes    <= 0 WHEN  byte_addr_width = 0  ELSE 1;
+debugmem.addr     <= addr_ptr(debugmem.addr'range);
+debugmem.wdata    <= in_reg(debugmem.wdata'range);
 
 in_rd  <= '1' WHEN  uReg_read (uBus, DEBUG_REG)  ELSE '0';
 out_wr <= '1' WHEN  uReg_write(uBus, DEBUG_REG)  ELSE '0';
@@ -158,13 +161,32 @@ deb_pause <= '1' WHEN  (in_rd  = '1' AND  in_state /= full) OR
 -- and listening to the host
 -- ---------------------------------------------------------------------
 
-tx_data <= mark_ack   WHEN  send_ack = '1'     ELSE
-           mark_debug WHEN  out_state = mark   ELSE
-           mark_nack  WHEN  out_state = start  ELSE
+tx_data <= mark_ack   WHEN  send_ack = '1'       ELSE
+           mark_debug WHEN  out_state = mark     ELSE
+           mark_nack  WHEN  out_state = start    ELSE
            out_reg(out_reg'high DOWNTO out_reg'high-7);
 
-new_inreg  <= in_reg(in_reg'high-8 DOWNTO 0) & rx_data;
-new_outreg <= resize(debugmem_rdata , out_reg'length);
+new_inreg <= in_reg(in_reg'high-8 DOWNTO 0) & rx_data;
+
+new_outreg_proc: PROCESS(debugmem_rdata, addr_ptr)
+BEGIN
+   new_outreg <= resize(debugmem_rdata, out_reg'length);
+   IF  byte_addr_width = 1  THEN  -- 16 bit
+      CASE  addr_ptr(0)  IS
+      WHEN  '0' => new_outreg(out_reg'high DOWNTO out_reg'high-7) <= debugmem_rdata(07 DOWNTO 00);
+      WHEN  '1' => new_outreg(out_reg'high DOWNTO out_reg'high-7) <= debugmem_rdata(15 DOWNTO 08);
+      WHEN OTHERS => NULL;
+      END CASE;
+   ELSIF  byte_addr_width = 2  THEN -- 32 bit
+      CASE  addr_ptr(1 DOWNTO 0)  IS
+      WHEN "00" => new_outreg(out_reg'high DOWNTO out_reg'high-7) <= debugmem_rdata(07 DOWNTO 00);
+      WHEN "01" => new_outreg(out_reg'high DOWNTO out_reg'high-7) <= debugmem_rdata(15 DOWNTO 08);
+      WHEN "10" => new_outreg(out_reg'high DOWNTO out_reg'high-7) <= debugmem_rdata(23 DOWNTO 16);
+      WHEN "11" => new_outreg(out_reg'high DOWNTO out_reg'high-7) <= debugmem_rdata(31 DOWNTO 24);
+      WHEN OTHERS => NULL;
+      END CASE;
+   END IF;
+END PROCESS new_outreg_proc;
 
 umbilical_proc: PROCESS(clk, reset)
 
@@ -197,20 +219,21 @@ BEGIN
            write <= '0';
        deb_reset <= '0';
     deb_drequest <= '0';
+
    ELSIF  rising_edge(clk)  THEN
       IF  clk_en = '1'  THEN
          tx_write <= '0';
          dread <= '0';
 
-         IF  deb_penable = '1'  THEN
-            addr_ptr <= addr_ptr + 1;
-            addr_ctr <= addr_ctr - 1;
-         END IF;
-
          IF  deb_denable = '1'  THEN
-            dread <= '1';
+            IF  write = '0'  THEN
+               dread <= '1';
+            END IF;
             write <= '0';
             deb_drequest <= '0';
+         END IF;
+
+         IF  (deb_penable OR dread OR (deb_denable AND write)) = '1'  THEN
             addr_ptr <= addr_ptr + 1;
             addr_ctr <= addr_ctr - 1;
          END IF;
@@ -223,7 +246,6 @@ BEGIN
 
          WHEN idle      => in_ctr <= all_nibbles;
                            progload <= '0';
-                           upload <= '0';
                            IF  rx_full = '1' AND download = '0'  THEN
                               CASE rx_data IS
                               WHEN mark_start    => in_state <= getaddr;
@@ -268,6 +290,9 @@ BEGIN
                                  END IF;
                                  IF  download = '1' AND WITH_UP_DOWNLOAD  THEN
                                     in_state <= downloading;
+                                    IF  byte_addr_width /= 0  THEN
+                                       in_ctr <= 0;
+                                    END IF;
                                  END IF;
                               ELSE
                                  in_ctr <= in_ctr - 1;
@@ -312,16 +337,31 @@ BEGIN
                                  tx_ack;
                                  IF  send_ack = '1'  THEN
                                     send_ack <= '0';
+                                    upload <= '0';
                                     in_state <= idle;
                                  END IF;
-                              ELSIF  rx_full = '1'  THEN
-                                 in_reg <= new_inreg;
-                                 IF  in_ctr = 0  THEN
-                                    in_ctr <= all_nibbles;
+                              ELSIF  byte_addr_width = 0  THEN -- cell addressing
+                                 IF  rx_full = '1'  THEN
+                                    in_reg <= new_inreg;
+                                    IF  in_ctr = 0  THEN
+                                       in_ctr <= all_nibbles;
+                                       deb_drequest <= '1';
+                                       write <= '1';
+                                    ELSE
+                                       in_ctr <= in_ctr - 1;
+                                    END IF;
+                                 END IF;
+                              ELSIF  byte_addr_width = 1  THEN
+                                 IF  rx_full = '1'  THEN
                                     deb_drequest <= '1';
                                     write <= '1';
-                                 ELSE
-                                    in_ctr <= in_ctr - 1;
+                                    in_reg <= resize(rx_data & rx_data, in_reg'length);
+                                 END IF;
+                              ELSE -- byte_addr_width = 2
+                                 IF  rx_full = '1'  THEN
+                                    deb_drequest <= '1';
+                                    write <= '1';
+                                    in_reg <= resize(rx_data & rx_data & rx_data & rx_data, in_reg'length);
                                  END IF;
                               END IF;
                            END IF;
@@ -355,7 +395,7 @@ BEGIN
 
          WHEN idle      => out_ctr <= all_nibbles;
                            IF  out_wr = '1' AND in_state = idle AND send_ack = '0'  THEN   -- send a new word
-                              out_reg <= resize(wdata, octetts * 8);
+                              out_reg <= resize(wdata, out_reg'length);
                               out_state <= mark;
                            END IF;
 
@@ -380,20 +420,20 @@ BEGIN
                            END IF;
 
          WHEN readmem   => IF  WITH_UP_DOWNLOAD  THEN
-                              IF  addr_extern <= to_INTEGER(addr_ptr(debugmem.addr'range))
-                                 AND data_addr_width > cache_addr_width
-                              THEN -- external memory
+                              IF  WITH_EXTMEM AND addr_extern <= to_INTEGER(addr_ptr(debugmem.addr'range))  THEN -- external memory
                                  IF  deb_denable = '1'  THEN
                                     out_reg <= new_outreg;
                                     out_ctr <= all_nibbles;
                                     out_state <= downloading;
                                  END IF;
-                              ELSE -- internal memory
-                                 IF  dread = '1'  THEN
-                                    out_reg <= new_outreg;
+                              ELSIF  dread = '1'  THEN -- internal memory
+                                 out_reg <= new_outreg;
+                                 IF  byte_addr_width /= 0  THEN
+                                    out_ctr <= 0;
+                                 ELSE
                                     out_ctr <= all_nibbles;
-                                    out_state <= downloading;
                                  END IF;
+                                 out_state <= downloading;
                               END IF;
                            END IF;
 
@@ -453,7 +493,7 @@ GENERIC MAP (umbilical_rate, 4, "registers") PORT MAP (
    tx_empty   => tx_empty,   -- data buffer empty
    tx_write   => tx_write,   -- write into data buffer
    tx_data    => tx_data,    -- output data
-   tx_busy    => OPEN,
+   tx_busy    => tx_busy,
 -- UART I/O
    dtr        => '1',
    rxd        => rxd,

@@ -2,7 +2,7 @@
 \ @file : opcodes.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 17.04.2022 18:49:02
+\ Last change: KS 02.10.2022 16:31:47
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -26,20 +26,24 @@
 \ Version Author   Date       Changes
 \   210     ks   14-Jun-2020  initial version
 \   2300    ks   12-Feb-2021  compiler switch WITH_PROG_RW eliminated
+\   2400    ks   23-Jun-2022  byte and word memory access added using byte_addr_width
 \ ----------------------------------------------------------------------
 Target
 
 \ stack
 op_NOOP        Op: noop    ( -- )             noop
-op_DROP      Drop: drop    ( n -- )           drop
-            Macro: 2drop   ( n n -- )         comp? IF  T drop drop H EXIT THEN  2drop ;
+op_SWAP      Swap: swap    ( 1 2 -- 2 1 )     swap  \ optimizes 'swap swap' away
+op_DROP        Op: drop    ( n -- )           drop
+            Macro: 2drop   ( n n -- )         comp? IF T drop drop H EXIT THEN  2drop ;
+            Macro: nip     ( 1 2 -- 2 )       comp? IF T swap drop H EXIT THEN  nip ;
 op_DUP         Op: dup     ( n -- n n )       dup
 op_QDUP        Op: ?dup    ( n -- 0 | n n )   ?dup
-op_SWAP      Swap: swap    ( 1 2 -- 2 1 )     swap
-op_OVER      Over: over    ( 1 2 -- 1 2 1 )   over
-            Macro: 2dup    ( d -- d d )       comp? IF  T over over H EXIT THEN  2dup ;
+op_OVER        Op: over    ( 1 2 -- 1 2 1 )   over
+            Macro: 2dup    ( d -- d d )       comp? IF T over over H EXIT THEN  2dup ;
+            Macro: tuck    ( 1 2 -- 2 1 2 )   comp? IF T swap over H EXIT THEN  swap over ;
+            Macro: under   ( 1 2 -- 1 1 2 )   comp? IF T over swap H EXIT THEN  over swap ;
 op_ROT         Op: rot     ( 1 2 3 -- 3 1 2 ) rot
-op_NROT        Op: -rot    ( 1 2 3 -- 2 3 1 ) -rot
+            Macro: -rot    ( 1 2 3 -- 2 3 1 ) comp? IF T rot rot H EXIT THEN  -rot ;
 
 \ return stack
 op_RPUSH      Tor: >r      ( n -- )           don't
@@ -50,10 +54,37 @@ op_RTOR        Op: r@      ( -- n )           don't
 op_LOCAL       Op: local   ( rel -- addr )    don't
 
 \ data memory
-op_LOAD        Op: ld     ( addr -- n addr )  don't
-op_STORE       Op: st     ( n addr -- addr )  don't
-            Macro: !      ( n addr -- )       comp? dbg? or IF T st drop H EXIT THEN  d! ;
+op_LOAD        Op: ld      ( addr -- n addr ) don't
+op_STORE       Op: st      ( n addr -- addr ) don't
+            Macro: !       ( n addr -- )      comp? dbg? or IF T st drop H EXIT THEN  d! ;
+EXTENDED [IF]
+   op_FETCH    Op: @       ( addr -- u )      d@
+   op_RDROP    Op: rdrop   ( -- )             don't
+[ELSE]
+            Macro: @       ( addr -- u )      comp? IF T ld drop H EXIT THEN  d@ ;
+            Macro: rdrop   ( -- )             ?comp T r> drop H ;
+[THEN]
+            Macro: lst     ( n rel -- addr )  ?comp T local st H ;
+            Macro: l!      ( n rel -- )       ?comp T local ! H ;
+            Macro: lld     ( rel -- n addr )  ?comp T local ld H ;
+            Macro: l@      ( rel -- n )       ?comp T local @ H ;
 
+byte_addr_width [IF]
+   op_CLOAD       Op: cld   ( caddr -- c caddr ) don't
+   EXTENDED [IF]
+      op_CFETCH   Op: c@    ( caddr -- c )       cd@
+   [ELSE]
+               Macro: c@    ( caddr -- c )       comp? dbg? or IF T cld drop H EXIT THEN  cd@ ;
+   [THEN]
+   op_CSTORE      Op: cst   ( c caddr -- caddr ) don't
+               Macro: c!    ( c caddr -- )       comp? dbg? or IF T cst drop H EXIT THEN  cd! ;
+   byte_addr_width = 2 [IF]
+      op_WLOAD    Op: wld   ( caddr -- w caddr ) don't
+               Macro: w@    ( caddr -- w )       ?comp T wld drop H ;
+      op_WSTORE   Op: wst   ( w caddr -- caddr ) don't
+               Macro: w!    ( w caddr -- )       ?comp T wst drop H ;
+   [THEN]
+[THEN]
 \ program memory
 op_PLOAD       Op: pLD    ( addr -- b addr )  don't
             Macro: p@     ( addr -- b )       ?comp T pLD drop H ;
@@ -138,18 +169,11 @@ op_STSET       Op: st-set      ( mask -- )    don't
             Macro: st-reset    ( mask -- )    ?comp T not st-set H ;
 
 EXTENDED [IF]
-
-   op_NIP         Op: nip     ( 1 2 -- 2 )           nip
-   op_TUCK        Op: tuck    ( 1 2 -- 2 1 2 )       tuck
-   op_UNDER       Op: under   ( 1 2 -- 1 1 2 )       don't
-   op_RDROP       Op: rdrop   ( -- )                 don't
+ 
    op_INDEX       Op: I       ( -- i )               don't
-                                                    
-   op_FETCH       Op: @       ( addr -- u )          d@
-   op_PLUSST      Op: +st     ( n addr -- addr )     don't                \ indivisible read-modify-write instruction
+   op_PLUSST      Op: +st     ( n addr -- addr )     don't   \ indivisible read-modify-write instruction
                Macro: +!      ( n addr -- )          comp? IF T +st drop H EXIT THEN  +! ;
    op_FLAGQ       Op: flag?   ( mask -- f )          don't
-                                                    
    op_NZEXIT      Op: nz-exit ( f -- )               don't
    op_ADDSAT      Op: +sat    ( n1 n2 -- n3 )        don't
    op_SDIVL       Op: sdivl   ( complex )            don't
@@ -163,20 +187,11 @@ EXTENDED [IF]
                Macro: uroot   ( u -- rem root )      ?comp 0 lit, T tuck       H data_width 2/ 0 DO T sqrts H LOOP T -rot drop H ;
    [THEN]
 
-[ELSE] \ not EXTENDED
+[ELSE]
 
-   Macro: nip     ( 1 2 -- 2 )       comp? IF T swap drop H EXIT THEN  nip ;
-   Macro: tuck    ( 1 2 -- 2 1 2 )   comp? IF T swap over H EXIT THEN  swap over ;
-   Macro: under   ( 1 2 -- 1 1 2 )   comp? IF T over swap H EXIT THEN  over swap ;
-   Macro: rdrop   ( -- )             ?comp T r> drop H ;
-   Macro: @       ( addr -- u )      comp? IF T ld drop H EXIT THEN  d@ ;
+               Macro: flag?   ( mask -- f )          ?comp FLAG_REG lit, T @ and H ;
 
 [THEN]
-
-Macro: lst        ( n rel -- addr )  ?comp T local st H ;
-Macro: l!         ( n rel -- )       ?comp T local ! H ;
-Macro: lld        ( rel -- n addr )  ?comp T local ld H ;
-Macro: l@         ( rel -- n )       ?comp T local @ H ;
 
 \ floating point operators
 WITH_FLOAT [IF]
@@ -195,7 +210,7 @@ WITH_FLOAT [IF]
 
 \ some macros
 
-Macro: pause   ( -- )             ; \ this pause will be used when the multitasker is not loaded.
+Macro: pause   ( -- )             T noop H ; \ this pause will be used when the multitasker is not loaded.
 
 Macro: true    ( -- tf )          comp? IF -1 lit,  EXIT THEN  true ;
 Macro: false   ( -- ff )          comp? IF  0 lit,  EXIT THEN  false ;
@@ -203,9 +218,9 @@ Macro: false   ( -- ff )          comp? IF  0 lit,  EXIT THEN  false ;
 Macro: 1+      ( n -- n' )        comp? IF   1 lit, T + H EXIT THEN  1+ ;
 Macro: 1-      ( n -- n' )        comp? IF  -1 lit, T + H EXIT THEN  1- ;
 
-Macro: cells   ( u -- u' )        ;
-Macro: cell+   ( u -- u' )        comp? IF   1 lit, T + H EXIT THEN  1+ ;
-Macro: cell-   ( u -- u' )        comp? IF  -1 lit, T + H EXIT THEN  1- ;
+Macro: cells   ( u -- u' )        #cell comp? IF  lit, T * H EXIT THEN  * ;
+Macro: cell+   ( u -- u' )        #cell comp? IF  lit, T + H EXIT THEN  + ;
+Macro: cell-   ( u -- u' )        #cell comp? IF  lit, T - H EXIT THEN  - ;
 
 Macro: ei          ( -- )         ?comp s_ie 2**     lit, T st-set H ; \ 1 -> #ie bit
 Macro: di          ( -- )         ?comp s_ie 2** not lit, T st-set H ; \ 0 -> #ie bit
@@ -213,13 +228,13 @@ Macro: di          ( -- )         ?comp s_ie 2** not lit, T st-set H ; \ 0 -> #i
 Macro: int-enable  ( mask -- )    ?comp INT_REG lit, T ! H ;
 Macro: int-disable ( mask -- )    ?comp T not H INT_REG lit, T ! H ;
 
-Macro: pass    ( n -- )           ?comp FLAG_REG lit, T ! H ;            \ lock semaphor bit
-Macro: release ( n -- )           ?comp T not H FLAG_REG lit, T ! H ;    \ release semaphor bit
+Macro: pass    ( n -- )           ?comp         FLAG_REG lit, T ! H ;  \ lock semaphor bit
+Macro: release ( n -- )           ?comp T not H FLAG_REG lit, T ! H ;  \ release semaphor bit
 
-Macro: host>   ( -- u )           ?comp DEBUG_REG lit, T @ H ;
-Macro: >host   ( u -- )           ?comp DEBUG_REG lit, T ! H ;
+Macro: host@   ( -- u )           ?comp DEBUG_REG lit, T @ H ;
+Macro: host!   ( u -- )           ?comp DEBUG_REG lit, T ! H ;
 
-Macro: ctrl    ( -- reg )         ?comp CTRL_REG lit, ;
+Macro: ctrl    ( -- reg )         ?comp         CTRL_REG lit, ;
 Macro: -ctrl   ( n -- -n reg )    ?comp T not H CTRL_REG lit, ;
 
 Macro: >rstack ( rsp -- )         ?comp RSP_REG lit, T ! rdrop H ;

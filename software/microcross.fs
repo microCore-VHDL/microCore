@@ -2,7 +2,7 @@
 \ @file : microcross.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 04.06.2022 18:29:50
+\ Last change: KS 04.08.2022 17:04:27
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -27,10 +27,14 @@
 \   210     ks   14-Jun-2020  initial version
 \   2200    ks   19-Oct-2020  Library mechanism integrated
 \   2300    ks   18-Feb-2021  OOP mechanism integrated
+\  2400     ks   03-Nov-2022  byte addressing using byte_addr_width
 \ ----------------------------------------------------------------------
 Forth definitions
 
-: .version  ( -- )  temp-decimal Version u. #BS emit [char] _ emit data_width . ;
+: .version  ( -- )  temp-decimal
+   Version u. #BS emit [char] _ emit data_width .
+   byte_addr_width IF  #BS emit ." b "  THEN
+;
 
 \ Debugger forward references
 Defer t_execute    :noname  true abort" t_execute not initialized" ;    IS t_execute
@@ -87,9 +91,14 @@ $A0A Constant #macro
 $B0B Constant #lib       \ when loading from library predefinitions
 
 prog_addr_width 2**                     Constant #maxprog
-data_addr_width 2**                     Constant #maxdata    \ size of data memory
-data_width 8 /mod swap 0= 1+ +          Constant #bytes/cell
+data_addr_width cache_addr_width u> [IF]
+   data_addr_width 2**                  Constant #maxdata    \ size of data memory
+[ELSE]
+   cache_size                           Constant #maxdata    \ size of data memory
+[THEN]
 data_width 2** 1-                       Constant #datamask
+#datamask #maxprog umin 5 + cells       Constant #progmem
+data_width 8 /mod swap 0= 1+ +          Constant #octetts
 data_width 1- 2**                       Constant #signbit
 inst_width 1- 2** 1-                    Constant #opmask
 inst_width 2** 1-                       Constant #codemask
@@ -97,13 +106,14 @@ inst_width 1-                           Constant #lit-width
 inst_width 1 - 2** 1-                   Constant #litmask
 inst_width 2 - 2**                      Constant #litmod
 data_width #lit-width /mod swap 0= 1+ + Constant #nibbles    \ nibbles needed to represent any number
+byte_addr_width 2**                     Constant #cell
 
 \ ----------------------------------------------------------------------
 \ accessing the target's program memory
 \ ----------------------------------------------------------------------
 
-Create Memory   #datamask #maxprog umin 5 + cells allot  \ shadow program memory
-Create Data     #maxdata cells allot                     \ shadow data memory
+Create Memory   #progmem allot  \ shadow program memory
+Create Data     #maxdata allot  \ shadow data memory
 
 Variable Verbose   Verbose off
 Variable Tcp                              \ TargetCodePointer
@@ -153,11 +163,24 @@ Variable Goto-nibbles                     \ default number of nibbles to be used
    dup [ #codemask not ] Literal and abort" not an opcode"
    there macro!  1 tallot
 ;
-: trap-addr ( n -- addr )     trap_width 2** * ;
+: trap-addr ( n -- addr )      trap_width 2** * ;
 
-: >data     ( daddr -- addr )  dup #maxdata u> abort" data memory access out of range"  cells Data + ;
-: d!        ( n daddr -- )     >data ! ; \ dbg? IF  T ! H  EXIT THEN  ! ;
-: d@        ( daddr -- n )     >data @ ; \ dbg? IF  T @ H  EXIT THEN  @ ;
+: >data     ( daddr -- addr )
+   dup #maxdata u> abort" data memory access out of range"
+   #cell /mod cell * + Data +
+;
+: d!        ( n daddr -- )     swap #datamask and swap >data ! ;
+: d@        ( daddr -- n )     >data @ #datamask and ;
+byte_addr_width [IF]
+: cd!       ( char daddr -- )  >data c! ;
+: cd@       ( daddr -- char )  >data c@ ;
+[THEN]
+
+: taligned  ( addr -- addr' )  #cell 1- + [ #cell negate ] Literal and ;
+: talign    ( -- )             Tdp @ taligned Tdp ! ;
+: tcells    ( n -- n' )        #cell * ;
+: tcell+    ( n -- n' )        #cell + ;
+: tcell-    ( n -- n' )        #cell - ;
 
 \ ----------------------------------------------------------------------
 \ peep-hole optimizer
@@ -180,6 +203,7 @@ op_QDUP   Match ?dup?
 op_ZEQU   Match 0=?
 op_ZLESS  Match 0<?
 op_CALL   Match call?
+op_BRANCH Match branch?
 op_OVER   Match over?
 op_SWAP   Match swap?
 op_RPUSH  Match >r?
@@ -306,21 +330,6 @@ Does> ( -- )   Macro @ IF  @ execute  EXIT THEN      \ another macro inside the 
         EXIT THEN                      ( pfa )
    @ execute   Macro off                             \ produce macro code and reset Macro
 ;
-gforth_062 [IF]
-: .macros    ( -- )  Macro-link BEGIN  @ ?dup WHILE  dup 4 cells - >name .name  REPEAT ;
-: .variables ( -- )  Variables  BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
-: .constants ( -- )  Constants  BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
-: .colons            Colons     BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
-: .inits     ( -- )  Init-link  BEGIN  @ ?dup WHILE  dup 4 cells - >name .name  REPEAT ;
-: .does      ( -- )  Doers      BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
-[THEN] gforth_079 gforth_072 or [IF]
-: .macros    ( -- )  Macro-link BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
-: .variables ( -- )  Variables  BEGIN  @ ?dup WHILE  dup 2 cells - >name .name  REPEAT ;
-: .constants ( -- )  Constants  BEGIN  @ ?dup WHILE  dup 2 cells - >name .name  REPEAT ;
-: .colons            Colons     BEGIN  @ ?dup WHILE  dup 2 cells - >name .name  REPEAT ;
-: .inits     ( -- )  Init-link  BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
-: .does      ( -- )  Doers      BEGIN  @ ?dup WHILE  dup 2 cells - >name .name  REPEAT ;
-[THEN]
 \ ----------------------------------------------------------------------
 \ Arithmetic optimizer, looking for "2dup <arithop>" and "swap -"
 \ ----------------------------------------------------------------------
@@ -342,33 +351,13 @@ Does> ( -- )
    cell+ @ execute
 ;
 \ ----------------------------------------------------------------------
-\ stack optimizers
+\ stack optimizer
 \ ----------------------------------------------------------------------
 
-: Drop: ( n <name> (comment <name> -- ) Op:
-Does> ( -- )
-   comp? IF  @  EXTENDED IF  prev@ swap? IF  -1 tallot  drop op_NIP   THEN THEN
-             t,  EXIT
-         THEN
-   dbg? IF  tempcode  EXIT THEN
-   cell+ @ execute
-;
-: Over: ( n <name> (comment <name> -- ) Op:
-Does> ( -- )
-   comp? IF  @  EXTENDED IF  prev@ swap? IF  -1 tallot  drop op_TUCK  THEN THEN
-             t,  EXIT
-         THEN
-   dbg? IF  tempcode  EXIT THEN
-   cell+ @ execute
-;
 : Swap: ( n <name> (comment <name> -- ) Op:
 Does> ( -- )
-   comp? IF  @  prev@ swap? IF  -1 tallot drop EXIT THEN              \ throw out "swap swap"
-             EXTENDED
-             IF  prev@ over? IF  -1 tallot  drop op_UNDER  THEN THEN  \ "over swap" = "under"
-             t,  EXIT
-         THEN
-   dbg? IF  tempcode  EXIT THEN
+   comp? IF  prev@ swap? IF -1 tallot drop EXIT THEN  @ t, EXIT THEN  \ throw out "swap swap"
+   dbg?  IF  tempcode  EXIT THEN
    cell+ @ execute
 ;
 \ ----------------------------------------------------------------------
@@ -378,7 +367,7 @@ Does> ( -- )
 : Tor:  ( n <name> (comment <name> -- ) Op:
 Does> ( -- )
    comp? IF  @  prev@ r>? IF  -1 tallot drop  EXIT THEN   t,  EXIT THEN
-   dbg? IF  tempcode  EXIT THEN
+   dbg?  IF  tempcode  EXIT THEN
    cell+ @ execute
 ;
 \ ----------------------------------------------------------------------
@@ -387,8 +376,8 @@ Does> ( -- )
 
 : Ex: ( n <name> (comment <name> -- ) Op:
 Does> ( -- )
-   comp? IF  @  prev@ call? IF  -1 tallot drop op_BRANCH  THEN   t,  EXIT THEN
-   dbg? IF  tempcode  EXIT THEN
+   comp? IF  @   prev@ call? IF  -1 tallot drop op_BRANCH  THEN  t, EXIT THEN
+   dbg?  IF  tempcode  EXIT THEN
    cell+ @ execute
 ;
 \ ----------------------------------------------------------------------
@@ -406,7 +395,7 @@ Does> ( -- )
       EXIT THEN
       drop
    THEN   r> >in !
-   Tdp @ Constant   here Variables @ , Variables !
+   talign Tdp @ Constant   here Variables @ , Variables !
 Does> @ ( -- addr )  [ here cell- (doCreate ! ]
    comp? IF  lit,  EXIT THEN    dbg? IF  >t  THEN
 ;
@@ -628,14 +617,15 @@ Create Initials  0 , 0 , 0 ,  \ linked list for data memory initialization
 : uninitialized? ( -- f )     last-initial cell+ cell+ @ ;
 
 : save-dp-block  ( from to -- )
-   0 -rot ( count of repeated 0's )   over lit,
-   swap ?DO  I d@ ?dup                                     ( count n )
-            IF  swap dup IF  lit, T op_ADD t, H  0  THEN   ( n 0 )
-               swap lit, T op_DATA t, H                    ( 0 )
-            ELSE
-               1+                                          ( count )
-            THEN
-   LOOP  drop T op_DROP t, H
+   2dup = IF  2drop EXIT THEN    \ "empty" dp-block
+   0 -rot ( count of repeated 0's )   over lit,   swap
+   ?DO  I d@ ?dup                                     ( count n )
+        IF swap dup IF  lit, T op_ADD t, H  0  THEN   ( n 0 )
+           swap lit, T op_DATA t, H                   ( 0 )
+        ELSE
+           tcell+                                     ( count )
+        THEN
+   #cell +LOOP  drop T op_DROP t, H
 ;
 : compile-inits  ( -- )
    0 Init-link BEGIN  @ ?dup WHILE  dup  REPEAT
@@ -650,9 +640,21 @@ Create Initials  0 , 0 , 0 ,  \ linked list for data memory initialization
       @ ?dup 0=
    UNTIL  compile-inits  T op_EXIT t, H
 ;
+Target definitions Forth
+
+: initialized  ( -- )
+   initialized? 0= IF  Tdp @ not last-initial cell+ !  EXIT THEN
+   uninitialized? ?dup 0= ?EXIT  not
+   Tdp @ = IF  0 last-initial cell+ cell+ !  EXIT THEN  \ continue previous block
+   here 0 , Tdp @ not , 0 , last-initial !
+;
+: uninitialized ( -- )  initialized? 0= ?EXIT
+   Tdp @ not last-initial cell+ cell+ !
+;
 \ ----------------------------------------------------------------------
 \ data and program memory origins
 \ ----------------------------------------------------------------------
+Forth definitions
 
 Variable (signed   (signed on   \ interpret numbers as signed or unsigned
 
@@ -674,6 +676,21 @@ Variable (signed   (signed on   \ interpret numbers as signed or unsigned
 ;
 : tu.  ( addr -- )  #datamask and u. ;
 
+gforth_062 [IF]
+: .macros    ( -- )  Macro-link BEGIN  @ ?dup WHILE  dup 4 cells - >name .name  REPEAT ;
+: .variables ( -- )  Variables  BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
+: .constants ( -- )  Constants  BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
+: .colons            Colons     BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
+: .inits     ( -- )  Init-link  BEGIN  @ ?dup WHILE  dup 4 cells - >name .name  REPEAT ;
+: .does      ( -- )  Doers      BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
+[THEN] gforth_079 gforth_072 or [IF]
+: .macros    ( -- )  Macro-link BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
+: .variables ( -- )  Variables  BEGIN  @ ?dup WHILE  dup 2 cells - >name .name  REPEAT ;
+: .constants ( -- )  Constants  BEGIN  @ ?dup WHILE  dup 2 cells - >name .name  REPEAT ;
+: .colons            Colons     BEGIN  @ ?dup WHILE  dup 2 cells - >name .name  REPEAT ;
+: .inits     ( -- )  Init-link  BEGIN  @ ?dup WHILE  dup 3 cells - >name .name  REPEAT ;
+: .does      ( -- )  Doers      BEGIN  @ ?dup WHILE  dup 2 cells - >name .name  REPEAT ;
+[THEN]
 \ ----------------------------------------------------------------------
 \ data and program memory origins and data memory initialization
 \ ----------------------------------------------------------------------
@@ -690,15 +707,6 @@ Target definitions Forth
 
 : trap-addr   ( n -- addr ) ?exec trap-addr dbg? IF  >t  THEN ;
 
-: initialized  ( -- )
-   initialized? 0= IF  Tdp @ not last-initial cell+ !  EXIT THEN
-   uninitialized? ?dup 0= ?EXIT  not
-   Tdp @ = IF  0 last-initial cell+ cell+ !  EXIT THEN  \ continue previous block
-   here 0 , Tdp @ not , 0 , last-initial !
-;
-: uninitialized ( -- )  initialized? 0= ?EXIT
-   Tdp @ not last-initial cell+ cell+ !
-;
 \ ----------------------------------------------------------------------
 \ Target defining words
 \ ----------------------------------------------------------------------
@@ -720,7 +728,7 @@ Does> dup @ swap cell+ @   ( -- n2 n1 )
 ;
 : Version     ( f -- ) Constant immediate ;
 
-: Variable    ( -- )   Tcreate   1 Tdp +! ;
+: Variable    ( -- )   Tcreate   #cell Tdp +! ;
 
 : Register    ( addr -- )
    dbg? IF t> THEN  Constant
@@ -802,6 +810,7 @@ Does> ( -- ) [ here (doGoto ! ]
 \ To be extended when the need arises
 \ ----------------------------------------------------------------------
 
+' talign      Alias align
 ' Alias       Alias Alias
 ' 2**         Alias 2**
 ' 2//         Alias 2//
@@ -840,7 +849,7 @@ Does> ( -- ) [ here (doGoto ! ]
    dup #usrmask > abort" USR number out of range"
    ?exec Create dup #usr or ,
    trap-addr  there  over Tcp !
-   swap ] #trap |                       \ leaves there, addr and #trap for check by ;TRAP
+   swap ] #trap |                       \ leaves there, addr and #trap for check by ;
    ['] don't ,                          \ embed "don't" to be consistent with OP:-definitions
    here  Operators @ , Operators !
 Does> ( -- )
@@ -850,14 +859,15 @@ Does> ( -- )
 ;
 : ;    ( i*x # -- )
    ?comp   #colon case?
-   IF  prev@ call? IF  -1 tallot T branch H
-                   ELSE  prev@ >r? IF  -1 tallot ?noop, T branch H
-                                   ELSE  T exit H
-                   THEN            THEN
-       postpone [ reveal
-       dbg? IF  Transferred @ there over - false send-image
-                there Transferred !
-       THEN
+   IF  prev@ call? IF  -1 tallot T branch H  THEN
+      prev@ branch? 0=
+      IF  prev@ >r? IF  -1 tallot ?noop, T branch H
+                    ELSE  T exit H
+      THEN          THEN
+      postpone [ reveal
+      dbg? IF  Transferred @ there over - false send-image
+               there Transferred !
+      THEN
    EXIT THEN
 \ Tmarker: | here | there | depth | Current | 6 cells save-input stream |
    #lib  case? IF  Libload cell+ >r
@@ -1040,8 +1050,8 @@ include images.fs    \ object code output files
 Variable Initialize-state
 
 : Hcreate  ( tcp -- )
-   ?exec   Tdp @ Constant
-   dbg? IF  >t s" ," evaluate  ELSE  Tdp @ d!   1 Tdp +!  THEN
+   ?exec   talign Tdp @ Constant
+   dbg? IF  >t s" ," evaluate  ELSE  Tdp @ d!   #cell Tdp +!  THEN
    here Doers @ , Doers !
    uninitialized? dup IF  T initialized H  THEN  Initialize-state !
 Does> @  ( -- TDP )
@@ -1111,8 +1121,7 @@ Does> ( -- ) [ here (doColon ! ]  Method   @
 ;
 : new      ( -- )   \ Initialize cross-compiler for another compilation run
    cr ." microCross version " .version ." by ks, gforth port and debugger by uho"
-   Memory [ #datamask #maxprog umin 1+ cells ] Literal erase
-   Data #maxdata cells erase   Initials 3 cells erase
+   Memory #progmem erase   Data #maxdata erase   Initials 3 tcells erase
    Tcp off  Tdp off  if-prefix  Colons off   Sequential off
    Labels off   Macro off   Init-link off
    Libload off   Trash Countfield !
@@ -1172,10 +1181,13 @@ H WITH_FLOAT            T Version WITH_FLOAT
 H WITH_UP_DOWNLOAD      T Version WITH_UP_DOWNLOAD
 H data_addr_width
   cache_addr_width u>   T Version WITH_EXTMEM
+H byte_addr_width 0<>   T Version WITH_BYTES
+H data_width 1 and 0<>  T Version ODD_DATA_WIDTH
 
 H data_width            T Constant data_width
 H ram_data_width        T Constant ram_data_width
 H data_addr_width       T Constant data_addr_width
+H byte_addr_width       T Constant byte_addr_width
 H cache_size            T Constant cache_size
 H cache_addr_width      T Constant cache_addr_width
 H exp_width             T Constant exp_width
@@ -1185,8 +1197,13 @@ H ticks_per_ms          T Constant ticks_per_ms
 H rs_addr_width         T Constant rs_addr_width
 H ds_addr_width         T Constant ds_addr_width
 H tasks_addr_width      T Constant tasks_addr_width
+H tasks_addr_width
+  rs_addr_width +       T Constant rsp_width
+H tasks_addr_width
+  ds_addr_width +       T Constant dsp_width
 H #signbit              T Constant #signbit
-H #bytes/cell           T Constant #bytes/cell
+H #octetts              T Constant #octetts
+H #cell                 T Constant #cell
 
 \ umbilical control characters
 H mark_start            T Constant mark_start
@@ -1200,19 +1217,21 @@ H mark_upload           T Constant mark_upload
 H mark_download         T Constant mark_download
 
 \ memory areas
-H tasks_addr_width     2** T Constant #tasks
-H rs_addr_width        2** T Constant #rs-depth
-H ds_addr_width        2** T Constant #ds-depth
-H cache_addr_width     2** T Constant #extern       \ first address of external memory size
-H addr_rstack              T Constant #rstack       \ first address used for the return stack
-#rstack H cache_size umin  T Constant #cache        \ first address past internal data memory, starting at 0
-#rstack #tasks #rs-depth * + Constant #rstack-end   \ first address past rstack area
+H tasks_addr_width       2** T Constant #tasks
+H ds_addr_width          2** T Constant #ds-depth
+  dsp_width              2** T Constant #ds-size
+H rs_addr_width          2** T Constant #rs-depth
+  rsp_width              2** T Constant #rs-size
+H addr_rstack                T Constant #rstack       \ first address used for the return stack
+  #rstack H cache_size umin  T Constant #cache        \ first address past internal data memory, starting at 0
+  addr_rstack #rs-size +     T Constant #rstack-end
+H cache_addr_width       2** T Constant #extern       \ first address of external memory size
 
 \ trap vectors used, to be extended as needed.
-0                          T Constant #reset        \ reset vector
-1                          T Constant #isr          \ interrupt service routine
-H op_PAUSE #usrmask and    T Constant #psr          \ pause service routine
-H op_BREAK #usrmask and    T Constant #break        \ debugger breakpoint routine
-H op_DOES  #usrmask and    T Constant #does>        \ the DOES> runtime primitive
-H op_DATA  #usrmask and    T Constant #data!        \ for data memory initialization
+0                       T Constant #reset        \ reset vector
+1                       T Constant #isr          \ interrupt service routine
+H op_PAUSE #usrmask and T Constant #psr          \ pause service routine
+H op_BREAK #usrmask and T Constant #break        \ debugger breakpoint routine
+H op_DOES  #usrmask and T Constant #does>        \ the DOES> runtime primitive
+H op_DATA  #usrmask and T Constant #data!        \ for data memory initialization
 

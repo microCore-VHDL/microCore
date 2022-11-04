@@ -2,7 +2,7 @@
 \ @file : extensions.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 16.06.2021 16:49:53
+\ Last change: KS 08.07.2022 00:32:26
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -41,7 +41,7 @@ cr .( gforth ) version-string type .(  not supported)  abort
 : cell_width ( -- u )
    0 1 BEGIN  swap 1+ swap  2* ?dup 0= UNTIL
 ;
-: cell-    1 cells - ;
+: cell-    cell - ;
 
 ' invert Alias not
 
@@ -88,7 +88,7 @@ cr .( gforth ) version-string type .(  not supported)  abort
 : binary  ( -- )           2 Base ! ;
 : octal   ( -- )           8 Base ! ;
 : clear   ( xxx -- )       BEGIN  depth WHILE drop REPEAT ;
-: rdepth  ( -- u )         rp0 @ rp@ - 1 cells / ;
+: rdepth  ( -- u )         rp0 @ rp@ - cell / ;
 : case?   ( n1 n2 -- n1 ff | tf )   over = dup IF  nip  THEN ;  \ the most primitive case operator
 : ud*     ( ud u  -- udprod )       tuck um* drop >r um* r> + ;
 
@@ -274,6 +274,8 @@ $0D Constant #cr
             key #cr = EXIT
    THEN  false
 ;
+' Constant Alias Version immediate
+
 : .name      ( nt -- )    ?dup IF  name>string type space EXIT THEN  ." ??? " ;
 
 : .wordname  ( pfa -- )   body> >name .name ;

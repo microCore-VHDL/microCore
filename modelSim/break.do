@@ -4,7 +4,7 @@ add wave -noupdate /bench/myFPGA/uCore/warmboot
 add wave -noupdate /bench/myFPGA/reset_n
 add wave -noupdate /bench/myFPGA/reset
 add wave -noupdate /bench/myFPGA/clk
-add wave -noupdate /bench/myFPGA/uCore/cycle_ctr
+add wave -noupdate /bench/myFPGA/cycle_ctr
 add wave -noupdate /bench/myFPGA/uCore/clk_en
 add wave -noupdate /bench/myFPGA/uCore/uBus
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/r
@@ -34,21 +34,21 @@ add wave -noupdate /bench/myFPGA/uCore/uCntrl/r.rsp
 add wave -noupdate -divider Debugger
 add wave -noupdate /bench/myFPGA/uCore/debug_unit/rxd
 add wave -noupdate -divider Dsu
-add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/ram(29)
-add wave -noupdate -divider Rerun
-add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/ram(18)
-add wave -noupdate -divider Counter
-add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/ram(17)
-add wave -noupdate -divider Tptr
-add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/ram(19)
-add wave -noupdate -divider Background
-add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/ram(10)
-add wave -noupdate -divider Terminal
 add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/ram(20)
+add wave -noupdate -divider Rerun
+add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/ram(29)
+add wave -noupdate -divider Counter
+add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/ram(28)
+add wave -noupdate -divider Tptr
+add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/ram(10)
+add wave -noupdate -divider Background
+add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/ram(21)
+add wave -noupdate -divider Terminal
+add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/ram(11)
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {248996 ns} 0} {{Cursor 2} {24400 ns} 0}
+WaveRestoreCursors {{Cursor 1} {207512 ns} 0} {{Cursor 2} {24400 ns} 0}
 quietly wave cursor active 1
-configure wave -namecolwidth 111
+configure wave -namecolwidth 121
 configure wave -valuecolwidth 68
 configure wave -justifyvalue left
 configure wave -signalnamewidth 1
@@ -62,4 +62,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {0 ns} {231 us}
+WaveRestoreZoom {0 ns} {220500 ns}

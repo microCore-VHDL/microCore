@@ -1,5 +1,5 @@
 \ 
-\ Last change: KS 05.03.2021 17:41:28
+\ Last change: KS 02.10.2022 16:34:23
 \
 \ MicroCore load screen for simulating the debug umbilical.
 \ It produces program.mem for initialization of the program memory during simulation.
@@ -24,15 +24,14 @@ Target new                      \ go into target compilation mode and initialize
 include constants.fs            \ microCore Register addresses and bits
 
 : boot ( -- )
-   $6699 $1155 1 st 1+ !
+   $6699 $1155 1 st cell+ !
    Debug-reg ld st ld over swap !
-   $4002 = IF  #c-bitout Ctrl !  THEN
    BEGIN REPEAT
 ;
 
 #reset TRAP: rst    ( -- )            boot              ;  \ compile branch to boot at reset vector location
 #isr   TRAP: isr    ( -- )            di IRET           ;
-#psr   TRAP: psr    ( -- )                              ;  \ reexecute the previous instruction
+#psr   TRAP: psr    ( -- )            pause             ;  \ reexecute the previous instruction
 
 end
 

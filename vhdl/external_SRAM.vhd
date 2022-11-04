@@ -2,7 +2,7 @@
 -- @file : external_SRAM.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 01.04.2021 18:51:38
+-- Last change: KS 31.10.2022 18:51:57
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -18,6 +18,7 @@
 --
 -- @brief: Connecting external SRAM memories to microCore. Scaled
 --         by the ram_... constants in architecture_pkg.vhd
+--         This version can only be used if byte_addr_width = 0.
 --
 -- Version Author   Date       Changes
 --   210     ks    8-Jun-2020  initial version
@@ -51,7 +52,7 @@ ARCHITECTURE rtl OF external_SRAM IS
 ALIAS  reset           : STD_LOGIC IS uBus.reset;
 ALIAS  clk             : STD_LOGIC IS uBus.clk;
 ALIAS  clk_en          : STD_LOGIC IS uBus.clk_en;
-ALIAS  enable          : STD_LOGIC IS uBus.ext_en;
+ALIAS  ext_en          : STD_LOGIC IS uBus.ext_en;
 ALIAS  write           : STD_LOGIC IS uBus.write;
 ALIAS  wdata           : data_bus  IS uBus.wdata;
 
@@ -60,14 +61,14 @@ CONSTANT leader        : NATURAL := (ram_data_width - residue) MOD ram_data_widt
 
 SIGNAL delay_ctr       : NATURAL RANGE 0 TO max(delay_cnt, cycles-1);
 SIGNAL ext_ce          : STD_LOGIC;
-SIGNAL sub_addr        : UNSIGNED(subbits-1 DOWNTO 0);
-SIGNAL LSword          : UNSIGNED((ram_data_width * (chunks-1))-1 DOWNTO 0);
+SIGNAL sub_addr        : UNSIGNED(ram_subbits-1 DOWNTO 0);
+SIGNAL LSword          : UNSIGNED((ram_data_width * (ram_chunks-1))-1 DOWNTO 0);
 
 -- defined in architecture_pkg.vhd
 -- CONSTANT ram_data_width     : NATURAL :=  8; -- external memory word width
--- CONSTANT chunks             : NATURAL := ceiling(data_width, ram_data_width);
--- CONSTANT subbits            : NATURAL := log2(chunks);
--- CONSTANT ram_addr_width     : NATURAL := 12 + subbits; -- external memory, virtually data_width wide
+-- CONSTANT ram_chunks         : NATURAL := ceiling(data_width, ram_data_width);
+-- CONSTANT ram_subbits        : NATURAL := log2(ram_chunks);
+-- CONSTANT ram_addr_width     : NATURAL := 12 + ram_subbits; -- external memory, virtually data_width wide
 
 BEGIN
 
@@ -77,7 +78,7 @@ BEGIN
 
 if_wide_data: IF  ram_data_width < data_width  GENERATE
 
-   delay <= '1' WHEN  enable = '1' AND (ext_ce = '0' OR delay_ctr /= 0 OR sub_addr /= chunks-1)  ELSE '0';
+   delay <= '1' WHEN  ext_en = '1' AND (ext_ce = '0' OR delay_ctr /= 0 OR sub_addr /= ram_chunks-1)  ELSE '0';
 
    rdata_proc : PROCESS (data, LSword)
    BEGIN
@@ -93,7 +94,7 @@ if_wide_data: IF  ram_data_width < data_width  GENERATE
 
    data_mux_proc: PROCESS (uBus, sub_addr, wdata, ext_ce)
    VARIABLE subaddr : NATURAL;
-   VARIABLE maxdata : UNSIGNED((ram_data_width * chunks)-1 DOWNTO 0);
+   VARIABLE maxdata : UNSIGNED((ram_data_width * ram_chunks)-1 DOWNTO 0);
    VARIABLE subdata : UNSIGNED(data'range);
    BEGIN
       subaddr := to_integer(sub_addr);
@@ -114,25 +115,25 @@ if_wide_data: IF  ram_data_width < data_width  GENERATE
          oe_n <= '1';
       ELSIF  rising_edge(clk)  THEN
          IF  delay_ctr = 0  THEN
-            IF  ext_ce = '0' AND enable = '1'  THEN
+            IF  ext_ce = '0' AND ext_en = '1'  THEN
                delay_ctr <= delay_cnt;
                sub_addr <= (OTHERS => '0');
                ext_ce <= '1';
             END IF;
-            IF  ext_ce = '1' AND sub_addr /= chunks-1  THEN
+            IF  ext_ce = '1' AND sub_addr /= ram_chunks-1  THEN
                sub_addr <= sub_addr + 1;
                delay_ctr <= delay_cnt;
                LSword <= data & LSword(LSword'high DOWNTO ram_data_width);
                we_n <= '1';
             END IF;
-            IF  clk_en = '1' AND sub_addr = chunks-1 THEN
+            IF  clk_en = '1' AND sub_addr = ram_chunks-1 THEN
                sub_addr <= (OTHERS => '0');
                delay_ctr <= cycles - 1;
                ext_ce <= '0';
                we_n <= '1';
                oe_n <= '1';
             END IF;
-         ELSIF  enable = '1'  THEN
+         ELSIF  ext_en = '1'  THEN
             delay_ctr <= delay_ctr - 1;
             IF  delay_ctr = delay_cnt AND ext_ce = '1'  THEN
                IF  uBus.write = '1'  THEN
@@ -159,7 +160,7 @@ END GENERATE if_wide_data;
 
 else_wide_data: IF  ram_data_width >= data_width  GENERATE
 
-   delay <= '1' WHEN  enable = '1' AND (ext_ce = '0' OR delay_ctr /= 0)  ELSE '0';
+   delay <= '1' WHEN  ext_en = '1' AND (ext_ce = '0' OR delay_ctr /= 0)  ELSE '0';
 
    ce_n <= NOT ext_ce;
    addr <= resize(uBus.addr, addr'length);
@@ -186,7 +187,7 @@ else_wide_data: IF  ram_data_width >= data_width  GENERATE
          oe_n <= '1';
       ELSIF  rising_edge(clk)  THEN
          IF  delay_ctr = 0  THEN
-            IF  ext_ce = '0' AND enable = '1'  THEN
+            IF  ext_ce = '0' AND ext_en = '1'  THEN
                delay_ctr <= delay_cnt;
                ext_ce <= '1';
             END IF;
@@ -200,7 +201,7 @@ else_wide_data: IF  ram_data_width >= data_width  GENERATE
                we_n <= '1';
                oe_n <= '1';
             END IF;
-         ELSIF  enable = '1'  THEN
+         ELSIF  ext_en = '1'  THEN
             delay_ctr <= delay_ctr - 1;
             IF  delay_ctr = delay_cnt AND ext_ce = '1'  THEN
                IF  uBus.write = '1'  THEN

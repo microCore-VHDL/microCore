@@ -1,5 +1,5 @@
 \ 
-\ Last change: KS 06.03.2021 11:47:05
+\ Last change: KS 04.10.2022 22:34:44
 \
 \ MicroCore load screen to simulate the umbilical upload function.
 \ Either constant download or upload has to be set to '1' in bench.vhd.
@@ -22,24 +22,47 @@ Target new                      \ go into target compilation mode and initialize
 
 include constants.fs            \ microCore Register addresses and bits
 
-: boot ( -- )
-   &10  BEGIN  ld swap $101 = UNTIL  1+
-        BEGIN  ld swap $102 = UNTIL  1+
-        BEGIN  ld swap $103 = UNTIL  1+
-        BEGIN  ld swap $104 = UNTIL  drop
-[ H data_addr_width cache_addr_width u> T ] [IF]
-   #extern BEGIN  ld swap $105 = UNTIL  1+
-           BEGIN  ld swap $106 = UNTIL  1+
-           BEGIN  ld swap $107 = UNTIL  1+
-           BEGIN  ld swap $108 = UNTIL  drop
+WITH_BYTES [IF]
+
+   : boot ( -- )  8 cells  \ mem-addr on uCore
+      BEGIN  cld swap $11 = UNTIL  1+
+      BEGIN  cld swap $12 = UNTIL  1+
+      BEGIN  cld swap $13 = UNTIL  1+
+      BEGIN  cld swap $14 = UNTIL  1+
+      BEGIN  cld swap $15 = UNTIL  1+
+      BEGIN  cld swap $16 = UNTIL  drop
+      [ H data_addr_width cache_addr_width u> T ] [IF]
+         #extern
+         BEGIN  cld swap $25 = UNTIL  1+
+         BEGIN  cld swap $26 = UNTIL  1+
+         BEGIN  cld swap $27 = UNTIL  1+
+         BEGIN  cld swap $28 = UNTIL  drop
+      [THEN]
+      #c-bitout Ctrl !
+      BEGIN REPEAT
+   ;
+[ELSE] \ cell addressed
+
+   : boot ( -- )  8 cells  \ mem-addr on uCore
+      BEGIN  ld swap $11 = UNTIL  1+
+      BEGIN  ld swap $12 = UNTIL  1+
+      BEGIN  ld swap $13 = UNTIL  1+
+      BEGIN  ld swap $14 = UNTIL  drop
+      [ H data_addr_width cache_addr_width u> T ] [IF]
+         #extern
+         BEGIN  ld swap $25 = UNTIL  1+
+         BEGIN  ld swap $26 = UNTIL  1+
+         BEGIN  ld swap $27 = UNTIL  1+
+         BEGIN  ld swap $28 = UNTIL  drop
+      [THEN]
+      #c-bitout Ctrl !
+      BEGIN REPEAT
+   ;
 [THEN]
-   #c-bitout Ctrl !
-   BEGIN REPEAT
-;
 
 #reset TRAP: rst    ( -- )            boot              ;  \ compile branch to boot at reset vector location
 #isr   TRAP: isr    ( -- )            di IRET           ;
-#psr   TRAP: psr    ( -- )                              ;  \ reexecute the previous instruction
+#psr   TRAP: psr    ( -- )            pause             ;  \ reexecute the previous instruction
 
 end
 

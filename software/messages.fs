@@ -2,7 +2,7 @@
 \ @file : messages.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 04.06.2022 17:53:16
+\ Last change: KS 07.07.2022 18:37:59
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -25,6 +25,7 @@
 \
 \ Version Author   Date       Changes
 \   210     ks   14-Jun-2020  initial version
+\  2400     ks   03-Nov-2022  byte addressing using byte_addr_width
 \ ----------------------------------------------------------------------
 Forth definitions
 
@@ -66,7 +67,7 @@ SIMULATION [IF] Target definitions Forth
 
    : here  ( -- addr )      ?exec Tdp @ ;
    : allot ( n -- )         ?exec Tdp +! ;
-   : ,     ( n -- )         ?exec Tdp @ d!  1 Tdp +! ;
+   : ,     ( n -- )         ?exec Tdp @ d!  #cell Tdp +! ;
 
    : .     ( n -- )         ?exec  . ;
    : .r    ( n u -- )       ?exec .r ;

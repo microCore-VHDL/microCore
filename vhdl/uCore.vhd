@@ -2,7 +2,7 @@
 -- @file : uCore.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 13.03.2022 12:49:04
+-- Last change: KS 04.10.2022 22:15:54
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -23,6 +23,7 @@
 --  2300     ks    8-Mar-2021  compiler switch WITH_PROG_RW eliminated
 --                             Conversion to NUMERIC_STD
 --  2332     ks   13-Apr-2022  enable_proc moved to fpga.vhd
+--  2400     ks   03-Nov-2022  bugfix of deb_denable
 -- ---------------------------------------------------------------------
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
@@ -94,6 +95,7 @@ SIGNAL deb_drequest  : STD_LOGIC;
 SIGNAL deb_penable   : STD_LOGIC;
 SIGNAL deb_denable   : STD_LOGIC;
 SIGNAL deb_ext_en    : STD_LOGIC;
+SIGNAL deb_mem_en    : STD_LOGIC;
 
 SIGNAL warmboot      : STD_LOGIC := '0';
    ATTRIBUTE syn_keep OF warmboot : SIGNAL IS true;
@@ -194,7 +196,7 @@ uCntrl: microcontrol PORT MAP (
 );
 
 core.reg_en    <= uCtrl.reg_en;
-core.mem_en    <= uCtrl.mem_en OR deb_denable;
+core.mem_en    <= uCtrl.mem_en OR deb_mem_en;
 core.ext_en    <= uCtrl.ext_en OR deb_ext_en;
 core.tick      <= uCtrl.tick;
 core.chain     <= uCtrl.chain;
@@ -204,19 +206,27 @@ core.rsp       <= uCtrl.rsp;
 core.int       <= uCtrl.int;
 core.time      <= uCtrl.time;
 core.debug     <= debugmem.wdata;
-memory         <= datamem WHEN  deb_denable = '0'  ELSE debugmem;
+memory         <= debugmem WHEN  deb_denable = '1'  ELSE datamem;
 
 -- ---------------------------------------------------------------------
 -- umbilical uart debug interface
 -- ---------------------------------------------------------------------
 
-deb_penable <= deb_prequest AND (NOT uBus.chain OR deb_reset);
+deb_penable <= deb_prequest AND (NOT uCtrl.chain OR deb_reset);
 
-deb_denable <= deb_drequest AND NOT (uBus.chain OR uCtrl.mem_en OR uCtrl.ext_en);
-
-deb_ext_en <= '1' WHEN  WITH_EXTMEM AND deb_denable = '1'
-                        AND debugmem.addr(data_addr_width-1 DOWNTO cache_addr_width) /= 0
-               ELSE '0';
+deb_denable_proc : PROCESS(deb_drequest, deb_denable, debugmem, uCtrl)
+BEGIN
+   deb_mem_en <= '0';
+   deb_ext_en <= '0';
+   deb_denable <= deb_drequest AND NOT (uCtrl.chain OR uCtrl.mem_en OR uCtrl.ext_en OR uCtrl.reg_en);
+   IF  deb_denable = '1'  THEN
+      deb_mem_en <= '1';
+      IF  WITH_EXTMEM AND debugmem.addr(data_addr_width-1 DOWNTO cache_addr_width) /= 0  THEN
+         deb_mem_en <= '0';
+         deb_ext_en <= '1';
+      END IF;
+   END IF;
+END PROCESS deb_denable_proc;
 
 debug_unit: debugger PORT MAP (
    uBus           => uBus,

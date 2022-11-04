@@ -2,7 +2,7 @@
 -- @file : functions_pkg.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 18.05.2021 16:56:59
+-- Last change: KS 30.06.2022 23:36:18
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -21,6 +21,7 @@
 -- Version Author   Date       Changes
 --   210     ks    8-Jun-2020  initial version
 --  2300     ks    8-Mar-2021  Converted to NUMERIC_STD
+--  2400     ks   03-Nov-2022  internal_dpbram defined for byte addressing
 -- ---------------------------------------------------------------------
 --
 -- Note: This code must be compiled as VHDL-93
@@ -155,6 +156,28 @@ COMPONENT internal_dpram GENERIC (
    doa   : OUT   UNSIGNED;
    enb   : IN    STD_LOGIC;
    web   : IN    STD_LOGIC;
+   addrb : IN    UNSIGNED;
+   dib   : IN    UNSIGNED;
+   dob   : OUT   UNSIGNED
+); END COMPONENT;
+
+COMPONENT internal_dpbram GENERIC (
+   data_width : INTEGER;
+   ram_size   : INTEGER;
+   byte_width : INTEGER;
+   ramstyle   : STRING := "block_ram";
+   init_file  : STRING := ""
+); PORT (
+   clk   : IN    STD_LOGIC;
+   ena   : IN    STD_LOGIC;
+   wea   : IN    STD_LOGIC;
+   bytea : IN    UNSIGNED;
+   addra : IN    UNSIGNED;
+   dia   : IN    UNSIGNED;
+   doa   : OUT   UNSIGNED;
+   enb   : IN    STD_LOGIC;
+   web   : IN    STD_LOGIC;
+   byteb : IN    UNSIGNED;
    addrb : IN    UNSIGNED;
    dib   : IN    UNSIGNED;
    dob   : OUT   UNSIGNED
@@ -915,6 +938,152 @@ BEGIN
             addrb_d <= addrb;
             IF  web = '1'  THEN
                ram(to_integer(addrb)) <= dib;
+            END IF;
+         END IF;
+      END IF;
+-- pragma translate_off
+   END IF;
+-- pragma translate_on
+END PROCESS initialized_ram;
+
+doa <= ram(to_integer(addra_d));
+dob <= ram(to_integer(addrb_d));
+
+END inference_model;
+
+-- ---------------------------------------------------------------------
+-- internal_dual_port_byteRAM:
+-- Address latched prior to access, input data stored on rising clock edge.
+-- During simulation initialized by an ascii-file of the following format:
+-- addr   0        1        2        3
+-- 0000 : 95930800 00000000 94F4471F 07000000
+-- ---------------------------------------------------------------------
+
+LIBRARY IEEE;
+USE IEEE.STD_LOGIC_1164.ALL;
+USE IEEE.NUMERIC_STD.ALL;
+USE STD.TEXTIO.ALL;
+USE work.functions_pkg.ALL;
+
+ENTITY internal_dpbram IS GENERIC (
+   data_width : INTEGER;
+   ram_size   : INTEGER;
+   byte_width : INTEGER;
+   ramstyle   : STRING;
+   init_file  : STRING
+); PORT (
+   clk   : IN    STD_LOGIC;
+   ena   : IN    STD_LOGIC;
+   wea   : IN    STD_LOGIC;
+   bytea : IN    UNSIGNED(exp2(byte_width)-1 DOWNTO 0);
+   addra : IN    UNSIGNED(log2(ram_size)-1 DOWNTO byte_width);
+   dia   : IN    UNSIGNED(data_width-1 DOWNTO 0);
+   doa   : OUT   UNSIGNED(data_width-1 DOWNTO 0);
+   enb   : IN    STD_LOGIC;
+   web   : IN    STD_LOGIC;
+   byteb : IN    UNSIGNED(exp2(byte_width)-1 DOWNTO 0);
+   addrb : IN    UNSIGNED(log2(ram_size)-1 DOWNTO byte_width);
+   dib   : IN    UNSIGNED(data_width-1 DOWNTO 0);
+   dob   : OUT   UNSIGNED(data_width-1 DOWNTO 0)
+); END internal_dpbram;
+
+ARCHITECTURE inference_model OF internal_dpbram IS
+
+ATTRIBUTE syn_ramstyle : STRING;
+
+CONSTANT cache_addr_width : INTEGER := log2(ram_size);
+CONSTANT data_hex         : INTEGER := next_quad(data_width);
+
+TYPE ram_type IS ARRAY (ram_size-1 DOWNTO 0) OF UNSIGNED(data_width-1 DOWNTO 0);
+
+SIGNAL ram        : ram_type; ATTRIBUTE syn_ramstyle OF ram : SIGNAL IS ramstyle;
+SIGNAL addra_d    : UNSIGNED(cache_addr_width-byte_width-1 DOWNTO 0);
+SIGNAL addrb_d    : UNSIGNED(cache_addr_width-byte_width-1 DOWNTO 0);
+SIGNAL bytea_i    : INTEGER RANGE 0 TO 15;
+SIGNAL byteb_i    : INTEGER RANGE 0 TO 15;
+
+BEGIN
+
+bytea_i <= to_integer(bytea);
+byteb_i <= to_integer(byteb);
+
+initialized_ram: PROCESS(clk)
+	FILE tcf			  : TEXT;
+	VARIABLE first	  : BOOLEAN := true;
+	VARIABLE l	     : line;
+	VARIABLE char    : character;
+	VARIABLE adr     : UNSIGNED(15 DOWNTO 0);
+	VARIABLE buf     : UNSIGNED(data_hex-1 DOWNTO 0);
+	VARIABLE loc     : INTEGER RANGE 0 TO ram_size+1;
+BEGIN
+-- pragma translate_off
+	IF  first AND init_file /= ""  THEN
+   	file_open(tcf, init_file, READ_MODE);
+		l := NEW string'("initializing " & string'(init_file)); writeline(output, l);
+      WHILE  NOT ENDFILE(tcf)  LOOP
+         readline(tcf, l);
+      	IF  l'length > 6  THEN
+				hread(l, adr);	   -- read address
+            loc := to_integer(adr);
+            read(l, char);   -- skip space
+            read(l, char);   -- skip :
+            LOOP
+					IF  l'length < (data_hex / 4)  THEN  EXIT; END IF;
+            	hread(l, buf);  -- read 16 bit addresses = 4 hex digits
+               ram(loc) <= buf(data_width-1 DOWNTO 0);
+               loc := loc + 1;
+               IF  loc >= ram_size  THEN  EXIT;  END IF;
+            END LOOP;
+            IF  loc >= ram_size  THEN  EXIT;  END IF;
+         END IF;
+      END LOOP;
+		file_close(tcf);
+      first := false;
+   ELSE
+-- pragma translate_on
+      IF  rising_edge(clk)   THEN
+         IF  ena = '1'  THEN
+            addra_d <= addra(cache_addr_width-1 DOWNTO byte_width);
+            IF  wea = '1'  THEN
+               IF  byte_width = 1  THEN     -- 16 bit
+                  CASE bytea_i IS
+                  WHEN  1 => ram(to_integer(addra))(07 DOWNTO 00) <= dia( 7 DOWNTO  0);
+                  WHEN  2 => ram(to_integer(addra))(15 DOWNTO 08) <= dia(15 DOWNTO  8);
+                  WHEN OTHERS => ram(to_integer(addra)) <= dia;
+                  END CASE;
+               ELSIF  byte_width = 2  THEN  -- 32 bit
+                  CASE bytea_i IS
+                  WHEN  1 => ram(to_integer(addra))(07 DOWNTO 00) <= dia( 7 DOWNTO  0);
+                  WHEN  2 => ram(to_integer(addra))(15 DOWNTO 08) <= dia(15 DOWNTO  8);
+                  WHEN  4 => ram(to_integer(addra))(23 DOWNTO 16) <= dia(23 DOWNTO 16);
+                  WHEN  8 => ram(to_integer(addra))(31 DOWNTO 24) <= dia(31 DOWNTO 24);
+                  WHEN  3 => ram(to_integer(addra))(15 DOWNTO 00) <= dia(15 DOWNTO  0);
+                  WHEN 12 => ram(to_integer(addra))(31 DOWNTO 16) <= dia(31 DOWNTO 16);
+                  WHEN OTHERS => ram(to_integer(addra)) <= dia;
+                  END CASE;
+               END IF;
+            END IF;
+         END IF;
+         IF  enb = '1'  THEN
+            addrb_d <= addrb(cache_addr_width-1 DOWNTO byte_width);
+            IF  web = '1'  THEN
+               IF  byte_width = 1  THEN     -- 16 bit
+                  CASE byteb_i IS
+                  WHEN  1 => ram(to_integer(addra))(07 DOWNTO 00) <= dib( 7 DOWNTO  0);
+                  WHEN  2 => ram(to_integer(addra))(15 DOWNTO 08) <= dib(15 DOWNTO  8);
+                  WHEN OTHERS => ram(to_integer(addra)) <= dib;
+                  END CASE;
+               ELSIF  byte_width = 2  THEN  -- 32 bit
+                  CASE byteb_i IS
+                  WHEN  1 => ram(to_integer(addra))(07 DOWNTO 00) <= dib( 7 DOWNTO  0);
+                  WHEN  2 => ram(to_integer(addra))(15 DOWNTO 08) <= dib(15 DOWNTO  8);
+                  WHEN  4 => ram(to_integer(addra))(23 DOWNTO 16) <= dib(23 DOWNTO 16);
+                  WHEN  8 => ram(to_integer(addra))(31 DOWNTO 24) <= dib(31 DOWNTO 24);
+                  WHEN  3 => ram(to_integer(addra))(15 DOWNTO 00) <= dib(15 DOWNTO  0);
+                  WHEN 12 => ram(to_integer(addra))(31 DOWNTO 16) <= dib(31 DOWNTO 16);
+                  WHEN OTHERS => ram(to_integer(addra)) <= dib;
+                  END CASE;
+               END IF;
             END IF;
          END IF;
       END IF;

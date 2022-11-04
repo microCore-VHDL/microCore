@@ -2,7 +2,7 @@
 \ @file : coretest.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 01.06.2022 19:59:22
+\ Last change: KS 03.11.2022 19:05:10
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -30,12 +30,13 @@
 \   210     ks   14-Jun-2020  initial version
 \   2300    ks   18-Feb-2021  compiler switch WITH_PROG_RW eliminated
 \   2310    ks   22-Mar-2021  Bugfix: catch and throw used
+\  2400     ks   03-Nov-2022  byte addressing using byte_addr_width
 \ ----------------------------------------------------------------------
 Target
 
 SIMULATION [IF] : message ( # -- )   BEGIN REPEAT ; [THEN]
 
-Variable Location  1 allot
+Variable Location  #cell allot
 
 : zeroEXIT   ( n1 -- n2 )         dup    ?EXIT  0= ;
 : zero-EXIT  ( n1 -- n2 )         dup 0= ?EXIT  0= ;
@@ -82,7 +83,7 @@ Variable Location  1 allot
    1 data_width 9 - shift -            IF  $122 throw THEN
    #signbit -8 ashift
    data_width 8 - negate shift $FF -   IF  $123 throw THEN
-   $A00 5 4 dshift -4 dshift or $A05 - IF  $124 throw THEN
+   $300 5 4 dshift -4 dshift or $305 - IF  $124 throw THEN
    #signbit dup -8 dashift
    data_width 9 - negate dshift + $200 - IF  $125 EXIT  THEN
 ;
@@ -92,8 +93,8 @@ Variable Location  1 allot
 #signbit 1 - Constant #7FFF
 #signbit 2 - Constant #7FFE
 
-cr .( use load_div_full.fs for multiply / divide tests on a reduced number space. )
-cr .( or load_divtest.fs for random tests on the full number space. )
+cr .( For a complete division/multiply test refer to the LFXP2 prototype )
+cr .( board at LFXP2_8_protoboard/software/test/division. )
 
 : test-arith  ( -- )
    3 4 +  ( 7 ) 4 -  ( 3 ) 4 2dup +  ( 3 4 7 )
@@ -130,7 +131,7 @@ cr .( or load_divtest.fs for random tests on the full number space. )
 \ ----------------------------------------------------------------------
 \ Floating point
 \ ----------------------------------------------------------------------
-WITH_MULT WITH_FLOAT and [IF]
+WITH_MULT WITH_FLOAT and H data_width &18 > T and [IF]
    Host
 
    : round   ( dm -- m' )
@@ -160,9 +161,8 @@ WITH_MULT WITH_FLOAT and [IF]
    
    Macro: float   ( n -- r )   0 lit, T >float H ;
    &17 data_width - Constant above16
-   
+
    : test-float  ( -- )
-   [ H data_width &18 > T ] [IF]
       $8001 0 normalize   above16 -        IF  $207 throw THEN
       #signbit u2/ xor   above16 shift 1-  IF  $208 throw THEN
       1 float float> ashift 1-             IF  $209 throw THEN
@@ -180,8 +180,8 @@ WITH_MULT WITH_FLOAT and [IF]
       #signbit dup >r sqrt dup * + r@ -    IF  $215 throw THEN
       r> u2/   dup >r sqrt dup * + r@ -    IF  $216 throw THEN
       r> 1-    dup >r sqrt dup * + r> -    IF  $217 throw THEN
-   [THEN]
    ;
+
 [ELSE]
 
    : test-float ;
@@ -209,15 +209,28 @@ $5A5 Constant ovfl-pattern
 ;
 : test-memory  ( -- )
    1 2   Location
-   st 1 + st  -1 + ld  1 + ld drop  2* - IF  $30 throw THEN
-   $10 Location +! Location @ $12 -      IF  $31 throw THEN
-   0 Location !
-   1 Location +!  Location @ 1-          IF  $32 throw THEN
-   -1 Location +! Location @             IF  $33 throw THEN
-WITH_EXTMEM [IF]
-   #8001 #extern st @ #8001 -            IF  $34 throw THEN
-   -1 #extern +!   #extern @ #8000 -     IF  $35 throw THEN
-    1 #extern +!   #extern @ #8001 -     IF  $36 throw THEN
+   st cell+ st  cell- ld  cell+ ld drop  2* -   IF  $30 throw THEN
+   $10 Location +! Location @ $12 -             IF  $31 throw THEN
+   0 Location !                                 
+   1 Location +!  Location @ 1-                 IF  $32 throw THEN
+   -1 Location +! Location @                    IF  $33 throw THEN
+[ byte_addr_width 1 = ] [IF]                    
+   $1122 Location st @ $1122 -                  IF  $34 throw THEN
+   Location cld 1+ c@                           
+   Location cst 1+ c! Location @ $2211 -        IF  $35 throw THEN
+[THEN]                                          
+[ byte_addr_width 2 = ] [IF]                    
+   $11223344 Location st @ $11223344 -          IF  $36 throw THEN
+   Location cld 1+ cld 1+ cld 1+ c@             
+   Location cst 1+ cst 1+ cst 1+ c!             
+   Location @ $44332211 -                       IF  $37 throw THEN
+   Location wld 2 + w@
+   Location wst 2 + w!  Location @ $22114433 -  IF  $38 throw THEN
+[THEN]
+WITH_EXTMEM [IF]                             
+   #8001 #extern st @ #8001 -                   IF  $39 throw THEN
+   -1 #extern +!   #extern @ #8000 -            IF  $3A throw THEN
+    1 #extern +!   #extern @ #8001 -            IF  $3B throw THEN
 [THEN]
 ;
 : modify  ( n -- /n )  0= ;
@@ -263,20 +276,21 @@ WITH_EXTMEM [IF]
    r> r> r> + + 6 -                        IF  $67 throw THEN
 ;
 : test-local  ( -- )
-   r@ dup >r   1 l@ -                      IF  $80 throw THEN
-   r@   -1 1 l!  r> r@ swap >r
-      over 1 l!  1 l@ swap 1+ - -  rdrop   IF  $81 throw THEN
-      5 -$80 lst  @  5 -                   IF  $82 throw THEN
+   r@ dup >r   #cell l@ -                  IF  $80 throw THEN
+   r@   -1 #cell l!  r> r@ swap >r
+      over #cell l!  #cell l@
+      swap 1+ - -  rdrop                   IF  $81 throw THEN
+   5 -$80 cells lst  @  5 -                IF  $82 throw THEN
 ;
 : rsp-task  ( -- u )  Rsp @ [ rs_addr_width negate ] Literal shift [ #tasks 1- ] Literal and ;
 
 : dsp-task  ( -- u )  Dsp @ [ ds_addr_width negate ] Literal shift [ #tasks 1- ] Literal and ;
 
-: rsp-reg   ( -- u )  Rsp @ 1+ [ #rs-depth 1- ] Literal and ;
-
-: dsp-reg   ( -- u )  Dsp @ [ #ds-depth 1- ] Literal and ;
+: rsp-reg   ( -- u )  Rsp @ cell+ [ #rs-depth 1- ] Literal and ;
 
 : rsp-task! ( u -- )  r@ swap rs_addr_width shift  rsp-reg or Rsp ! rdrop >r ;
+
+: dsp-reg   ( -- u )  Dsp @ [ #ds-depth 1- ] Literal and ;
 
 : dsp-task! ( u -- )  ds_addr_width shift  dsp-reg or dup Dsp ! drop ;
 

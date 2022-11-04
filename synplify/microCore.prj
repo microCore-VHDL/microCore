@@ -1,5 +1,5 @@
 #--  Synopsys, Inc.
-#--  Version M-2017.03L-SP1-1
+#--  Version N-2018.03L-SP1-1
 #--  Project file D:\technik\microcore\microCore\synplify\microCore.prj
 #--  Written on Tue Mar 30 23:39:08 2021
 
@@ -19,14 +19,12 @@ add_file -vhdl -lib work "../vhdl/external_SRAM.vhd"
 add_file -vhdl -lib work "../vhdl/fpga.vhd"
 add_file -fpga_constraint "microCore.fdc"
 
-
-
 #implementation: "synplify"
 impl -add synplify -type fpga
 
-#
-#implementation parameter settings
-set_option -hdl_param -set SVN_REVISION 0
+#implementation attributes
+set_option -vlog_std sysv
+set_option -project_relative_includes 1
 
 #device options
 set_option -technology LATTICE-XP2
@@ -70,7 +68,7 @@ set_option -no_sequential_opt 0
 set_option -symbolic_fsm_compiler 0
 
 # Compiler Options
-set_option -compiler_compatible 1
+set_option -compiler_compatible 0
 set_option -resource_sharing 0
 set_option -multi_file_compilation_unit 1
 

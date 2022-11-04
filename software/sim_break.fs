@@ -1,5 +1,5 @@
 \ 
-\ Last change: KS 04.11.2021 17:32:39
+\ Last change: KS 04.08.2022 18:36:56
 \
 \ MicroCore load screen for simulating the umbilical's break function.
 \ Constant break has to be set to '1' in bench.vhd.
@@ -25,7 +25,7 @@ Target new initialized          \ go into target compilation mode and initialize
 include constants.fs            \ microCore Register addresses and bits
 include debugger.fs
 library forth_lib.fs
-library task_lib.fs
+include multitask.fs
 
 Task Background
 
@@ -39,14 +39,14 @@ Variable Rerun
    REPEAT
 ;
 : boot  ( -- )
-   0 Dsu 1+ erase  CALL INITIALIZATION
+   0 Rerun cell+ erase  CALL INITIALIZATION
    Terminal Background ['] bg_task spawn
    BEGIN pause REPEAT
 ;
-#reset TRAP: rst    ( -- )            boot       ;  \ compile branch to boot at reset vector location
-#psr   TRAP: psr    ( -- )            pause      ;  \ reexecute the previous instruction
-#break TRAP: break  ( -- )            debugger   ;
-#data! TRAP: data!  ( dp n -- dp+1 )  swap st 1+ ;  \ Data memory initialization
+#reset TRAP: rst    ( -- )            boot          ;  \ compile branch to boot at reset vector location
+#psr   TRAP: psr    ( -- )            pause         ;  \ reexecute the previous instruction
+#break TRAP: break  ( -- )            debugger      ;
+#data! TRAP: data!  ( dp n -- dp+1 )  swap st cell+ ;  \ Data memory initialization
 
 end
 
