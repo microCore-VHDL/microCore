@@ -2,7 +2,7 @@
 -- @file : uCore.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 04.10.2022 22:15:54
+-- Last change: KS 09.11.2022 19:36:08
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -128,7 +128,7 @@ SIGNAL paddr          : program_addr;
 BEGIN
 
 -- make sure reg_addr_width is large enough for all registers
-ASSERT ((-1 * min_registers) < (2 ** reg_addr_width-1))
+ASSERT (abs(min_registers) <= (2 ** reg_addr_width))
 REPORT "reg_addr_width too small"
 SEVERITY error;
 

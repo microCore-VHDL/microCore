@@ -211,6 +211,9 @@ WITH_FLOAT [IF]
 \ some macros
 
 Macro: pause   ( -- )             T noop H ; \ this pause will be used when the multitasker is not loaded.
+         \ Pause compiles a noop just in case debugger commands upload or download will be used.
+         \ The noop will allow data memory access by the umbilical interface without interfering
+         \ with data memory access of the running program.
 
 Macro: true    ( -- tf )          comp? IF -1 lit,  EXIT THEN  true ;
 Macro: false   ( -- ff )          comp? IF  0 lit,  EXIT THEN  false ;

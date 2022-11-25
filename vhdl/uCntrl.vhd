@@ -2,7 +2,7 @@
 -- @file : uCntrl.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 14.10.2022 18:37:22
+-- Last change: KS 22.11.2022 19:06:13
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -1419,6 +1419,11 @@ BEGIN
 -- floating point
 -- ---------------------------------------------------------------------
 
+-- : round   ( dm -- m' )
+--    over 0< 0= IF  nip  EXIT THEN   \ < 0.5
+--    swap 2*    IF  1+   EXIT THEN   \ > 0.5
+--    dup 1 and +                     \ = 0.5, round to even
+-- ;
       WHEN op_FMULT => -- fractional signed multiply with standard rounding towards even for .5
                        IF  WITH_FLOAT AND WITH_MULT  THEN
                           pop_stack;
@@ -1430,11 +1435,6 @@ BEGIN
                           END IF;
                        END IF;
 
--- : round   ( dm -- m' )
---    over 0< 0= IF  nip  EXIT THEN   \ < 0.5
---    swap 2*    IF  1+   EXIT THEN   \ > 0.5
---    dup 1 and +                     \ = 0.5, round to even
--- ;
 -- : log2 ( frac -- log2[frac] )   \ Bit-wise Logarithm (K.Schleisiek/U.Lange)
 --    #delta_width 0 ?DO  2*  LOOP
 --    0   data_width 0

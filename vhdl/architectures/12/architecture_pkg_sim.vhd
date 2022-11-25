@@ -2,7 +2,7 @@
 -- @file : architecture_pkg_12_sim.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 03.11.2022 18:11:08
+-- Last change: KS 10.11.2022 16:29:48
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -26,6 +26,7 @@
 --                             STD_LOGIC_(UN)SIGNED replaced by NUMERIC_STD
 --   2332    ks   13-Apr-2022  Bugfix in semaphor_proc
 --   2400    ks   09-Jun-2022  byte addressing using byte_addr_width
+--   2410    ks   10-Nov-2022  reg_addr_width computed automatically
 -- ---------------------------------------------------------------------
 --VHDL --~  \ at this point the cross compiler activates vhdl context.
 LIBRARY IEEE;
@@ -36,7 +37,7 @@ USE work.functions_pkg.ALL;
 PACKAGE architecture_pkg IS
 --~--  \ when loaded by the microForth cross-compiler, code between "--~" up to "--~--" will be skipped.
 
-CONSTANT version            : NATURAL := 2400; -- <major_release> <functionality_added> <HW_fix> <SW_fix> <pre-release#>
+CONSTANT version            : NATURAL := 2410; -- <major_release> <functionality_added> <HW_fix> <SW_fix> <pre-release#>
 
 -- ---------------------------------------------------------------------
 -- Configuration flags
@@ -77,7 +78,6 @@ CONSTANT data_addr_width    : NATURAL := 12; -- data memory address width, cell 
 CONSTANT cache_addr_width   : NATURAL := 12; -- data cache memory address width, cell sized
 CONSTANT cache_size         : NATURAL := 16#1000#;  -- number of cells.
 CONSTANT byte_addr_width    : NATURAL :=  0; -- least significant bits used for byte adressed data memory. 0 => no byte adressing.
-CONSTANT reg_addr_width     : NATURAL :=  4; -- number of address bits reserved for internal registers at the top data space
 --~
 CONSTANT addr_extern        : NATURAL := 2 ** cache_addr_width; -- start address of external memory
 CONSTANT WITH_EXTMEM        : BOOLEAN := data_addr_width /= cache_addr_width;
@@ -123,47 +123,49 @@ CONSTANT GND                : STD_LOGIC := '0';
 -- internal and memory mapped registers (addr < 0)
 -- ---------------------------------------------------------------------
 
-CONSTANT max_registers            : INTEGER :=  -1;
+CONSTANT max_registers         : INTEGER :=  -1;
 
-   CONSTANT STATUS_REG            : INTEGER :=  -1;
-      CONSTANT s_c             : NATURAL :=  0;  -- carry bit
-      CONSTANT s_ovfl          : NATURAL :=  1;  -- Overflow-bit of UDIVS instruction
-      CONSTANT s_ie            : NATURAL :=  2;  -- Interrupt Enable bit
-      CONSTANT s_iis           : NATURAL :=  3;  -- InterruptInService bit
-      CONSTANT s_lit           : NATURAL :=  4;  -- LIT bit of the previous instruction
-      CONSTANT s_neg           : NATURAL :=  5;  -- Sign-bit of top data element (TOS or sometimes NOS)
-      CONSTANT s_zero          : NATURAL :=  6;  -- Zero-bit of top data element (TOS or sometimes NOS)
-      CONSTANT s_div           : NATURAL :=  7;  -- Sign of Dividend in signed division (op_SDIVS)
-      CONSTANT s_den           : NATURAL :=  8;  -- Sign of Divisor in signed division (op_SDIVS)
-      CONSTANT s_unfl          : NATURAL :=  9;  -- underflow set by normalize
-   CONSTANT status_width       : NATURAL := 10;
+   CONSTANT STATUS_REG         : INTEGER :=  -1;
+      CONSTANT s_c          : NATURAL :=  0;  -- carry bit
+      CONSTANT s_ovfl       : NATURAL :=  1;  -- Overflow-bit of UDIVS instruction
+      CONSTANT s_ie         : NATURAL :=  2;  -- Interrupt Enable bit
+      CONSTANT s_iis        : NATURAL :=  3;  -- InterruptInService bit
+      CONSTANT s_lit        : NATURAL :=  4;  -- LIT bit of the previous instruction
+      CONSTANT s_neg        : NATURAL :=  5;  -- Sign-bit of top data element (TOS or sometimes NOS)
+      CONSTANT s_zero       : NATURAL :=  6;  -- Zero-bit of top data element (TOS or sometimes NOS)
+      CONSTANT s_div        : NATURAL :=  7;  -- Sign of Dividend in signed division (op_SDIVS)
+      CONSTANT s_den        : NATURAL :=  8;  -- Sign of Divisor in signed division (op_SDIVS)
+      CONSTANT s_unfl       : NATURAL :=  9;  -- underflow set by normalize
+   CONSTANT status_width    : NATURAL := 10;
 
-   CONSTANT DSP_REG               : INTEGER :=  -2;
+   CONSTANT DSP_REG            : INTEGER :=  -2;
 
-   CONSTANT RSP_REG               : INTEGER :=  -3;
+   CONSTANT RSP_REG            : INTEGER :=  -3;
 
-   CONSTANT INT_REG               : INTEGER :=  -4; -- intflags@ and ie!
-      CONSTANT i_ext           : NATURAL :=  0;
-   CONSTANT interrupts         : NATURAL :=  1; -- maskable interrupt sources
-   CONSTANT FLAG_REG              : INTEGER :=  -5; -- flags@, pass
-      CONSTANT f_dsu           : NATURAL :=  1; -- set when the dsu is connected to the umbilical (no break!)
-      CONSTANT f_sema          : NATURAL :=  2; -- flag bit used as software semaphor
-      CONSTANT f_bitout        : NATURAL :=  3; -- flag bit showing the state of c_bitout
-   CONSTANT flag_width         : NATURAL :=  4;
+   CONSTANT INT_REG            : INTEGER :=  -4; -- intflags@ and ie!
+      CONSTANT i_ext        : NATURAL :=  0;
+   CONSTANT interrupts      : NATURAL :=  1; -- maskable interrupt sources
+   CONSTANT FLAG_REG           : INTEGER :=  -5; -- flags@, pass
+      CONSTANT f_dsu        : NATURAL :=  1; -- set when the dsu is connected to the umbilical (no break!)
+      CONSTANT f_sema       : NATURAL :=  2; -- flag bit used as software semaphor
+      CONSTANT f_bitout     : NATURAL :=  3; -- flag bit showing the state of c_bitout
+   CONSTANT flag_width      : NATURAL :=  4;
 
-   CONSTANT VERSION_REG           : INTEGER :=  -6; -- FPGA Version
+   CONSTANT VERSION_REG        : INTEGER :=  -6; -- FPGA Version
 
-   CONSTANT DEBUG_REG             : INTEGER :=  -7; -- umbilical interface
+   CONSTANT DEBUG_REG          : INTEGER :=  -7; -- umbilical interface
 
-   CONSTANT TIME_REG              : INTEGER :=  -8;
-      CONSTANT ticks_per_ms    : NATURAL := 4;
+   CONSTANT TIME_REG           : INTEGER :=  -8;
+      CONSTANT ticks_per_ms : NATURAL := 4;
 
-   CONSTANT CTRL_REG              : INTEGER :=  -9;
-      CONSTANT c_bitout        : NATURAL := 0;
-   CONSTANT ctrl_width         : NATURAL := 1;
+   CONSTANT CTRL_REG           : INTEGER :=  -9;
+      CONSTANT c_bitout     : NATURAL := 0;
+   CONSTANT ctrl_width      : NATURAL := 1;
 
-CONSTANT min_registers            : INTEGER :=  -9;
+CONSTANT min_registers         : INTEGER :=  -9;
 --~
+CONSTANT reg_addr_width     : NATURAL := log2(abs(min_registers)); -- number of address bits reserved for internal registers at the top of data memory
+
 -- ---------------------------------------------------------------------
 -- uCore subtype and record definitions
 -- ---------------------------------------------------------------------
