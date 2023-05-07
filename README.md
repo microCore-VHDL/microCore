@@ -1,7 +1,7 @@
 # microCore
-microCore is a hardware/software co-design environment based on Forth and VHDL supporting Communicating Sequential Processes (CSP).
+microCore is a hardware/software co-design environment based on Forth and VHDL. It supports Communicating Sequential Processes (CSP).
 
-The hardware is a high-performance, extensible, dual stack, deterministic, real-time processor for embedded FPGA applications. It has been ported to many FPGA platforms.  The desktop software is a co-design environment consisting of a cross-compiler and an interactive debugger.  The VHDL includes a system model which is used by both the desktop software and by the synthesis software.  The VHDL is designed so that it is quite easy to add up to 42 additional instructions.   
+The hardware is a high-performance, extensible, dual stack, deterministic, real-time processor for embedded FPGA applications. It has been ported to Xilinx, Lattice, Altera/Intel, and Actel/Microsemi FPGAs.  The desktop software is a co-design environment consisting of a cross-compiler and an interactive debugger.  The VHDL includes a system model which is used by both the desktop software and by the synthesis software.  The VHDL is designed so that it is quite easy to add up to 42 additional instructions.   
   
  ### Documentation 
 
