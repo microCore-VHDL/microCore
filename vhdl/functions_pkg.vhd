@@ -2,7 +2,7 @@
 -- @file : functions_pkg.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 30.06.2022 23:36:18
+-- Last change: KS 15.07.2023 11:56:22
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -35,21 +35,24 @@ PACKAGE functions_pkg IS
 
 CONSTANT ASYNC_RESET : BOOLEAN := true; -- true = async reset, false = synchronous reset
 
-FUNCTION  resize(slv : IN STD_LOGIC_VECTOR;
-                 s   : IN INTEGER        ) RETURN STD_LOGIC_VECTOR;
+--FUNCTION  resize(slv : IN STD_LOGIC_VECTOR;
+  --               s   : IN NATURAL        ) RETURN STD_LOGIC_VECTOR;
 
 FUNCTION   slice(v : IN STD_LOGIC;
                  s : IN INTEGER          ) RETURN UNSIGNED;
 
-FUNCTION     max(v : IN INTEGER;
-                 w : IN INTEGER          ) RETURN INTEGER;
+FUNCTION    umax(v : IN NATURAL;
+                 w : IN NATURAL          ) RETURN NATURAL;
 
-FUNCTION    log2(v : IN INTEGER          ) RETURN INTEGER;
+FUNCTION    umin(v :  IN NATURAL;
+                 w :  IN NATURAL         ) RETURN NATURAL;
 
-FUNCTION    exp2(v : IN INTEGER          ) RETURN INTEGER;
+FUNCTION    log2(v : IN NATURAL          ) RETURN NATURAL;
 
-FUNCTION ceiling(v : IN INTEGER;
-                 w : IN INTEGER          ) RETURN INTEGER;
+FUNCTION    exp2(v : IN NATURAL          ) RETURN NATURAL;
+
+FUNCTION ceiling(v : IN NATURAL;
+                 w : IN NATURAL          ) RETURN NATURAL;
 
 FUNCTION next_quad(width : IN NATURAL    ) RETURN NATURAL;
 
@@ -259,15 +262,15 @@ PACKAGE BODY functions_pkg IS
    -- resize STD_LOGIC_VECTOR to STD_LOGIC_VECTOR, s bits long
    -- ------------------------------------------------------------------
 
-   FUNCTION  resize(slv : IN STD_LOGIC_VECTOR;
-                    s   : IN INTEGER        ) RETURN STD_LOGIC_VECTOR IS
-      VARIABLE temp   : UNSIGNED(slv'range);
-      VARIABLE result : UNSIGNED(s-1 DOWNTO 0);
-   BEGIN
-      temp := unsigned(slv);
-      result := resize(temp, s);
-      RETURN std_logic_vector(result);
-   END;
+--   FUNCTION  resize(slv : IN STD_LOGIC_VECTOR;
+--                    s   : IN NATURAL        ) RETURN STD_LOGIC_VECTOR IS
+--      VARIABLE temp   : UNSIGNED(slv'range);
+--      VARIABLE result : UNSIGNED(s-1 DOWNTO 0);
+--   BEGIN
+--      temp := unsigned(slv);
+--      result := resize(temp, s);
+--      RETURN std_logic_vector(result);
+--   END;
 
    -- ------------------------------------------------------------------
    -- slice
@@ -277,30 +280,42 @@ PACKAGE BODY functions_pkg IS
    FUNCTION slice(v : IN STD_LOGIC;
                   s : IN INTEGER
                  )   RETURN UNSIGNED IS
-      VARIABLE temp : UNSIGNED (s-1 DOWNTO 0);
+      VARIABLE temp : UNSIGNED (s DOWNTO 1);
    BEGIN
-       temp := (OTHERS => v);
+      temp := (OTHERS => v);
       RETURN temp;
    END;
 
    -- ------------------------------------------------------------------
-   -- max
+   -- umax
    -- Return maximum of two INTEGERs w and v
    -- ------------------------------------------------------------------
 
-   FUNCTION max(v  :  IN INTEGER;
-                w  :  IN INTEGER
-               ) RETURN INTEGER IS
+   FUNCTION umax(v  :  IN NATURAL;
+                 w  :  IN NATURAL
+                ) RETURN NATURAL IS
    BEGIN
        IF (v > w) THEN  RETURN v;  ELSE  RETURN w;  END IF;
+   END;
+
+   -- ------------------------------------------------------------------
+   -- min
+   -- Return minimum of two NATURALS w and v
+   -- ------------------------------------------------------------------
+
+   FUNCTION umin(v  :  IN NATURAL;
+                 w  :  IN NATURAL
+                ) RETURN NATURAL IS
+   BEGIN
+       IF (v > w) THEN  RETURN w;  ELSE  RETURN v;  END IF;
    END;
 
    -- ------------------------------------------------------------------
    -- logarithm dualis
    -- ------------------------------------------------------------------
 
-   FUNCTION log2(v    :  IN INTEGER) RETURN INTEGER IS
-       VARIABLE temp  : INTEGER;
+   FUNCTION log2(v    :  IN NATURAL) RETURN NATURAL IS
+       VARIABLE temp  : NATURAL;
    BEGIN
        temp := 0;
        WHILE  2 ** temp < v  LOOP
@@ -313,8 +328,8 @@ PACKAGE BODY functions_pkg IS
    -- exponentiation dualis
    -- ------------------------------------------------------------------
 
-   FUNCTION exp2(v    :  IN INTEGER) RETURN INTEGER IS
-       VARIABLE temp  : INTEGER;
+   FUNCTION exp2(v    :  IN NATURAL) RETURN NATURAL IS
+       VARIABLE temp  : NATURAL;
    BEGIN
        temp := 1;
        IF  v /= 0  THEN
@@ -329,10 +344,10 @@ PACKAGE BODY functions_pkg IS
    -- ceiling of two number
    -- ------------------------------------------------------------------
 
-   FUNCTION ceiling(v : IN INTEGER;
-                    w : IN INTEGER
-                   ) RETURN INTEGER IS
-       VARIABLE temp  : INTEGER;
+   FUNCTION ceiling(v : IN NATURAL;
+                    w : IN NATURAL
+                   ) RETURN NATURAL IS
+       VARIABLE temp  : NATURAL;
    BEGIN
        temp := v/w;
        IF  temp * w < v  THEN
@@ -832,9 +847,9 @@ BEGIN
       IF  rising_edge(clk)   THEN
          IF  en = '1'  THEN
             addr_d <= addr;
-            IF  we = '1'  THEN
-               ram(to_integer(addr)) <= di;
-            END IF;
+         END IF;
+         IF  (en AND we) = '1'  THEN
+            ram(to_integer(addr)) <= di;
          END IF;
       END IF;
 -- pragma translate_off
@@ -930,15 +945,15 @@ BEGIN
       IF  rising_edge(clk)   THEN
          IF  ena = '1'  THEN
             addra_d <= addra;
-            IF  wea = '1'  THEN
-               ram(to_integer(addra)) <= dia;
-            END IF;
+         END IF;
+         IF  (ena AND wea) = '1'  THEN
+            ram(to_integer(addra)) <= dia;
          END IF;
          IF  enb = '1'  THEN
             addrb_d <= addrb;
-            IF  web = '1'  THEN
-               ram(to_integer(addrb)) <= dib;
-            END IF;
+         END IF;
+         IF  (enb AND web) = '1'  THEN
+            ram(to_integer(addrb)) <= dib;
          END IF;
       END IF;
 -- pragma translate_off
@@ -997,15 +1012,19 @@ CONSTANT data_hex         : INTEGER := next_quad(data_width);
 TYPE ram_type IS ARRAY (ram_size-1 DOWNTO 0) OF UNSIGNED(data_width-1 DOWNTO 0);
 
 SIGNAL ram        : ram_type; ATTRIBUTE syn_ramstyle OF ram : SIGNAL IS ramstyle;
-SIGNAL addra_d    : UNSIGNED(cache_addr_width-byte_width-1 DOWNTO 0);
-SIGNAL addrb_d    : UNSIGNED(cache_addr_width-byte_width-1 DOWNTO 0);
 SIGNAL bytea_i    : INTEGER RANGE 0 TO 15;
 SIGNAL byteb_i    : INTEGER RANGE 0 TO 15;
+SIGNAL addra_i    : INTEGER RANGE 0 TO ram_size - exp2(byte_width);
+SIGNAL addrb_i    : INTEGER RANGE 0 TO ram_size - exp2(byte_width);
+SIGNAL addra_d    : INTEGER RANGE 0 TO ram_size - exp2(byte_width);
+SIGNAL addrb_d    : INTEGER RANGE 0 TO ram_size - exp2(byte_width);
 
 BEGIN
 
 bytea_i <= to_integer(bytea);
 byteb_i <= to_integer(byteb);
+addra_i <= to_integer(addra);
+addrb_i <= to_integer(addrb);
 
 initialized_ram: PROCESS(clk)
 	FILE tcf			  : TEXT;
@@ -1042,48 +1061,50 @@ BEGIN
    ELSE
 -- pragma translate_on
       IF  rising_edge(clk)   THEN
+   -- a memory
          IF  ena = '1'  THEN
-            addra_d <= addra(cache_addr_width-1 DOWNTO byte_width);
-            IF  wea = '1'  THEN
-               IF  byte_width = 1  THEN     -- 16 bit
-                  CASE bytea_i IS
-                  WHEN  1 => ram(to_integer(addra))(07 DOWNTO 00) <= dia( 7 DOWNTO  0);
-                  WHEN  2 => ram(to_integer(addra))(15 DOWNTO 08) <= dia(15 DOWNTO  8);
-                  WHEN OTHERS => ram(to_integer(addra)) <= dia;
-                  END CASE;
-               ELSIF  byte_width = 2  THEN  -- 32 bit
-                  CASE bytea_i IS
-                  WHEN  1 => ram(to_integer(addra))(07 DOWNTO 00) <= dia( 7 DOWNTO  0);
-                  WHEN  2 => ram(to_integer(addra))(15 DOWNTO 08) <= dia(15 DOWNTO  8);
-                  WHEN  4 => ram(to_integer(addra))(23 DOWNTO 16) <= dia(23 DOWNTO 16);
-                  WHEN  8 => ram(to_integer(addra))(31 DOWNTO 24) <= dia(31 DOWNTO 24);
-                  WHEN  3 => ram(to_integer(addra))(15 DOWNTO 00) <= dia(15 DOWNTO  0);
-                  WHEN 12 => ram(to_integer(addra))(31 DOWNTO 16) <= dia(31 DOWNTO 16);
-                  WHEN OTHERS => ram(to_integer(addra)) <= dia;
-                  END CASE;
-               END IF;
+            addra_d <= to_integer(addra(log2(ram_size)-1 DOWNTO byte_width));
+         END IF;
+         IF  (ena AND wea) = '1'  THEN
+            IF  byte_width = 1  THEN     -- 16 bit
+               CASE bytea_i IS
+               WHEN  1 => ram(addra_i)(07 DOWNTO 00) <= dia( 7 DOWNTO  0);
+               WHEN  2 => ram(addra_i)(15 DOWNTO 08) <= dia(15 DOWNTO  8);
+               WHEN OTHERS => ram(addra_i) <= dia;
+               END CASE;
+            ELSIF  byte_width = 2  THEN  -- 32 bit
+               CASE bytea_i IS
+               WHEN  1 => ram(addra_i)(07 DOWNTO 00) <= dia( 7 DOWNTO  0);
+               WHEN  2 => ram(addra_i)(15 DOWNTO 08) <= dia(15 DOWNTO  8);
+               WHEN  4 => ram(addra_i)(23 DOWNTO 16) <= dia(23 DOWNTO 16);
+               WHEN  8 => ram(addra_i)(31 DOWNTO 24) <= dia(31 DOWNTO 24);
+               WHEN  3 => ram(addra_i)(15 DOWNTO 00) <= dia(15 DOWNTO  0);
+               WHEN 12 => ram(addra_i)(31 DOWNTO 16) <= dia(31 DOWNTO 16);
+               WHEN OTHERS => ram(addra_i) <= dia;
+               END CASE;
             END IF;
          END IF;
+   -- b memory
          IF  enb = '1'  THEN
-            addrb_d <= addrb(cache_addr_width-1 DOWNTO byte_width);
-            IF  web = '1'  THEN
-               IF  byte_width = 1  THEN     -- 16 bit
-                  CASE byteb_i IS
-                  WHEN  1 => ram(to_integer(addra))(07 DOWNTO 00) <= dib( 7 DOWNTO  0);
-                  WHEN  2 => ram(to_integer(addra))(15 DOWNTO 08) <= dib(15 DOWNTO  8);
-                  WHEN OTHERS => ram(to_integer(addra)) <= dib;
-                  END CASE;
-               ELSIF  byte_width = 2  THEN  -- 32 bit
-                  CASE byteb_i IS
-                  WHEN  1 => ram(to_integer(addra))(07 DOWNTO 00) <= dib( 7 DOWNTO  0);
-                  WHEN  2 => ram(to_integer(addra))(15 DOWNTO 08) <= dib(15 DOWNTO  8);
-                  WHEN  4 => ram(to_integer(addra))(23 DOWNTO 16) <= dib(23 DOWNTO 16);
-                  WHEN  8 => ram(to_integer(addra))(31 DOWNTO 24) <= dib(31 DOWNTO 24);
-                  WHEN  3 => ram(to_integer(addra))(15 DOWNTO 00) <= dib(15 DOWNTO  0);
-                  WHEN 12 => ram(to_integer(addra))(31 DOWNTO 16) <= dib(31 DOWNTO 16);
-                  WHEN OTHERS => ram(to_integer(addra)) <= dib;
-                  END CASE;
-               END IF;
+            addrb_d <= to_integer(addrb(log2(ram_size)-1 DOWNTO byte_width));
+         END IF;
+         IF  (enb AND web) = '1'  THEN
+            IF  byte_width = 1  THEN     -- 16 bit
+               CASE byteb_i IS
+               WHEN  1 => ram(addrb_i)(07 DOWNTO 00) <= dib( 7 DOWNTO  0);
+               WHEN  2 => ram(addrb_i)(15 DOWNTO 08) <= dib(15 DOWNTO  8);
+               WHEN OTHERS => ram(addrb_i) <= dib;
+               END CASE;
+            ELSIF  byte_width = 2  THEN  -- 32 bit
+               CASE byteb_i IS
+               WHEN  1 => ram(addrb_i)(07 DOWNTO 00) <= dib( 7 DOWNTO  0);
+               WHEN  2 => ram(addrb_i)(15 DOWNTO 08) <= dib(15 DOWNTO  8);
+               WHEN  4 => ram(addrb_i)(23 DOWNTO 16) <= dib(23 DOWNTO 16);
+               WHEN  8 => ram(addrb_i)(31 DOWNTO 24) <= dib(31 DOWNTO 24);
+               WHEN  3 => ram(addrb_i)(15 DOWNTO 00) <= dib(15 DOWNTO  0);
+               WHEN 12 => ram(addrb_i)(31 DOWNTO 16) <= dib(31 DOWNTO 16);
+               WHEN OTHERS => ram(addrb_i) <= dib;
+               END CASE;
             END IF;
          END IF;
       END IF;
@@ -1092,8 +1113,8 @@ BEGIN
 -- pragma translate_on
 END PROCESS initialized_ram;
 
-doa <= ram(to_integer(addra_d));
-dob <= ram(to_integer(addrb_d));
+doa <= ram(addra_d);
+dob <= ram(addrb_d);
 
 END inference_model;
 

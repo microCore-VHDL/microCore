@@ -4,7 +4,7 @@
 \ microCore load screen for simulation.
 \ It produces program.mem for initialization of the program memory during simulation.
 \
-Only Forth also definitions 
+Only Forth also definitions hex
 
 [IFDEF] unpatch     unpatch    [ENDIF]
 [IFDEF] close-port  close-port [ENDIF]

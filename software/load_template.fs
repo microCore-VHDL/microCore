@@ -1,5 +1,5 @@
 \ 
-\ Last change: KS 17.04.2022 19:20:47
+\ Last change: KS 03.07.2023 12:08:03
 \
 \ Basic microCore load screen for execution on the target.
 \
@@ -9,15 +9,15 @@ Only Forth also definitions
 [IFDEF] close-port  close-port [ENDIF]
 [IFDEF] microcore   microcore  [ENDIF]   Marker microcore
 
-include extensions.fs           \ Some System word (re)definitions for a more sympathetic environment
+include extensions.fs           \ Some System word (re)definitions
 include ../vhdl/architecture_pkg.vhd
 include microcross.fs           \ the cross-compiler
 
-\ Verbose on
+\ Verbose on                      \ Library loading messages
 
 Target new initialized          \ go into target compilation mode and initialize target compiler
 
-8 trap-addr code-origin
+6 trap-addr code-origin
           0 data-origin
 
 include constants.fs            \ MicroCore Register addresses and bits
@@ -25,16 +25,12 @@ include debugger.fs
 library forth_lib.fs
 
 \ ----------------------------------------------------------------------
-\ Interrupt
+\ Booting, Interrupts and TRAPs
 \ ----------------------------------------------------------------------
 
 : interrupt ( -- )  Intflags @ drop ;
 
-\ ----------------------------------------------------------------------
-\ Booting and TRAPs
-\ ----------------------------------------------------------------------
-
-: boot  ( -- )   0 #cache erase   CALL initialization  debug-service ;
+: boot  ( -- )     0 #cache erase   CALL initialization   debug-service ;
 
 #reset TRAP: rst    ( -- )            boot                 ;  \ compile branch to boot at reset vector location
 #isr   TRAP: isr    ( -- )            interrupt IRET       ;

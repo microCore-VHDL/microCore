@@ -2,7 +2,7 @@
 -- @file : uCore.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 09.11.2022 19:36:08
+-- Last change: KS 12.07.2023 23:58:06
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -44,7 +44,6 @@ ENTITY microcore IS PORT (
 ARCHITECTURE rtl OF microcore IS
 
 ATTRIBUTE syn_keep  : BOOLEAN;
-ATTRIBUTE init      : STRING;
 
 ALIAS  reset     : STD_LOGIC IS uBus.reset;
 ALIAS  clk       : STD_LOGIC IS uBus.clk;
@@ -97,9 +96,7 @@ SIGNAL deb_denable   : STD_LOGIC;
 SIGNAL deb_ext_en    : STD_LOGIC;
 SIGNAL deb_mem_en    : STD_LOGIC;
 
-SIGNAL warmboot      : STD_LOGIC := '0';
-   ATTRIBUTE syn_keep OF warmboot : SIGNAL IS true;
-   ATTRIBUTE init     OF warmboot : SIGNAL IS "0";
+SIGNAL warmboot      : STD_LOGIC := '0'; ATTRIBUTE syn_keep OF warmboot : SIGNAL IS true;
 
 -- cold boot loader
 COMPONENT boot_rom PORT (

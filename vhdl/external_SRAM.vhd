@@ -2,7 +2,7 @@
 -- @file : external_SRAM.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 31.10.2022 18:51:57
+-- Last change: KS 15.07.2023 19:35:08
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -59,7 +59,7 @@ ALIAS  wdata           : data_bus  IS uBus.wdata;
 CONSTANT residue       : NATURAL := data_width MOD ram_data_width;
 CONSTANT leader        : NATURAL := (ram_data_width - residue) MOD ram_data_width;
 
-SIGNAL delay_ctr       : NATURAL RANGE 0 TO max(delay_cnt, cycles-1);
+SIGNAL delay_ctr       : NATURAL RANGE 0 TO umax(delay_cnt, cycles-1);
 SIGNAL ext_ce          : STD_LOGIC;
 SIGNAL sub_addr        : UNSIGNED(ram_subbits-1 DOWNTO 0);
 SIGNAL LSword          : UNSIGNED((ram_data_width * (ram_chunks-1))-1 DOWNTO 0);
@@ -68,7 +68,6 @@ SIGNAL LSword          : UNSIGNED((ram_data_width * (ram_chunks-1))-1 DOWNTO 0);
 -- CONSTANT ram_data_width     : NATURAL :=  8; -- external memory word width
 -- CONSTANT ram_chunks         : NATURAL := ceiling(data_width, ram_data_width);
 -- CONSTANT ram_subbits        : NATURAL := log2(ram_chunks);
--- CONSTANT ram_addr_width     : NATURAL := 12 + ram_subbits; -- external memory, virtually data_width wide
 
 BEGIN
 

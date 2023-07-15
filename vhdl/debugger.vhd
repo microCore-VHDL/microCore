@@ -2,7 +2,7 @@
 -- @file : debugger.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 03.11.2022 19:30:56
+-- Last change: KS 24.06.2023 22:38:21
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -52,7 +52,7 @@ ENTITY debugger IS PORT (
 
 ARCHITECTURE rtl OF debugger IS
 
-CONSTANT addr_width   : NATURAL := max(data_addr_width, prog_addr_width);
+CONSTANT addr_width : NATURAL := umax(data_addr_width, prog_addr_width);
 
 ALIAS  reset       : STD_LOGIC IS uBus.reset;
 ALIAS  clk         : STD_LOGIC IS uBus.clk;
@@ -482,7 +482,7 @@ END PROCESS umbilical_proc;
 rx_read <= rx_full AND clk_en;
 
 debug_uart: uart
-GENERIC MAP (umbilical_rate, 4, "registers") PORT MAP (
+GENERIC MAP (umbilical_rate, 4, "logic") PORT MAP (
    uBus       => uBus,
    pause      => OPEN,
    rx_full    => rx_full,    -- rx data buffer full

@@ -2,7 +2,7 @@
 \ @file : microcross.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 04.08.2022 17:04:27
+\ Last change: KS 12.07.2023 20:26:17
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -92,7 +92,7 @@ $B0B Constant #lib       \ when loading from library predefinitions
 
 prog_addr_width 2**                     Constant #maxprog
 data_addr_width cache_addr_width u> [IF]
-   data_addr_width 2**                  Constant #maxdata    \ size of data memory
+   data_addr_width 2** $10000           Constant #maxdata    \ size of data memory, limited to 64k
 [ELSE]
    cache_size                           Constant #maxdata    \ size of data memory
 [THEN]
@@ -112,8 +112,8 @@ byte_addr_width 2**                     Constant #cell
 \ accessing the target's program memory
 \ ----------------------------------------------------------------------
 
-Create Memory   #progmem allot  \ shadow program memory
-Create Data     #maxdata allot  \ shadow data memory
+Create Memory   #progmem allot            \ shadow program memory
+Create Data     #maxdata allot            \ shadow data memory
 
 Variable Verbose   Verbose off
 Variable Tcp                              \ TargetCodePointer
@@ -334,7 +334,7 @@ Does> ( -- )   Macro @ IF  @ execute  EXIT THEN      \ another macro inside the 
 \ Arithmetic optimizer, looking for "2dup <arithop>" and "swap -"
 \ ----------------------------------------------------------------------
 
-: 2dup?    ( -- f )   prev@ over? EXTENDED and IF  pprev@ over?  EXIT THEN  false ;
+: 2dup?    ( -- f )   prev@ over? IF  pprev@ over?  EXIT THEN  false ;
 
 : Arith:  ( n <name> (comment <name> -- )  Op:
 Does> ( -- )
@@ -589,7 +589,7 @@ Target definitions Forth
    ?comp #for case? IF  #nz-bit <resolve T tor-branch H EXIT THEN
         #?for ?pairs    #if T THEN H #nz-bit <resolve T tor-branch H
 ;
-EXTENDED [IF]
+with_NZEXIT [IF]
    : ?EXIT  ( f -- )
       ?comp Prefix @   if-prefix
       #if-bit  case? IF  T nz-exit H EXIT THEN
@@ -1175,7 +1175,6 @@ T h' Host H   Alias Host
 T definitions
 
 H SIMULATION            T Version SIMULATION     \ simulating?
-H EXTENDED              T Version EXTENDED       \ extended instruction set?
 H WITH_MULT             T Version WITH_MULT      \ hardware multiply available?
 H WITH_FLOAT            T Version WITH_FLOAT
 H WITH_UP_DOWNLOAD      T Version WITH_UP_DOWNLOAD
@@ -1183,6 +1182,24 @@ H data_addr_width
   cache_addr_width u>   T Version WITH_EXTMEM
 H byte_addr_width 0<>   T Version WITH_BYTES
 H data_width 1 and 0<>  T Version ODD_DATA_WIDTH
+H with_INDEX            T Version with_INDEX
+H with_PLOOP            T Version with_PLOOP
+H with_FETCH            T Version with_FETCH 
+H with_CFETCH           T Version with_CFETCH
+H with_PLUSST           T Version with_PLUSST
+H with_NZEXIT           T Version with_NZEXIT
+H with_ADDSAT           T Version with_ADDSAT
+H with_PADD             T Version with_PADD  
+H with_PADC             T Version with_PADC  
+H with_PSUB             T Version with_PSUB  
+H with_PAND             T Version with_PAND  
+H with_POR              T Version with_POR   
+H with_PXOR             T Version with_PXOR  
+H with_SDIV             T Version with_SDIV  
+H with_SQRT             T Version with_SQRT  
+H with_FLAGQ            T Version with_FLAGQ 
+H with_LOGS             T Version with_LOGS  
+H with_FMULT            T Version with_FMULT 
 
 H data_width            T Constant data_width
 H ram_data_width        T Constant ram_data_width
@@ -1217,15 +1234,17 @@ H mark_upload           T Constant mark_upload
 H mark_download         T Constant mark_download
 
 \ memory areas
-H tasks_addr_width       2** T Constant #tasks
-H ds_addr_width          2** T Constant #ds-depth
-  dsp_width              2** T Constant #ds-size
-H rs_addr_width          2** T Constant #rs-depth
-  rsp_width              2** T Constant #rs-size
-H addr_rstack                T Constant #rstack       \ first address used for the return stack
-  #rstack H cache_size umin  T Constant #cache        \ first address past internal data memory, starting at 0
-  addr_rstack #rs-size +     T Constant #rstack-end
-H cache_addr_width       2** T Constant #extern       \ first address of external memory size
+H tasks_addr_width              2** T Constant #tasks
+H ds_addr_width                 2** T Constant #ds-depth
+  dsp_width                     2** T Constant #ds-size
+H rs_addr_width                 2** T Constant #rs-depth
+  rsp_width                     2** T Constant #rs-size
+H addr_rstack                       T Constant #rstack       \ first address used for the return stack
+  #rstack H cache_size umin         T Constant #cache        \ first address past internal data memory, starting at 0
+  addr_rstack #rs-size +            T Constant #rstack-end
+H cache_addr_width              2** T Constant #extern       \ first address of external memory
+H data_width 2**   min_registers
+  abs 2// 2** #cell * -             T Constant #registers    \ first address of register area
 
 \ trap vectors used, to be extended as needed.
 0                       T Constant #reset        \ reset vector

@@ -2,7 +2,7 @@
 \ @file : opcodes.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 02.10.2022 16:31:47
+\ Last change: KS 15.07.2023 17:56:21
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -47,22 +47,28 @@ op_ROT         Op: rot     ( 1 2 3 -- 3 1 2 ) rot
 
 \ return stack
 op_RPUSH      Tor: >r      ( n -- )           don't
-            Macro: 2>r     ( d -- ) ( R: -- d )  T >r >r H ;
+            Macro: 2>r     ( d -- ) ( R: -- d )  ?comp T >r >r H ;
 op_RPOP        Op: r>      ( -- n )           don't
-            Macro: 2r>     ( -- d ) ( R: d -- )  T r> r> H ;
+            Macro: 2r>     ( -- d ) ( R: d -- )  ?comp T r> r> H ;
+            Macro: rdrop   ( -- )                ?comp T r> drop H ;
 op_RTOR        Op: r@      ( -- n )           don't
 op_LOCAL       Op: local   ( rel -- addr )    don't
+with_INDEX [IF] op_INDEX  Op: I  ( -- i )     don't [THEN]
 
 \ data memory
 op_LOAD        Op: ld      ( addr -- n addr ) don't
 op_STORE       Op: st      ( n addr -- addr ) don't
             Macro: !       ( n addr -- )      comp? dbg? or IF T st drop H EXIT THEN  d! ;
-EXTENDED [IF]
+
+with_PLUSST [IF]
+   op_PLUSST   Op: +st     ( n addr -- addr ) don't   \ indivisible read-modify-write instruction
+            Macro: +!      ( n addr -- )      comp? IF T +st drop H EXIT THEN  +! ;
+[THEN]
+
+with_FETCH [IF]
    op_FETCH    Op: @       ( addr -- u )      d@
-   op_RDROP    Op: rdrop   ( -- )             don't
 [ELSE]
             Macro: @       ( addr -- u )      comp? IF T ld drop H EXIT THEN  d@ ;
-            Macro: rdrop   ( -- )             ?comp T r> drop H ;
 [THEN]
             Macro: lst     ( n rel -- addr )  ?comp T local st H ;
             Macro: l!      ( n rel -- )       ?comp T local ! H ;
@@ -71,7 +77,7 @@ EXTENDED [IF]
 
 byte_addr_width [IF]
    op_CLOAD       Op: cld   ( caddr -- c caddr ) don't
-   EXTENDED [IF]
+   with_CFETCH  [IF]
       op_CFETCH   Op: c@    ( caddr -- c )       cd@
    [ELSE]
                Macro: c@    ( caddr -- c )       comp? dbg? or IF T cld drop H EXIT THEN  cd@ ;
@@ -95,9 +101,15 @@ op_PSTORE      Op: pST    ( b addr -- addr )  don't
 op_BRANCH     Brn: branch     ( addr -- )     don't  \ ELSE, REPEAT
 op_QBRANCH    Brn: 0=branch   ( addr f -- )   don't  \           IF
 op_NEXT       Brn: tor-branch ( addr -- )     don't  \ NEXT
+with_PLOOP [IF]
+   op_PLOOP    Op: (+loop  ( n -- )           don't
+[THEN]
 op_CALL        Op: JSR     ( -- )             don't
             Macro: execute ( addr -- )        ?comp ?noop, T JSR H ;
 op_EXIT        Ex: exit    ( -- )             don't
+with_NZEXIT [IF]
+   op_NZEXIT   Op: nz-exit ( f -- )           don't
+[THEN]
 op_IRET        Op: iret    ( status -- )      don't
 op_BREAK       Op: break   ( -- )             don't
 
@@ -110,14 +122,42 @@ op_ZLESS       Op: 0<      ( n -- f )         0<
             Macro: extend  ( n -- d )         comp? IF  T dup 0< H EXIT THEN  dup 0< ;
 
 \ binary arithmetic
-op_ADD      Arith: +       ( n1 n2 -- n3 )    +
-op_ADC      Arith: +c      ( n1 n2 -- n3 )    don't
-op_SUB        Sub: -       ( n1 n2 -- n3 )    -
-op_SSUB     Arith: swap-   ( n2 n1 -- n3 )    don't
+with_PADD [IF]
+   op_ADD   Arith: +       ( n1 n2 -- n3 )    +
+[ELSE]
+   op_ADD      Op: +       ( n1 n2 -- n3 )    +
+[THEN]
+with_PADC [IF]
+   op_ADC   Arith: +c      ( n1 n2 -- n3 )    don't
+[ELSE]
+   op_ADC      Op: +c      ( n1 n2 -- n3 )    don't
+[THEN]
+with_PSUB [IF]
+   op_SUB     Sub: -       ( n1 n2 -- n3 )    -
+   op_SSUB  Arith: swap-   ( n2 n1 -- n3 )    don't
+[ELSE]
+   op_SUB      Op: -       ( n1 n2 -- n3 )    -
+   op_SSUB     Op: swap-   ( n2 n1 -- n3 )    don't
+[THEN]
             Macro: negate  ( n -- -n )        comp? IF  0 lit, T swap- H EXIT THEN  negate ;
-op_AND      Arith: and     ( u1 u2 -- u3 )    and
-op_OR       Arith: or      ( u1 u2 -- u3 )    or
-op_XOR      Arith: xor     ( u1 u2 -- u3 )    xor
+with_PAND [IF]
+   op_AND   Arith: and     ( u1 u2 -- u3 )    and
+[ELSE]
+   op_AND      Op: and     ( u1 u2 -- u3 )    and
+[THEN]
+with_POR  [IF]
+   op_OR    Arith: or      ( u1 u2 -- u3 )    or
+[ELSE]
+   op_OR       Op: or      ( u1 u2 -- u3 )    or
+[THEN]
+with_PXOR [IF]
+   op_XOR   Arith: xor     ( u1 u2 -- u3 )    xor
+[ELSE]
+   op_XOR      Op: xor     ( u1 u2 -- u3 )    xor
+[THEN]
+with_ADDSAT [IF]
+   op_ADDSAT   Op: +sat    ( n1 n2 -- n3 )    don't
+[THEN]
 
 \ shifting
 WITH_MULT [IF]
@@ -147,6 +187,11 @@ op_LESS        Op: <       ( n1 n2 -- f )     <
             Macro: =       ( n1 n2 -- f )     comp? IF  T - 0=   H EXIT THEN  = ;
             Macro: /=      ( n1 n2 -- f )     comp? IF  T - 0<>  H EXIT THEN  - 0<> ;
             Macro: d0=     ( d -- f )         comp? IF  T or 0=  H EXIT THEN  or 0= ;
+with_FLAGQ [IF]
+    op_FLAGQ   Op: flag?   ( mask -- f )      don't
+[ELSE]
+            Macro: flag?   ( mask -- f )      ?comp FLAG_REG lit, T @ and H ;
+[THEN]
 
 \ complex arithmetic
 WITH_MULT [IF]
@@ -163,49 +208,48 @@ op_DIV         Op: div     ( complex )        don't
 op_UDIVS       Op: udivs   ( complex )        don't
 op_UDIVL       Op: udivl   ( complex )        don't
             Macro: udivide ( ud div -- urem uquot )  ?comp T udivs H data_width 0 DO T div H LOOP T udivl H ;
+with_SDIV [IF]
+   op_SDIVL    Op: sdivl   ( complex )        don't
+   op_SDIVS    Op: sdivs   ( complex )        don't
+            Macro: sdivide ( d div -- rem quot )  ?comp T sdivs H data_width 0 DO T div H LOOP T sdivl H ;
+[THEN]
+with_SQRT [IF]
+   op_SQRTS    Op: sqrts   ( complex )        don't
+
+   data_width 1 and [IF]
+      op_SQRT0 Op: sqrt0   ( complex )        don't
+            Macro: uroot   ( u -- rem root )  ?comp 0 lit, T tuck sqrt0 H data_width 2/ 0 DO T sqrts H LOOP T -rot drop H ;
+   [ELSE]                                           
+            Macro: uroot   ( u -- rem root )  ?comp 0 lit, T tuck       H data_width 2/ 0 DO T sqrts H LOOP T -rot drop H ;
+   [THEN]
+[THEN]
+
+WITH_MULT [IF]
+
+   with_LOGS WITH_FLOAT or [IF]
+      op_LOGS  Op: log2s   ( u  0  -- u' ld ) don't
+            Macro: ulog    ( u -- ld )        ?comp 0 lit, data_width 0 DO T log2s H LOOP T swap drop H ;
+   [THEN]
+
+   with_FMULT WITH_FLOAT or [IF]
+      op_FMULT Op: *.      ( n1 x -- n2 )     don't
+   [THEN]
+
+[THEN] \ WITH_MULT
 
 \ status register
 op_STSET       Op: st-set      ( mask -- )    don't
             Macro: st-reset    ( mask -- )    ?comp T not st-set H ;
 
-EXTENDED [IF]
- 
-   op_INDEX       Op: I       ( -- i )               don't
-   op_PLUSST      Op: +st     ( n addr -- addr )     don't   \ indivisible read-modify-write instruction
-               Macro: +!      ( n addr -- )          comp? IF T +st drop H EXIT THEN  +! ;
-   op_FLAGQ       Op: flag?   ( mask -- f )          don't
-   op_NZEXIT      Op: nz-exit ( f -- )               don't
-   op_ADDSAT      Op: +sat    ( n1 n2 -- n3 )        don't
-   op_SDIVL       Op: sdivl   ( complex )            don't
-   op_SDIVS       Op: sdivs   ( complex )            don't
-               Macro: sdivide ( d div -- rem quot )  ?comp T sdivs H data_width 0 DO T div H LOOP T sdivl H ;
-   op_SQRTS       Op: sqrts   ( complex )            don't
-   data_width 1 and [IF]                            
-      op_SQRT0    Op: sqrt0   ( complex )            don't
-               Macro: uroot   ( u -- rem root )      ?comp 0 lit, T tuck sqrt0 H data_width 2/ 0 DO T sqrts H LOOP T -rot drop H ;
-   [ELSE]                                           
-               Macro: uroot   ( u -- rem root )      ?comp 0 lit, T tuck       H data_width 2/ 0 DO T sqrts H LOOP T -rot drop H ;
-   [THEN]
-
-[ELSE]
-
-               Macro: flag?   ( mask -- f )          ?comp FLAG_REG lit, T @ and H ;
-
-[THEN]
+op_DIPUSH      Op: [di      ( R; -- status )  don't
+op_DIPOP       Op: di]      ( R: status -- )  don't
 
 \ floating point operators
 WITH_FLOAT [IF]
-
-   WITH_MULT [IF]  \ with floating point operators
-      op_FMULT Op: *.      ( n1 x -- n2 )     don't
-      op_LOGS  Op: log2s   ( u  0  -- u' ld ) don't
-            Macro: ulog    ( u -- ld )        ?comp 0 lit, data_width 0 DO T log2s H LOOP T swap drop H ;
-   [THEN]
    op_NORM     Op: normalize ( n e -- n' e' ) don't
    op_FLOAT    Op: (>float ( n exp -- r )     don't
             Macro: >float  ( n exp -- r )     ?comp T normalize (>float H ;
    op_INTEG    Op: float>  ( r -- n exp )     don't
-
 [THEN]
 
 \ some macros

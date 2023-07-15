@@ -2,7 +2,7 @@
 -- @file : uDatacache_byte.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 01.11.2022 19:04:04
+-- Last change: KS 02.11.2022 23:17:05
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -22,7 +22,7 @@
 -- Version Author   Date       Changes
 --   210     ks    8-Jun-2020  initial version
 --  2300     ks    8-Mar-2021  Conversion to NUMERIC_STD
---  2400     ks   17-Jun-2022  byte addressing using byte_addr_width
+--  2400     ks   03-Nov-2022  byte addressing using byte_addr_width > 0
 -- ---------------------------------------------------------------------
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
@@ -66,7 +66,7 @@ BEGIN
 
 enable <= clk_en AND mem_en;
 
-byte_access_proc : PROCESS(uBus, mem_rdata, addr, dma_mem, dma_mem_rdata, dma_addr, bytes)
+byte_access_proc : PROCESS(uBus, mem_rdata, dma_mem, dma_mem_rdata)
 BEGIN
 
    mem_wdata <= wdata;
@@ -147,7 +147,7 @@ END PROCESS byte_access_proc;
 make_sim_mem: IF  SIMULATION  GENERATE
 
    internal_data_mem: internal_dpbram
-   GENERIC MAP (data_width, cache_size, byte_addr_width, "rw_check", DMEM_file)
+   GENERIC MAP (data_width, cache_size, byte_addr_width, "no_rw_check", DMEM_file)
    PORT MAP (
       clk     => clk,
       ena     => enable,
@@ -169,7 +169,7 @@ END GENERATE make_sim_mem; make_syn_mem: IF  NOT SIMULATION  GENERATE
 -- instantiate FPGA specific IP for byte addressed memory here:
 
    internal_data_mem: internal_dpbram
-   GENERIC MAP (data_width, cache_size, byte_addr_width, "rw_check")
+   GENERIC MAP (data_width, cache_size, byte_addr_width, "no_rw_check")
    PORT MAP (
       clk     => clk,
       ena     => enable,

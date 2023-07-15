@@ -2,7 +2,7 @@
 \ @file : extensions.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 08.07.2022 00:32:26
+\ Last change: KS 02.07.2023 00:12:35
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -66,6 +66,9 @@ cr .( gforth ) version-string type .(  not supported)  abort
 
 : drop-source ( sca -- )  free Abort" drop-source: cannot free source code info" ;
 
+: /string  ( addr len quan -- addr' len' ) \ gforth-0.6.2 counts below 0
+   /string   dup 0< IF + 0 THEN
+;
 : skip-input  ( c -- )
    source dup >in @ min /string  over >r
    rot skip drop  r> - >in +!
@@ -323,8 +326,6 @@ $40 cell_width 4 / / Constant #items/line
           #items/line 0 DO  dup @ cell_width 2/ 2/ 1+ u.r cell+  LOOP
    LOOP  drop
 ;
-: \\ ( -- )  source-id IF  BEGIN  refill 0= UNTIL  THEN  postpone \ ; immediate
-
 : count"  ( <ccc> -- u )  [char] " word count nip ;
 
 \ ----------------------------------------------------------------------
@@ -374,6 +375,8 @@ Variable Level   0 Level !
 :noname  ( -- )             BEGIN  forth-word [if]-decode UNTIL ; IS [ELSE]
 
 :noname  ( -- )       level-1 ;                                   IS [THEN]
+
+: \\ ( -- )  source-id IF  BEGIN  refill 0= UNTIL  THEN  postpone \ ; immediate
 
 \ ----------------------------------------------------------------------
 \ dummies for RS232 interface

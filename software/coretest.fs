@@ -2,7 +2,7 @@
 \ @file : coretest.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 03.11.2022 19:05:10
+\ Last change: KS 08.07.2023 01:06:11
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -95,6 +95,7 @@ Variable Location  #cell allot
 
 cr .( For a complete division/multiply test refer to the LFXP2 prototype )
 cr .( board at LFXP2_8_protoboard/software/test/division. )
+cr .( m/mod not tested. )
 
 : test-arith  ( -- )
    3 4 +  ( 7 ) 4 -  ( 3 ) 4 2dup +  ( 3 4 7 )
@@ -123,6 +124,7 @@ cr .( board at LFXP2_8_protoboard/software/test/division. )
       -1 0 #8000 um/mod 1 - >r #7FFF - r> or IF  $201 throw THEN
        0 1     1 um/mod or
    Status @ #ovfl and #ovfl xor or           IF  $202 throw THEN
+
    #8000 1 <                              0= IF  $203 throw THEN
    1 #8000 <                                 IF  $204 throw THEN
    1 2     <                              0= IF  $205 throw THEN
@@ -131,8 +133,8 @@ cr .( board at LFXP2_8_protoboard/software/test/division. )
 \ ----------------------------------------------------------------------
 \ Floating point
 \ ----------------------------------------------------------------------
-WITH_MULT WITH_FLOAT and H data_width &18 > T and [IF]
-   Host
+
+WITH_MULT [IF]  Host
 
    : round   ( dm -- m' )
       over 0< 0= IF  nip  EXIT THEN   \ < 0.5
@@ -140,7 +142,7 @@ WITH_MULT WITH_FLOAT and H data_width &18 > T and [IF]
       dup 1 and +                     \ = 0.5, round to even
    ;
    cell_width data_width - Constant #delta_width \ cell width (host) must be >= data width (target)
-   
+
    : hlog2 ( frac -- log2 )   \ Bit-wise Logarithm (K.Schleisiek/U.Lange)
       #delta_width 0 ?DO  2*  LOOP
       0   data_width 0
@@ -150,43 +152,62 @@ WITH_MULT WITH_FLOAT and H data_width &18 > T and [IF]
       LOOP  nip
    ;
    T definitions
-   
+
    #signbit dup u2/ or Constant #C000
    #C000 hlog2         Constant log-C000
-   
+
    #C000    dup u2/ or Constant #E000
    #E000 hlog2         Constant log-E000
-   
-   Target
-   
-   Macro: float   ( n -- r )   0 lit, T >float H ;
-   &17 data_width - Constant above16
 
-   : test-float  ( -- )
-      $8001 0 normalize   above16 -        IF  $207 throw THEN
-      #signbit u2/ xor   above16 shift 1-  IF  $208 throw THEN
-      1 float float> ashift 1-             IF  $209 throw THEN
-      -2 float float> ashift 2 +           IF  $20A throw THEN
-\ *.
-      #signbit   dup $10 *. 8 +            IF  $20B throw THEN
-      u2/ $10 *. 4 -                       IF  $20C throw THEN
-\ log2
-      -1 log2 2 +                          IF  $210 throw THEN
-      #signbit log2                        IF  $211 throw THEN
-      #C000 log2 log-C000 -                IF  $212 throw THEN
-      #E000 log2 log-E000 -                IF  $213 throw THEN
-\ sqrt
+   Target
+
+   WITH_FLOAT H data_width &18 > T and [IF]
+      Macro: float   ( n -- r )   0 lit, T >float H ;
+      &17 data_width - Constant above16
+   
+      : test-float  ( -- )
+         $8001 0 normalize   above16 -        IF  $207 throw THEN
+         #signbit u2/ xor   above16 shift 1-  IF  $208 throw THEN
+         1 float float> ashift 1-             IF  $209 throw THEN
+         -2 float float> ashift 2 +           IF  $20A throw THEN
+      ;
+   [ELSE]
+      : test-float ;
+   [THEN]
+
+   WITH_FLOAT with_LOGS or [IF]
+      : test-log2
+         -1 log2 2 +                          IF  $210 throw THEN
+         #signbit log2                        IF  $211 throw THEN
+         #C000 log2 log-C000 -                IF  $212 throw THEN
+         #E000 log2 log-E000 -                IF  $213 throw THEN
+      ;
+   [ELSE]
+      : test-log2 ;
+   [THEN]
+
+   WITH_FLOAT with_FMULT or [IF]
+      : test-*.
+         #signbit   dup $10 *. 8 +            IF  $20B throw THEN
+         u2/ $10 *. 4 -                       IF  $20C throw THEN
+      ;
+   [ELSE]
+      : test-*. ;
+   [THEN]
+
+[THEN] \ WITH_MULT
+
+with_SQRT [IF]
+   : test-sqrt
       -1       dup >r sqrt dup * + r> -    IF  $214 throw THEN
       #signbit dup >r sqrt dup * + r@ -    IF  $215 throw THEN
       r> u2/   dup >r sqrt dup * + r@ -    IF  $216 throw THEN
       r> 1-    dup >r sqrt dup * + r> -    IF  $217 throw THEN
    ;
-
 [ELSE]
-
-   : test-float ;
-
+   : test-sqrt ;
 [THEN]
+
 \ ----------------------------------------------------------------------
 
 $5A5 Constant ovfl-pattern
@@ -227,10 +248,25 @@ $5A5 Constant ovfl-pattern
    Location wld 2 + w@
    Location wst 2 + w!  Location @ $22114433 -  IF  $38 throw THEN
 [THEN]
-WITH_EXTMEM [IF]                             
-   #8001 #extern st @ #8001 -                   IF  $39 throw THEN
-   -1 #extern +!   #extern @ #8000 -            IF  $3A throw THEN
-    1 #extern +!   #extern @ #8001 -            IF  $3B throw THEN
+;
+: test-extmem  ( -- )
+WITH_EXTMEM [IF]
+      #8001 #extern st @ #8001 -                   IF  $39 throw THEN
+      -1 #extern +!   #extern @ #8000 -            IF  $3A throw THEN
+       1 #extern +!   #extern @ #8001 -            IF  $3B throw THEN
+   [ byte_addr_width 1 = ] [IF]
+      $1122 #extern st @ $1122 -                  IF  $3C throw THEN
+      #extern cld 1+ c@
+      #extern cst 1+ c! #extern @ $2211 -         IF  $3D throw THEN
+   [THEN]                                          
+   [ byte_addr_width 2 = ] [IF]                    
+      $11223344 #extern st @ $11223344 -          IF  $3E throw THEN
+      #extern cld 1+ cld 1+ cld 1+ c@
+      #extern cst 1+ cst 1+ cst 1+ c!
+      #extern @ $44332211 -                       IF  $3F throw THEN
+      #extern wld 2 + w@
+      #extern wst 2 + w!  #extern @ $22114433 -   IF  $140 throw THEN
+   [THEN]
 [THEN]
 ;
 : modify  ( n -- /n )  0= ;
@@ -314,11 +350,14 @@ WITH_EXTMEM [IF]
    2 4*       8 -                        IF  $B3 throw THEN
 ;
 : test-ctrl  ( -- )
+   #c-bitout -ctrl !
    #c-bitout ctrl?                       IF  $B4 throw THEN
    #c-bitout dup  ctrl !  ctrl?       0= IF  $B5 throw THEN
+SIMULATION [IF]
    #f-bitout flag?                    0= IF  $B6 throw THEN
    #c-bitout dup -ctrl !  ctrl?          IF  $B7 throw THEN
    #f-bitout flag?                       IF  $B8 throw THEN
+[THEN]
 ;
 : test-timer ( -- )
    time 1- time?                      0= IF  $B9 throw THEN
@@ -366,8 +405,12 @@ Variable save-DSP
      test-unary
      test-arith
      test-float
+     test-sqrt
+     test-log2
+     test-*.
      test-overflow
      test-memory
+     test-extmem
      test-local
      test-user
      test-ctrl

@@ -2,7 +2,7 @@
 \ @file : debugger.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 03.11.2022 19:05:54
+\ Last change: KS 14.07.2023 19:23:26
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -443,6 +443,7 @@ byte_addr_width [IF]
 : advance-breakpoint ( addr nextaddr -- )
    over opcode@                               ( oldaddr newaddr opcode )
    op_EXIT   case? IF  -nest 2drop  EXIT THEN
+   op_IRET   case? IF  -nest 2drop  EXIT THEN
    op_NZEXIT case? IF  t> dup >t    IF  -nest 2drop EXIT THEN  op_NZEXIT  THEN
    dup #literal and
    IF drop                                    ( oldaddr newaddr )

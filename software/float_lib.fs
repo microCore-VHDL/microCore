@@ -2,7 +2,7 @@
 \ @file : float_lib.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 14.07.2022 19:04:54
+\ Last change: KS 29.06.2023 00:53:41
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -314,7 +314,7 @@ Target
   Host: f2* ( r1 -- r2 )      comp? dbg? or IF  T f2* H  EXIT THEN  f2* ; immediate
 
 ~ : f2/     ( r1 -- r2 )      float> 1- >float ;
-  Host: f2/ ( r1 -- r2 )      comp? dbg? or IF  T f2/ H  EXIT THEN  f2 ; immediate
+  Host: f2/ ( r1 -- r2 )      comp? dbg? or IF  T f2/ H  EXIT THEN  f2/ ; immediate
 
 ~ Macro: float ( n -- r )     ?comp 0 lit, T >float H ;
   Host: float  ( n -- r )     comp? dbg? or IF  T float H  EXIT THEN  float ; immediate

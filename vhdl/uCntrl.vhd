@@ -2,7 +2,7 @@
 -- @file : uCntrl.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 22.11.2022 19:06:13
+-- Last change: KS 12.07.2023 20:17:24
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -266,7 +266,7 @@ BEGIN
 END PROCESS uReg_proc;
 
 data_stack: internal_ram
-GENERIC MAP (data_width, 2**dsp_width, "rw_check")
+GENERIC MAP (data_width, 2**dsp_width, "no_rw_check")
 PORT MAP (
    clk   => clk,
    en    => core_en,
@@ -611,333 +611,393 @@ BEGIN
 -- data stack manipulation
 -- ---------------------------------------------------------------------
 
-      WHEN op_DROP  => pop_stack;
+      WHEN op_DROP  =>
+         pop_stack;
 
-      WHEN op_DUP   => push_stack;
+      WHEN op_DUP   =>
+         push_stack;
 
 
-      WHEN op_QDUP  => IF  r.tos /= 0  THEN -- ?DUP
-                          push_stack;
-                       END IF;
+      WHEN op_QDUP  =>
+         IF  r.tos /= 0  THEN -- ?DUP
+            push_stack;
+         END IF;
 
-      WHEN op_SWAP  => r_in.nos <= r.tos;
-                       r_in.tos <= r.nos;
+      WHEN op_SWAP  =>
+         r_in.nos <= r.tos;
+         r_in.tos <= r.nos;
 
-      WHEN op_OVER  => push_stack;
-                       r_in.tos <= r.nos;
+      WHEN op_OVER  =>
+         push_stack;
+         r_in.tos <= r.nos;
 
-      WHEN op_ROT   => r_in.tos <= ds_rdata;
-                       r_in.nos <= r.tos;
-                       ds_wdata <= r.nos; -- default
-                       ds_wr <= '1';
+      WHEN op_ROT   =>
+         r_in.tos <= ds_rdata;
+         r_in.nos <= r.tos;
+         ds_wdata <= r.nos; -- default
+         ds_wr <= '1';
 
 -- ---------------------------------------------------------------------
 -- return stack manipulation
 -- ---------------------------------------------------------------------
 
-      WHEN op_RPUSH => pop_stack;
-                       push_rstack;
-                       r_in.tor <= r.tos;
+      WHEN op_RPUSH =>
+         pop_stack;
+         push_rstack;
+         r_in.tor <= r.tos;
 
-      WHEN op_RPOP  => push_stack;
-                       pop_rstack;
-                       r_in.tos <= r.tor;
+      WHEN op_RPOP  =>
+         push_stack;
+         pop_rstack;
+         r_in.tos <= r.tor;
 
-      WHEN op_RTOR  => push_stack;
-                       r_in.tos <= r.tor;
+      WHEN op_RTOR  =>
+         push_stack;
+         r_in.tos <= r.tor;
 
-      WHEN op_RDROP => IF  EXTENDED  THEN
-                          pop_rstack;
-                       END IF;
+      WHEN op_SUM2TOS =>
+      IF  with_INDEX AND addr_rstack < addr_extern  THEN
+      -- needed for op_INDEX
+         add_x <= mem_rdata;
+         add_y <= NOT r.tor;
+         cin <= '1';
+         r_in.tos <= sum;
+      END IF;
 
-      WHEN op_SUM2TOS => IF  EXTENDED AND addr_rstack < addr_extern  THEN -- needed for op_INDEX
-                            add_x <= mem_rdata;
-                            add_y <= NOT r.tor;
-                            cin <= '1';
-                            r_in.tos <= sum;
-                         END IF;
-
-      WHEN op_INDEX => -- DO ... LOOP index computed from top two items on return stack
-                       IF  EXTENDED  THEN
-                          push_stack;
-                          IF  addr_rstack < addr_extern  THEN
-                             mem_en <= '1';
-                             set_opcode(op_SUM2TOS);
-                          ELSE
-                             ext_en <= '1';
-                             add_x <= mem_rdata;
-                             add_y <= NOT r.tor;
-                             cin <= '1';
-                             r_in.tos <= sum;
-                          END IF;
-                       END IF;
+      WHEN op_INDEX =>
+      IF  with_INDEX  THEN
+      -- DO ... LOOP index computed from top two items on return stack
+         push_stack;
+         IF  addr_rstack < addr_extern  THEN
+            mem_en <= '1';
+            set_opcode(op_SUM2TOS);
+         ELSE
+            ext_en <= '1';
+            add_x <= mem_rdata;
+            add_y <= NOT r.tor;
+            cin <= '1';
+            r_in.tos <= sum;
+         END IF;
+      END IF;
 
 -- ---------------------------------------------------------------------
 -- data memory access
 -- ---------------------------------------------------------------------
 
-      WHEN op_MEM2TOR => IF  addr_rstack < addr_extern  THEN       -- needed for procedure pop_rstack
-                            r_in.tor <= mem_rdata;
-                            r_in.status(s_lit) <= r.status(s_lit); -- I have no recollection why this is necessary - ks
-                         END IF;
+      WHEN op_MEM2TOR =>
+      IF  addr_rstack < addr_extern  THEN
+      -- needed for procedure pop_rstack
+         r_in.tor <= mem_rdata;
+         r_in.status(s_lit) <= r.status(s_lit); -- I have no recollection why this is necessary - ks
+      END IF;
 
-      WHEN op_MEM2NOS => mem_addr <= r.tos(mem_addr'range);
-                         bytes <= bytes_d;
-                         r_in.nos <= mem_rdata;
+      WHEN op_MEM2NOS =>
+         mem_addr <= r.tos(mem_addr'range);
+         bytes <= bytes_d;
+         r_in.nos <= mem_rdata;
 
-      WHEN op_LOAD  => push_stack;
-                       r_in.tos <= r.tos;
-                       mem_addr <= r.tos(mem_addr'range);
-                       IF  registers  THEN
-                          reg_en <= '1';
-                          r_in.nos <= sources(reg_addr);
+      WHEN op_LOAD  =>
+         push_stack;
+         r_in.tos <= r.tos;
+         mem_addr <= r.tos(mem_addr'range);
+         IF  registers  THEN
+            reg_en <= '1';
+            r_in.nos <= sources(reg_addr);
 
-                          IF  STATUS_REG = reg_addr  THEN
-                             r_in.nos(s_lit) <= '0';
-                          END IF;
+            IF  STATUS_REG = reg_addr  THEN
+               r_in.nos(s_lit) <= '0';
+            END IF;
 
-                       ELSIF  ext_RAM  THEN -- external memory
-                          ext_en <= '1';
-                          r_in.nos <= mem_rdata;
-                       ELSIF  dcache  THEN   -- internal data memory
-                          mem_en <= '1';
-                          set_opcode(op_MEM2NOS);
-                       END IF;
+         ELSIF  ext_RAM  THEN -- external memory
+            ext_en <= '1';
+            r_in.nos <= mem_rdata;
+         ELSIF  dcache  THEN   -- internal data memory
+            mem_en <= '1';
+            set_opcode(op_MEM2NOS);
+         END IF;
 
-      WHEN op_CLOAD => IF  byte_addr_width /= 0  THEN
-                          push_stack;
-                          r_in.tos <= r.tos;
-                          mem_addr <= r.tos(mem_addr'range);
-                          bytes <= 1;
-                          IF  ext_RAM  THEN     -- external byte addressable RAM
-                             ext_en <= '1';
-                             r_in.nos <= mem_rdata;
-                          ELSIF  dcache  THEN   -- internal data memory
-                             mem_en <= '1';
-                             set_opcode(op_MEM2NOS);
-                          END IF;
-                       END IF;
+      WHEN op_CLOAD =>
+      IF  byte_addr_width /= 0  THEN
+         push_stack;
+         r_in.tos <= r.tos;
+         mem_addr <= r.tos(mem_addr'range);
+         bytes <= 1;
+         IF  ext_RAM  THEN     -- external byte addressable RAM
+            ext_en <= '1';
+            r_in.nos <= mem_rdata;
+         ELSIF  dcache  THEN   -- internal data memory
+            mem_en <= '1';
+            set_opcode(op_MEM2NOS);
+         END IF;
+      END IF;
 
-      WHEN op_WLOAD => IF  byte_addr_width = 2  THEN
-                          push_stack;
-                          r_in.tos <= r.tos;
-                          mem_addr <= r.tos(mem_addr'range);
-                          bytes <= 2;
-                          IF  ext_RAM  THEN     -- external byte addressable RAM
-                             ext_en <= '1';
-                             r_in.nos <= mem_rdata;
-                          ELSIF  dcache  THEN   -- internal data memory
-                             mem_en <= '1';
-                             set_opcode(op_MEM2NOS);
-                          END IF;
-                       END IF;
+      WHEN op_WLOAD =>
+      IF  byte_addr_width = 2  THEN
+         push_stack;
+         r_in.tos <= r.tos;
+         mem_addr <= r.tos(mem_addr'range);
+         bytes <= 2;
+         IF  ext_RAM  THEN     -- external byte addressable RAM
+            ext_en <= '1';
+            r_in.nos <= mem_rdata;
+         ELSIF  dcache  THEN   -- internal data memory
+            mem_en <= '1';
+            set_opcode(op_MEM2NOS);
+         END IF;
+      END IF;
 
-      WHEN op_STORE => pop_stack;
-                       r_in.tos <= r.tos;
-                       mem_wr <= '1';
-                       mem_addr <= r.tos(mem_addr'range);
-                       IF  registers  THEN
-                          reg_en <= '1';
+      WHEN op_STORE =>
+         pop_stack;
+         r_in.tos <= r.tos;
+         mem_wr <= '1';
+         mem_addr <= r.tos(mem_addr'range);
+         IF  registers  THEN
+            reg_en <= '1';
 
-                          IF  STATUS_REG = reg_addr  THEN
-                             r_in.status <= r.nos(r.status'range);
+            IF  STATUS_REG = reg_addr  THEN
+               r_in.status <= r.nos(r.status'range);
 
-                          ELSIF  DSP_REG = reg_addr  THEN
-                             r_in.dsp <= r.nos(r.dsp'range);
-                             ds_addr  <= r.nos(ds_addr'range);
+            ELSIF  DSP_REG = reg_addr  THEN
+               r_in.dsp <= r.nos(r.dsp'range);
+               ds_addr  <= r.nos(ds_addr'range);
 
-                          ELSIF  RSP_REG = reg_addr  THEN
-                             r_in.rsp <= r.nos(r.rsp'range);
-                          END IF;
+            ELSIF  RSP_REG = reg_addr  THEN
+               r_in.rsp <= r.nos(r.rsp'range);
+            END IF;
 
-                       ELSIF  ext_RAM  THEN -- external memory
-                          ext_en <= '1';
-                       ELSIF  dcache  THEN   -- internal data memory
-                          mem_en <= '1';
-                       END IF;
+         ELSIF  ext_RAM  THEN  -- external memory
+            ext_en <= '1';
+         ELSIF  dcache  THEN   -- internal data memory
+            mem_en <= '1';
+         END IF;
 
-      WHEN op_CSTORE => IF  byte_addr_width /= 0  THEN
-                           pop_stack;
-                           r_in.tos <= r.tos;
-                           mem_wr <= '1';
-                           mem_addr <= r.tos(mem_addr'range);
-                           bytes <= 1;
-                           IF  ext_RAM  THEN     -- external memory
-                              ext_en <= '1';
-                           ELSIF  dcache  THEN   -- internal data memory
-                              mem_en <= '1';
-                           END IF;
-                        END IF;
+      WHEN op_CSTORE =>
+      IF  byte_addr_width /= 0  THEN
+         pop_stack;
+         r_in.tos <= r.tos;
+         mem_wr <= '1';
+         mem_addr <= r.tos(mem_addr'range);
+         bytes <= 1;
+         IF  ext_RAM  THEN     -- external memory
+            ext_en <= '1';
+         ELSIF  dcache  THEN   -- internal data memory
+            mem_en <= '1';
+         END IF;
+      END IF;
 
-      WHEN op_WSTORE => IF  byte_addr_width = 2  THEN
-                           pop_stack;
-                           r_in.tos <= r.tos;
-                           mem_wr <= '1';
-                           mem_addr <= r.tos(mem_addr'range);
-                           bytes <= 2;
-                           IF  ext_RAM  THEN     -- external memory
-                              ext_en <= '1';
-                           ELSIF  dcache  THEN   -- internal data memory
-                              mem_en <= '1';
-                           END IF;
-                        END IF;
+      WHEN op_WSTORE =>
+      IF  byte_addr_width = 2  THEN
+         pop_stack;
+         r_in.tos <= r.tos;
+         mem_wr <= '1';
+         mem_addr <= r.tos(mem_addr'range);
+         bytes <= 2;
+         IF  ext_RAM  THEN     -- external memory
+            ext_en <= '1';
+         ELSIF  dcache  THEN   -- internal data memory
+            mem_en <= '1';
+         END IF;
+      END IF;
 
-      WHEN op_MEM2TOS => IF  EXTENDED  THEN
-                            mem_addr <= r.tos(mem_addr'range);
-                            bytes <= bytes_d;
-                            r_in.tos <= mem_rdata;
-                         END IF;
+      WHEN op_MEM2TOS =>
+      IF  with_FETCH OR with_CFETCH  THEN
+         mem_addr <= r.tos(mem_addr'range);
+         bytes <= bytes_d;
+         r_in.tos <= mem_rdata;
+      END IF;
 
-      WHEN op_FETCH => IF  EXTENDED  THEN
-                          mem_addr <= r.tos(mem_addr'range);
-                          IF  registers  THEN
-                             reg_en <= '1';
-                             r_in.tos <= sources(reg_addr);
+      WHEN op_FETCH =>
+      IF  with_FETCH  THEN
+         mem_addr <= r.tos(mem_addr'range);
+         IF  registers  THEN
+            reg_en <= '1';
+            r_in.tos <= sources(reg_addr);
 
-                             IF  STATUS_REG = reg_addr  THEN
-                                r_in.tos(s_lit) <= '0';
-                             END IF;
+            IF  STATUS_REG = reg_addr  THEN
+               r_in.tos(s_lit) <= '0';
+            END IF;
 
-                          ELSIF  ext_RAM  THEN
-                             ext_en <= '1';
-                             r_in.tos <= mem_rdata;
-                          ELSIF  dcache  THEN   -- internal data memory
-                             mem_en <= '1';
-                             set_opcode(op_MEM2TOS);
-                          END IF;
-                       END IF;
+         ELSIF  ext_RAM  THEN
+            ext_en <= '1';
+            r_in.tos <= mem_rdata;
+         ELSIF  dcache  THEN   -- internal data memory
+            mem_en <= '1';
+            set_opcode(op_MEM2TOS);
+         END IF;
+      END IF;
 
-      WHEN op_CFETCH => IF  EXTENDED AND byte_addr_width /= 0  THEN
-                           mem_addr <= r.tos(mem_addr'range);
-                           bytes <= 1;
-                           IF  ext_RAM  THEN   -- external memory
-                              ext_en <= '1';
-                           ELSIF  dcache  THEN   -- internal data memory
-                              mem_en <= '1';
-                              set_opcode(op_MEM2TOS);
-                           END IF;
-                        END IF;
+      WHEN op_CFETCH =>
+      IF  with_CFETCH AND byte_addr_width /= 0  THEN
+         mem_addr <= r.tos(mem_addr'range);
+         bytes <= 1;
+         IF  ext_RAM  THEN   -- external memory
+            ext_en <= '1';
+         ELSIF  dcache  THEN   -- internal data memory
+            mem_en <= '1';
+            set_opcode(op_MEM2TOS);
+         END IF;
+      END IF;
 
-      WHEN op_LOCAL => -- wraps around inside rstack area
-                       add_x <= r.tos - bytes_per_cell;
-                       add_y <= resize(rsp_addr(rs_addr_width-1 DOWNTO 0), add_y'length);
-                       r_in.tos <= rstack_addr & sum(rs_addr_width-1 DOWNTO 0);
+      WHEN op_LOCAL =>
+         -- wraps around inside rstack area
+         add_x <= r.tos - bytes_per_cell;
+         add_y <= resize(rsp_addr(rs_addr_width-1 DOWNTO 0), add_y'length);
+         r_in.tos <= rstack_addr & sum(rs_addr_width-1 DOWNTO 0);
+       
+      WHEN op_PLUSST =>
+      IF  with_PLUSST  THEN
+      -- indivisible read-modify-write +! instruction
+         mem_addr <= r.tos(mem_addr'range);
+         IF  registers  THEN
+            reg_en <= '1';
+            add_x <= sources(reg_addr);
+            add_y <= r.nos;
+            mem_wdata <= sum;
+            cin <= '0';
+            mem_wr <= '1';
+         ELSE
+            IF  ext_RAM  THEN
+               ext_en <= '1';
+               r_in.data <= mem_rdata;
+            ELSIF  dcache  THEN   -- internal data memory
+               mem_en <= '1';
+            END IF;
+            set_opcode(op_PLUSST2);
+         END IF;
+      END IF;
 
-      WHEN op_PLUSST => -- indivisible read-modify-write +! instruction
-                       IF  EXTENDED  THEN
-                          mem_addr <= r.tos(mem_addr'range);
-                          IF  registers  THEN
-                             reg_en <= '1';
-                             add_x <= sources(reg_addr);
-                             add_y <= r.nos;
-                             mem_wdata <= sum;
-                             cin <= '0';
-                             mem_wr <= '1';
-                          ELSE
-                             IF  ext_RAM  THEN
-                                ext_en <= '1';
-                                r_in.data <= mem_rdata;
-                             ELSIF  dcache  THEN   -- internal data memory
-                                mem_en <= '1';
-                             END IF;
-                             set_opcode(op_PLUSST2);
-                          END IF;
-                       END IF;
-
-      WHEN op_PLUSST2 => IF  EXTENDED  THEN
-                          pop_stack;
-                          r_in.tos <= r.tos;
-                          add_x <= mem_rdata;
-                          add_y <= r.nos;
-                          cin <= '0';
-                          mem_addr <= r.tos(mem_addr'range);
-                          mem_wdata <= sum;
-                          mem_wr <= '1';
-                          IF  ext_RAM  THEN
-                             ext_en <= '1';
-                             add_x <= r.data;
-                          ELSIF  dcache  THEN   -- internal data memory
-                             mem_en <= '1';
-                          END IF;
-                          r_in.status(s_c) <= add_carry;
-                          r_in.status(s_ovfl) <= add_ovfl;
-                       END IF;
+      WHEN op_PLUSST2 =>
+      IF  with_PLUSST  THEN
+         pop_stack;
+         r_in.tos <= r.tos;
+         add_x <= mem_rdata;
+         add_y <= r.nos;
+         cin <= '0';
+         mem_addr <= r.tos(mem_addr'range);
+         mem_wdata <= sum;
+         mem_wr <= '1';
+         IF  ext_RAM  THEN
+            ext_en <= '1';
+            add_x <= r.data;
+         ELSIF  dcache  THEN   -- internal data memory
+            mem_en <= '1';
+         END IF;
+         r_in.status(s_c) <= add_carry;
+         r_in.status(s_ovfl) <= add_ovfl;
+      END IF;
 
 -- ---------------------------------------------------------------------
 -- internal registers
 -- ---------------------------------------------------------------------
 
-      WHEN op_STSET  => pop_stack;
-                        IF  r.tos(r.tos'high) = '1'  THEN  -- reset bits
-                           r_in.status(s_c)    <= r.status(s_c)    AND r.tos(s_c);
-                           r_in.status(s_ovfl) <= r.status(s_ovfl) AND r.tos(s_ovfl);
-                           r_in.status(s_ie)   <= r.status(s_ie)   AND r.tos(s_ie);
-                           r_in.status(s_iis)  <= r.status(s_iis)  AND r.tos(s_iis);
-                        ELSE                               -- set bits
-                           r_in.status(s_c)    <= r.status(s_c)    OR r.tos(s_c);
-                           r_in.status(s_ovfl) <= r.status(s_ovfl) OR r.tos(s_ovfl);
-                           r_in.status(s_ie)   <= r.status(s_ie)   OR r.tos(s_ie);
-                           r_in.status(s_iis)  <= r.status(s_iis)  OR r.tos(s_iis);
-                        END IF;
+      WHEN op_STSET  =>
+         pop_stack;
+         IF  r.tos(r.tos'high) = '1'  THEN
+            -- reset bits
+            r_in.status(s_c)    <= r.status(s_c)    AND r.tos(s_c);
+            r_in.status(s_ovfl) <= r.status(s_ovfl) AND r.tos(s_ovfl);
+            r_in.status(s_ie)   <= r.status(s_ie)   AND r.tos(s_ie);
+            r_in.status(s_iis)  <= r.status(s_iis)  AND r.tos(s_iis);
+         ELSE
+            -- set bits
+            r_in.status(s_c)    <= r.status(s_c)    OR r.tos(s_c);
+            r_in.status(s_ovfl) <= r.status(s_ovfl) OR r.tos(s_ovfl);
+            r_in.status(s_ie)   <= r.status(s_ie)   OR r.tos(s_ie);
+            r_in.status(s_iis)  <= r.status(s_iis)  OR r.tos(s_iis);
+         END IF;
 
+      WHEN op_DIPUSH =>
+         push_rstack;
+         r_in.tor <= resize(r.status, data_width);
+         r_in.status(s_iis) <= '1';
+
+      WHEN op_DIPOP =>
+         pop_rstack;
+         r_in.status(s_iis) <= r.tor(s_iis);
+
+         
 -- ---------------------------------------------------------------------
 -- program memory access
 -- ---------------------------------------------------------------------
 
-      WHEN op_PRG2NOS => r_in.nos <= resize(prog_rdata, data_width);
+      WHEN op_PRG2NOS =>
+         r_in.nos <= resize(prog_rdata, data_width);
 
-      WHEN op_PLOAD  => push_stack;
-                        r_in.tos <= r.tos;
-                        pread <= '1';
-                        paddr <= r.tos(paddr'range);
-                        set_opcode(op_PRG2NOS);
-                        r_in.pc <= r.pc;
+      WHEN op_PLOAD  =>
+         push_stack;
+         r_in.tos <= r.tos;
+         pread <= '1';
+         paddr <= r.tos(paddr'range);
+         set_opcode(op_PRG2NOS);
+         r_in.pc <= r.pc;
 
-      WHEN op_PSTORE => pop_stack;
-                        r_in.tos <= r.tos;
-                        pwrite <= '1';
-                        paddr <= r.tos(paddr'range);
-                        set_opcode(op_NOOP);
-                        r_in.pc <= r.pc;
+      WHEN op_PSTORE =>
+         pop_stack;
+         r_in.tos <= r.tos;
+         pwrite <= '1';
+         paddr <= r.tos(paddr'range);
+         set_opcode(op_NOOP);
+         r_in.pc <= r.pc;
 
 -- ---------------------------------------------------------------------
 -- branches, call & exit
 -- ---------------------------------------------------------------------
 
-      WHEN op_BRANCH => pop_stack;
-                        branch;
+      WHEN op_BRANCH =>
+         pop_stack;
+         branch;
 
-      WHEN op_QBRANCH => pop_stack;
-                        IF  nos_zero = '1'  THEN
-                           branch;
-                        END IF;
-                        set_opcode(op_DROP);
+      WHEN op_QBRANCH =>
+         pop_stack;
+         IF  nos_zero = '1'  THEN
+            branch;
+         END IF;
+         set_opcode(op_DROP);
 
-      WHEN op_NEXT   => pop_stack;
-                        IF  r.tor = 0  THEN
-                           pop_rstack;
-                        ELSE
-                           r_in.tor <= r.tor - 1;
-                           branch;
-                        END IF;
+      WHEN op_NEXT   =>
+         pop_stack;
+         IF  r.tor = 0  THEN
+            pop_rstack;
+         ELSE
+            r_in.tor <= r.tor - 1;
+            branch;
+         END IF;
 
-      WHEN op_CALL   => pop_stack;
-                        push_rstack;
-                        r_in.tor <= resize(r.pc, r.tor'length);
-                        branch;
+--   : (+loop  ( n -- ) ( R: i -- i' )
+--      1- dup 0< swap  r> r> rot - rot carry? xor and >r BRANCH ;
+      WHEN op_PLOOP =>
+         IF  with_PLOOP  THEN
+            pop_stack;
+            temp := r.tos - 1;
+            add_x <= r.tor;
+            add_y <= NOT temp;
+            cin <= '1';
+            r_in.tor <= sum;
+            IF  (temp(signbit) XOR add_carry) = '0'  THEN
+               r_in.tor <= (OTHERS => '0');
+            END IF;
+         END IF;
 
-      WHEN op_EXIT   => paddr <= r.tor(paddr'range);
-                        pop_rstack;
+      WHEN op_CALL   =>
+         pop_stack;
+         push_rstack;
+         r_in.tor <= resize(r.pc, r.tor'length);
+         branch;
 
-      WHEN op_IRET   => paddr <= r.tor(paddr'range);
-                        pop_rstack;
-                        pop_stack;
-                        r_in.status <= r.tos(r.status'range);
-                        r_in.status(s_ie) <= r.status(s_ie);  -- this way interrupts can be permanently disabled by an interrupt
-                        IF  r.tos(s_lit) = '1'  THEN
-                           r_in.status(s_neg)  <= r.tos(s_neg);
-                           r_in.status(s_zero) <= r.tos(s_zero);
-                        END IF;
+      WHEN op_EXIT   =>
+         paddr <= r.tor(paddr'range);
+         pop_rstack;
+
+      WHEN op_IRET   =>
+         paddr <= r.tor(paddr'range);
+         pop_rstack;
+         pop_stack;
+         r_in.status <= r.tos(r.status'range);
+         r_in.status(s_ie) <= r.status(s_ie); -- this way interrupts can be permanently disabled by an interrupt
+         IF  r.tos(s_lit) = '1'  THEN
+            r_in.status(s_neg)  <= r.tos(s_neg);
+            r_in.status(s_zero) <= r.tos(s_zero);
+         END IF;
 
       WHEN op_PAUSE => call_trap;
 
@@ -947,13 +1007,14 @@ BEGIN
 
       WHEN op_DATA  => call_trap;
 
-      WHEN op_NZEXIT => IF  EXTENDED  THEN
-                           pop_stack;
-                           IF  tos_zero = '0'  THEN
-                              paddr <= r.tor(paddr'range);
-                              pop_rstack;
-                           END IF;
-                        END IF;
+      WHEN op_NZEXIT =>
+      IF  with_NZEXIT  THEN
+         pop_stack;
+         IF  tos_zero = '0'  THEN
+            paddr <= r.tor(paddr'range);
+            pop_rstack;
+         END IF;
+      END IF;
 
 -- ---------------------------------------------------------------------
 -- unary arithmetic
@@ -965,376 +1026,409 @@ BEGIN
 
       WHEN op_ZLESS => r_in.tos <= (OTHERS => r.tos(r.tos'high));
 
-      WHEN op_SRC   => -- shift right through carry
-                       IF  NOT WITH_MULT  THEN
-                          r_in.tos <= r.status(s_c) & r.tos(r.tos'high DOWNTO 1);
-                          r_in.status(s_c) <= r.tos(0);
-                       END IF;
+      WHEN op_SRC   =>
+      IF  NOT WITH_MULT  THEN
+      -- shift right through carry
+         r_in.tos <= r.status(s_c) & r.tos(r.tos'high DOWNTO 1);
+         r_in.status(s_c) <= r.tos(0);
+      END IF;
 
-      WHEN op_SLC   => -- shift left through carry
-                       IF  NOT WITH_MULT  THEN
-                          r_in.tos <= r.tos(r.tos'high-1 DOWNTO 0) & r.status(s_c);
-                          r_in.status(s_c) <= r.tos(r.tos'high);
-                       END IF;
+      WHEN op_SLC   =>
+      IF  NOT WITH_MULT  THEN
+      -- shift left through carry
+         r_in.tos <= r.tos(r.tos'high-1 DOWNTO 0) & r.status(s_c);
+         r_in.status(s_c) <= r.tos(r.tos'high);
+      END IF;
 
-      WHEN op_MSHIFT => IF  WITH_MULT  THEN
-                          multiplicand <= '0' & r.nos;
-                          multiplier   <= '0' & tos_power2;
-                          IF  r.tos(r.tos'high) = '0'  THEN   -- shift left
-                             r_in.tos <= product(data_width*2-1 DOWNTO data_width);
-                             r_in.nos <= product(r.nos'range);
-                             r_in.status(s_c) <= product(data_width);
-                             IF  r.tos = data_width  THEN
-                                r_in.tos <= r.nos;
-                                r_in.nos <= (OTHERS => '0');
-                                r_in.status(s_c) <= r.nos(0);
-                             END IF;
-                          ELSE                                -- shift right
-                             r_in.tos <= product(r.tos'range);
-                             r_in.nos <= product(data_width*2-1 DOWNTO data_width);
-                             r_in.status(s_c) <= product(data_width-1);
-                             IF  signed(r.tos) = -data_width  THEN
-                                r_in.tos <= r.nos;
-                                r_in.nos <= (OTHERS => '0');
-                                r_in.status(s_c) <= r.nos(r.nos'high);
-                             END IF;
-                          END IF;
--- without_mult: code for shift
-                       ELSIF  tos_zero = '1'  THEN
-                          pop_stack;
-                          r_in.tos <= r.nos;
-                          r_in.status(s_c) <= '0';
-                       ELSE -- r.tos /= 0
-                          IF  r.tos(r.tos'high) = '0'  THEN -- shift left
-                             IF  r.tos = 1  THEN
-                                pop_stack;
-                                r_in.tos <= r.nos(r.nos'high-1 DOWNTO 0) & '0';
-                                r_in.status(s_c) <= r.nos(r.nos'high);
-                             ELSE
-                                r_in.nos <= r.nos(r.nos'high-1 DOWNTO 0) & '0';
-                                r_in.tos <= r.tos - 1;
-                                paddr <= prog_addr;
-                             END IF;
-                          ELSE                              -- shift right
-                             IF  signed(r.tos) = -1  THEN
-                                pop_stack;
-                                r_in.tos <= '0' & r.nos(r.nos'high DOWNTO 1);
-                                r_in.status(s_c) <= r.nos(0);
-                             ELSE
-                                r_in.nos <= '0' & r.nos(r.nos'high DOWNTO 1);
-                                r_in.tos <= r.tos + 1;
-                                paddr <= prog_addr;
-                             END IF;
-                          END IF;
-                       END IF;
+      WHEN op_MSHIFT =>
+      IF  WITH_MULT  THEN
+         multiplicand <= '0' & r.nos;
+         multiplier   <= '0' & tos_power2;
+         IF  r.tos(r.tos'high) = '0'  THEN
+            -- shift left
+            r_in.tos <= product(data_width*2-1 DOWNTO data_width);
+            r_in.nos <= product(r.nos'range);
+            r_in.status(s_c) <= product(data_width);
+            IF  r.tos = data_width  THEN
+               r_in.tos <= r.nos;
+               r_in.nos <= (OTHERS => '0');
+               r_in.status(s_c) <= r.nos(0);
+            END IF;
+         ELSE
+            -- shift right
+            r_in.tos <= product(r.tos'range);
+            r_in.nos <= product(data_width*2-1 DOWNTO data_width);
+            r_in.status(s_c) <= product(data_width-1);
+            IF  signed(r.tos) = -data_width  THEN
+               r_in.tos <= r.nos;
+               r_in.nos <= (OTHERS => '0');
+               r_in.status(s_c) <= r.nos(r.nos'high);
+            END IF;
+         END IF;
+      -- without_mult: code for shift
+      ELSIF  tos_zero = '1'  THEN
+         pop_stack;
+         r_in.tos <= r.nos;
+         r_in.status(s_c) <= '0';
+      ELSE -- r.tos /= 0
+         IF  r.tos(r.tos'high) = '0'  THEN
+            -- shift left
+            IF  r.tos = 1  THEN
+               pop_stack;
+               r_in.tos <= r.nos(r.nos'high-1 DOWNTO 0) & '0';
+               r_in.status(s_c) <= r.nos(r.nos'high);
+            ELSE
+               r_in.nos <= r.nos(r.nos'high-1 DOWNTO 0) & '0';
+               r_in.tos <= r.tos - 1;
+               paddr <= prog_addr;
+            END IF;
+         ELSE
+            -- shift right
+            IF  signed(r.tos) = -1  THEN
+               pop_stack;
+               r_in.tos <= '0' & r.nos(r.nos'high DOWNTO 1);
+               r_in.status(s_c) <= r.nos(0);
+            ELSE
+               r_in.nos <= '0' & r.nos(r.nos'high DOWNTO 1);
+               r_in.tos <= r.tos + 1;
+               paddr <= prog_addr;
+            END IF;
+         END IF;
+      END IF;
 
-      WHEN op_MASHIFT => IF  WITH_MULT  THEN
-                          multiplicand <= r.nos(r.nos'high) & r.nos;
-                          multiplier   <= '0' & tos_power2;
-                          IF  r.tos(r.tos'high) = '0'  THEN   -- shift left
-                             r_in.tos <= product(data_width*2-1 DOWNTO data_width);
-                             r_in.nos <= product(r.nos'range);
-                             r_in.status(s_c) <= product(data_width);
-                             IF  r.tos = data_width  THEN
-                                r_in.tos <= r.nos;
-                                r_in.nos <= (OTHERS => '0');
-                                r_in.status(s_c) <= r.nos(0);
-                             END IF;
-                          ELSE                                -- shift right
-                             r_in.tos <= product(r.tos'range);
-                             r_in.nos <= product(data_width*2-1 DOWNTO data_width);
-                             r_in.status(s_c) <= product(data_width-1);
-                             IF  signed(r.tos) = -data_width  THEN
-                                r_in.tos <= r.nos;
-                                r_in.nos <= (OTHERS => '0');
-                                r_in.status(s_c) <= r.nos(r.nos'high);
-                             END IF;
-                          END IF;
--- without_mult: code for ashift
-                       ELSIF  tos_zero = '1'  THEN
-                          pop_stack;
-                          r_in.tos <= r.nos;
-                          r_in.status(s_c) <= '0';
-                       ELSE -- r.tos /= 0
-                          IF  r.tos(r.tos'high) = '0'  THEN -- shift left
-                             IF  r.tos = 1  THEN
-                                pop_stack;
-                                r_in.tos <= r.nos(r.nos'high-1 DOWNTO 0) & '0';
-                                r_in.status(s_c) <= r.nos(r.nos'high);
-                             ELSE
-                                r_in.nos <= r.nos(r.nos'high-1 DOWNTO 0) & '0';
-                                r_in.tos <= r.tos - 1;
-                                paddr <= prog_addr;
-                             END IF;
-                          ELSE                              -- shift right
-                             IF  signed(r.tos) = -1  THEN
-                                pop_stack;
-                                r_in.tos <= r.nos(r.nos'high) & r.nos(r.nos'high DOWNTO 1);
-                                r_in.status(s_c) <= r.nos(0);
-                             ELSE
-                                r_in.nos <= r.nos(r.nos'high) & r.nos(r.nos'high DOWNTO 1);
-                                r_in.tos <= r.tos + 1;
-                                paddr <= prog_addr;
-                             END IF;
-                          END IF;
-                       END IF;
+      WHEN op_MASHIFT =>
+      IF  WITH_MULT  THEN
+         multiplicand <= r.nos(r.nos'high) & r.nos;
+         multiplier   <= '0' & tos_power2;
+         IF  r.tos(r.tos'high) = '0'  THEN
+         -- shift left
+            r_in.tos <= product(data_width*2-1 DOWNTO data_width);
+            r_in.nos <= product(r.nos'range);
+            r_in.status(s_c) <= product(data_width);
+            IF  r.tos = data_width  THEN
+               r_in.tos <= r.nos;
+               r_in.nos <= (OTHERS => '0');
+               r_in.status(s_c) <= r.nos(0);
+            END IF;
+         ELSE -- shift right
+            r_in.tos <= product(r.tos'range);
+            r_in.nos <= product(data_width*2-1 DOWNTO data_width);
+            r_in.status(s_c) <= product(data_width-1);
+            IF  signed(r.tos) = -data_width  THEN
+               r_in.tos <= r.nos;
+               r_in.nos <= (OTHERS => '0');
+               r_in.status(s_c) <= r.nos(r.nos'high);
+            END IF;
+         END IF;
+      -- without_mult: code for ashift
+      ELSIF  tos_zero = '1'  THEN
+         pop_stack;
+         r_in.tos <= r.nos;
+         r_in.status(s_c) <= '0';
+      ELSE -- r.tos /= 0
+         IF  r.tos(r.tos'high) = '0'  THEN
+            -- shift left
+            IF  r.tos = 1  THEN
+               pop_stack;
+               r_in.tos <= r.nos(r.nos'high-1 DOWNTO 0) & '0';
+               r_in.status(s_c) <= r.nos(r.nos'high);
+            ELSE
+               r_in.nos <= r.nos(r.nos'high-1 DOWNTO 0) & '0';
+               r_in.tos <= r.tos - 1;
+               paddr <= prog_addr;
+            END IF;
+         ELSE
+            -- shift right
+            IF  signed(r.tos) = -1  THEN
+               pop_stack;
+               r_in.tos <= r.nos(r.nos'high) & r.nos(r.nos'high DOWNTO 1);
+               r_in.status(s_c) <= r.nos(0);
+            ELSE
+               r_in.nos <= r.nos(r.nos'high) & r.nos(r.nos'high DOWNTO 1);
+               r_in.tos <= r.tos + 1;
+               paddr <= prog_addr;
+            END IF;
+         END IF;
+      END IF;
 
 -- ---------------------------------------------------------------------
 -- binary arithmetic
 -- ---------------------------------------------------------------------
 
-      WHEN op_ADD  => pop_stack;
-                      add_x <= r.tos;
-                      add_y <= r.nos;
-                      cin <= '0';
-                      r_in.tos <= sum;
-                      r_in.status(s_c) <= add_carry;
-                      r_in.status(s_ovfl) <= add_ovfl;
+      WHEN op_ADD  =>
+         pop_stack;
+         add_x <= r.tos;
+         add_y <= r.nos;
+         cin <= '0';
+         r_in.tos <= sum;
+         r_in.status(s_c) <= add_carry;
+         r_in.status(s_ovfl) <= add_ovfl;
 
-      WHEN op_ADC  => pop_stack;
-                      add_x <= r.tos;
-                      add_y <= r.nos;
-                      cin <= r.status(s_c);
-                      r_in.tos <= sum;
-                      r_in.status(s_c) <= add_carry;
-                      r_in.status(s_ovfl) <= add_ovfl;
+      WHEN op_ADC  =>
+         pop_stack;
+         add_x <= r.tos;
+         add_y <= r.nos;
+         cin <= r.status(s_c);
+         r_in.tos <= sum;
+         r_in.status(s_c) <= add_carry;
+         r_in.status(s_ovfl) <= add_ovfl;
 
-      WHEN op_SUB  => pop_stack;
-                      add_x <= NOT r.tos;
-                      cin <= '1';
-                      add_y <= r.nos;
-                      r_in.tos <= sum;
-                      r_in.status(s_c) <= add_carry;
-                      r_in.status(s_ovfl) <= add_ovfl;
+      WHEN op_SUB  =>
+         pop_stack;
+         add_x <= NOT r.tos;
+         cin <= '1';
+         add_y <= r.nos;
+         r_in.tos <= sum;
+         r_in.status(s_c) <= add_carry;
+         r_in.status(s_ovfl) <= add_ovfl;
 
-      WHEN op_SSUB => pop_stack;
-                      add_x <= r.tos;
-                      add_y <= NOT r.nos;
-                      cin <= '1';
-                      r_in.tos <= sum;
-                      r_in.status(s_c) <= add_carry;
-                      r_in.status(s_ovfl) <= (add_carry XOR add_sign) AND NOT(ladd_x(r.tos'high) XOR ladd_y(r.tos'high)) AND NOT tos_zero;
+      WHEN op_SSUB =>
+         pop_stack;
+         add_x <= r.tos;
+         add_y <= NOT r.nos;
+         cin <= '1';
+         r_in.tos <= sum;
+         r_in.status(s_c) <= add_carry;
+         r_in.status(s_ovfl) <= (add_carry XOR add_sign) AND NOT(ladd_x(r.tos'high) XOR ladd_y(r.tos'high)) AND NOT tos_zero;
 
-      WHEN op_AND  => pop_stack;
-                      r_in.tos <= r.tos AND r.nos;
+      WHEN op_AND  =>
+         pop_stack;
+         r_in.tos <= r.tos AND r.nos;
 
-      WHEN op_OR   => pop_stack;
-                      r_in.tos <= r.tos OR  r.nos;
+      WHEN op_OR   =>
+         pop_stack;
+         r_in.tos <= r.tos OR  r.nos;
 
-      WHEN op_XOR  => pop_stack;
-                      r_in.tos <= r.tos XOR r.nos;
+      WHEN op_XOR  =>
+         pop_stack;
+         r_in.tos <= r.tos XOR r.nos;
 
-      WHEN op_ADDSAT => IF  EXTENDED  THEN
-                         pop_stack;
-                         add_x <= r.tos;
-                         add_y <= r.nos;
-                         cin <= '0';
-                         r_in.status(s_c) <= add_carry;
-                         r_in.status(s_ovfl) <= add_ovfl;
-                         IF  add_ovfl = '1'  THEN
-                            r_in.tos <= NOT sum(sum'high) & slice(sum(sum'high), data_width-1);
-                         ELSE
-                            r_in.tos <= sum;
-                         END IF;
-                      END IF;
+      WHEN op_ADDSAT =>
+      IF  with_ADDSAT  THEN
+         pop_stack;
+         add_x <= r.tos;
+         add_y <= r.nos;
+         cin <= '0';
+         r_in.status(s_c) <= add_carry;
+         r_in.status(s_ovfl) <= add_ovfl;
+         IF  add_ovfl = '1'  THEN
+            r_in.tos <= NOT sum(sum'high) & slice(sum(sum'high), data_width-1);
+         ELSE
+            r_in.tos <= sum;
+         END IF;
+      END IF;
 
-      WHEN op_PADD => IF  EXTENDED  THEN
-                         push_stack;
-                         add_x <= r.tos;
-                         add_y <= r.nos;
-                         cin <= '0';
-                         r_in.tos <= sum;
-                         r_in.status(s_c) <= add_carry;
-                         r_in.status(s_ovfl) <= add_ovfl;
-                      END IF;
+      WHEN op_PADD =>
+      IF  with_PADD THEN
+         push_stack;
+         add_x <= r.tos;
+         add_y <= r.nos;
+         cin <= '0';
+         r_in.tos <= sum;
+         r_in.status(s_c) <= add_carry;
+         r_in.status(s_ovfl) <= add_ovfl;
+      END IF;
 
-      WHEN op_PADC => IF  EXTENDED  THEN
-                         push_stack;
-                         add_x <= r.tos;
-                         add_y <= r.nos;
-                         cin <= r.status(s_c);
-                         r_in.tos <= sum;
-                         r_in.status(s_c) <= add_carry;
-                         r_in.status(s_ovfl) <= add_ovfl;
-                      END IF;
+      WHEN op_PADC =>
+      IF  with_PADC  THEN
+         push_stack;
+         add_x <= r.tos;
+         add_y <= r.nos;
+         cin <= r.status(s_c);
+         r_in.tos <= sum;
+         r_in.status(s_c) <= add_carry;
+         r_in.status(s_ovfl) <= add_ovfl;
+      END IF;
 
-      WHEN op_PSUB => IF  EXTENDED  THEN
-                         push_stack;
-                         add_x <= NOT r.tos;
-                         add_y <= r.nos;
-                         r_in.tos <= sum;
-                         cin <= '1';
-                         r_in.status(s_c) <= add_carry;
-                         r_in.status(s_ovfl) <= add_ovfl;
-                      END IF;
+      WHEN op_PSUB =>
+      IF  with_PSUB  THEN
+         push_stack;
+         add_x <= NOT r.tos;
+         add_y <= r.nos;
+         r_in.tos <= sum;
+         cin <= '1';
+         r_in.status(s_c) <= add_carry;
+         r_in.status(s_ovfl) <= add_ovfl;
+      END IF;
 
-      WHEN op_PSSUB=> IF  EXTENDED  THEN
-                         push_stack;
-                         add_x <= r.tos;
-                         add_y <= NOT r.nos;
-                         cin <= '1';
-                         r_in.tos <= sum;
-                         r_in.status(s_c) <= add_carry;
-                         r_in.status(s_ovfl) <= (add_carry XOR add_sign) AND NOT(ladd_x(r.tos'high) XOR ladd_y(r.tos'high)) AND NOT tos_zero;
-                      END IF;
+      WHEN op_PSSUB=>
+      IF  with_PSUB  THEN
+         push_stack;
+         add_x <= r.tos;
+         add_y <= NOT r.nos;
+         cin <= '1';
+         r_in.tos <= sum;
+         r_in.status(s_c) <= add_carry;
+         r_in.status(s_ovfl) <= (add_carry XOR add_sign) AND NOT(ladd_x(r.tos'high) XOR ladd_y(r.tos'high)) AND NOT tos_zero;
+      END IF;
 
-      WHEN op_PAND => IF  EXTENDED  THEN
-                         push_stack;
-                         r_in.tos <= r.tos AND r.nos;
-                      END IF;
+      WHEN op_PAND =>
+      IF  with_PAND  THEN
+         push_stack;
+         r_in.tos <= r.tos AND r.nos;
+      END IF;
 
-      WHEN op_POR  => IF  EXTENDED  THEN
-                         push_stack;
-                         r_in.tos <= r.tos OR  r.nos;
-                      END IF;
+      WHEN op_POR  =>
+      IF  with_POR  THEN
+         push_stack;
+         r_in.tos <= r.tos OR  r.nos;
+      END IF;
 
-      WHEN op_PXOR => IF  EXTENDED  THEN
-                         push_stack;
-                         r_in.tos <= r.tos XOR r.nos;
-                      END IF;
+      WHEN op_PXOR =>
+      IF  with_PXOR  THEN
+         push_stack;
+         r_in.tos <= r.tos XOR r.nos;
+      END IF;
 
 -- ---------------------------------------------------------------------
 -- complex arithmetic
 -- ---------------------------------------------------------------------
 
-      WHEN op_UMULT => -- unsigned multiply, step instruction when mult-hardware not available
-                       IF  WITH_MULT  THEN
-                          multiplicand <= '0' & r.nos;
-                          multiplier   <= '0' & r.tos;
-                          r_in.tos <= product(data_width*2-1 DOWNTO data_width);
-                          r_in.nos <= product(r.nos'range);
-                       ELSE -- multiply step instruction
-                          add_x <= r.tos(r.tos'high-1 DOWNTO 0) & '0';
-                          add_y <= ds_rdata;
-                          IF  add_carry = '1' AND r.nos(r.nos'high) = '1'  THEN
-                             r_in.nos <= (r.nos(r.nos'high-1 DOWNTO 0) & r.tos(r.tos'high)) + 1;
-                          ELSE
-                             r_in.nos <=  r.nos(r.nos'high-1 DOWNTO 0) & r.tos(r.tos'high);
-                          END IF;
-                          IF  r.nos(r.nos'high) = '0'  THEN
-                             r_in.tos <= r.tos(r.tos'high-1 DOWNTO 0) & '0';
-                          ELSE
-                             r_in.tos <= sum;
-                          END IF;
-                       END IF;
+      WHEN op_UMULT =>
+      IF  WITH_MULT  THEN
+      -- unsigned multiply, step instruction when mult-hardware not available
+         multiplicand <= '0' & r.nos;
+         multiplier   <= '0' & r.tos;
+         r_in.tos <= product(data_width*2-1 DOWNTO data_width);
+         r_in.nos <= product(r.nos'range);
+      ELSE                                 -- multiply step instruction
+         add_x <= r.tos(r.tos'high-1 DOWNTO 0) & '0';
+         add_y <= ds_rdata;
+         IF  add_carry = '1' AND r.nos(r.nos'high) = '1'  THEN
+            r_in.nos <= (r.nos(r.nos'high-1 DOWNTO 0) & r.tos(r.tos'high)) + 1;
+         ELSE
+            r_in.nos <=  r.nos(r.nos'high-1 DOWNTO 0) & r.tos(r.tos'high);
+         END IF;
+         IF  r.nos(r.nos'high) = '0'  THEN
+            r_in.tos <= r.tos(r.tos'high-1 DOWNTO 0) & '0';
+         ELSE
+            r_in.tos <= sum;
+         END IF;
+      END IF;
 
-      WHEN op_MULTL => -- half precision final multiply step setting overflow
-                       pop_stack;
-                       IF    (tos_zero = '1' AND r.nos(r.nos'high) = '0')
-                          OR (signed(r.tos) = -1 AND r.nos(r.nos'high) = '1')
-                       THEN
-                          r_in.status(s_ovfl) <= '0';
-                       ELSE
-                          r_in.status(s_ovfl) <= '1';
-                       END IF;
+      WHEN op_MULTL =>
+      -- half precision final multiply step setting overflow
+         pop_stack;
+         IF    (tos_zero = '1' AND r.nos(r.nos'high) = '0')
+            OR (signed(r.tos) = -1 AND r.nos(r.nos'high) = '1')
+         THEN
+            r_in.status(s_ovfl) <= '0';
+         ELSE
+            r_in.status(s_ovfl) <= '1';
+         END IF;
 
-      WHEN op_SMULT => -- signed multiply when mult-hardware available
-                       IF  WITH_MULT  THEN
-                          multiplicand <= r.nos(r.nos'high) & r.nos;
-                          multiplier <= r.tos(r.tos'high) & r.tos;
-                          r_in.tos <= product(data_width*2-1 DOWNTO data_width);
-                          r_in.nos <= product(r.nos'range);
-                       END IF;
+      WHEN op_SMULT =>
+      IF  WITH_MULT  THEN
+      -- signed multiply when mult-hardware available
+         multiplicand <= r.nos(r.nos'high) & r.nos;
+         multiplier <= r.tos(r.tos'high) & r.tos;
+         r_in.tos <= product(data_width*2-1 DOWNTO data_width);
+         r_in.nos <= product(r.nos'range);
+      END IF;
 
-      WHEN op_DIV   => -- signed and unsigned division step, once for every bit
-                       ladd_x <= r.status(s_c) & r.tos;
-                       ladd_y <= NOT('0' & ds_rdata);
-                       cin <= '1';  -- sum = remainder - divisor
-                       r_in.nos <= r.nos(r.nos'high-1 DOWNTO 0) & div_carry;
-                       IF  div_carry = '1'  THEN
-                          r_in.tos <= sum(r.tos'high-1 DOWNTO 0) & r.nos(r.nos'high);
-                          r_in.status(s_c) <= sum(r.tos'high);
-                       ELSE
-                          r_in.tos <= r.tos(r.tos'high-1 DOWNTO 0) & r.nos(r.nos'high);
-                          r_in.status(s_c) <= r.tos(r.tos'high);
-                       END IF;
-                       r_in.status(s_ovfl) <= NOT (div_carry XOR div_sign) OR r.status(s_ovfl);
+      WHEN op_DIV   =>
+      -- signed and unsigned division step, once for every bit
+         ladd_x <= r.status(s_c) & r.tos;
+         ladd_y <= NOT('0' & ds_rdata);
+         cin <= '1';  -- sum = remainder - divisor
+         r_in.nos <= r.nos(r.nos'high-1 DOWNTO 0) & div_carry;
+         IF  div_carry = '1'  THEN
+            r_in.tos <= sum(r.tos'high-1 DOWNTO 0) & r.nos(r.nos'high);
+            r_in.status(s_c) <= sum(r.tos'high);
+         ELSE
+            r_in.tos <= r.tos(r.tos'high-1 DOWNTO 0) & r.nos(r.nos'high);
+            r_in.status(s_c) <= r.tos(r.tos'high);
+         END IF;
+         r_in.status(s_ovfl) <= NOT (div_carry XOR div_sign) OR r.status(s_ovfl);
 
-      WHEN op_UDIVS => -- first unsigned division step
-                       r_in.tos <= r.nos;    -- dividend_high -> tos
-                       r_in.nos <= ds_rdata; -- dividend_low -> nos
-                       ds_wdata <= r.tos;    -- divisor -> ds_rdata
-                       ds_wr <= '1';
-                       r_in.status(s_ovfl) <= '0';
-                       r_in.status(s_c) <= '0';
-                       IF  tos_zero = '1'  THEN
-                          IF  ds_rdata = 0 AND nos_zero = '1'  THEN  -- special case: 0 / 0 = zero, no overflow
-                             ds_wdata(0) <= '1';
-                          ELSE
-                             r_in.status(s_ovfl) <= '1';
-                          END IF;
-                       END IF;
+      WHEN op_UDIVS =>
+      -- first unsigned division step
+         r_in.tos <= r.nos;    -- dividend_high -> tos
+         r_in.nos <= ds_rdata; -- dividend_low -> nos
+         ds_wdata <= r.tos;    -- divisor -> ds_rdata
+         ds_wr <= '1';
+         r_in.status(s_ovfl) <= '0';
+         r_in.status(s_c) <= '0';
+         IF  tos_zero = '1'  THEN
+            IF  ds_rdata = 0 AND nos_zero = '1'  THEN  -- special case: 0 / 0 = zero, no overflow
+               ds_wdata(0) <= '1';
+            ELSE
+               r_in.status(s_ovfl) <= '1';
+            END IF;
+         END IF;
 
-      WHEN op_UDIVL => -- last unsigned division step
-                       pop_stack;
-                       ladd_x <= r.status(s_c) & r.tos;
-                       ladd_y <= NOT('0' & ds_rdata);
-                       cin <= '1';  -- sum = remainder - divisor
-                       IF  div_carry = '1'  THEN
-                          r_in.nos <= sum;
-                       ELSE
-                          r_in.nos <= r.tos;
-                       END IF;
-                       r_in.tos <= r.nos(r.nos'high-1 DOWNTO 0) & div_carry;
-                       r_in.status(s_ovfl) <= r.nos(r.nos'high) OR r.status(s_ovfl);
+      WHEN op_UDIVL =>
+      -- last unsigned division step
+         pop_stack;
+         ladd_x <= r.status(s_c) & r.tos;
+         ladd_y <= NOT('0' & ds_rdata);
+         cin <= '1';  -- sum = remainder - divisor
+         IF  div_carry = '1'  THEN
+            r_in.nos <= sum;
+         ELSE
+            r_in.nos <= r.tos;
+         END IF;
+         r_in.tos <= r.nos(r.nos'high-1 DOWNTO 0) & div_carry;
+         r_in.status(s_ovfl) <= r.nos(r.nos'high) OR r.status(s_ovfl);
 
-      WHEN op_SDIVS => -- first signed division step with signed divisor
-                       -- ( dividend.low dividend.high divisor -- divisor dividend.low dividend.high )
-                       -- dup >r   abs >r   dup 0< IF  r@ +  THEN  r> um/mod    \ 'r@ +' is wrong if the sum produces a div_sign bit
-                       -- r@ 0< IF  negate over IF  swap r@ + swap 1-  THEN THEN  rdrop
-                       IF  EXTENDED  THEN
-                          add_x <= unsigned(abs(signed(r.tos)));
-                          add_y <= r.nos;
-                          cin <= '0';
-                          IF  r.nos(r.nos'high) = '0'  THEN          -- positive dividend?
-                             r_in.tos <= r.nos;                      -- dividend_high -> TOS
-                          ELSE
-                             r_in.tos <= sum;                        -- dividend_high with pre-distortion on negative
-                          END IF;                                    --    divisor to produce a sign bit in the result
-                          r_in.nos <= ds_rdata;                      -- dividend_low -> NOS
-                          ds_wdata <= unsigned(abs(signed(r.tos)));  -- |divisor| -> ds_wdata
-                          ds_wr <= '1';
-                          r_in.status(s_c) <= '0';
-                          r_in.status(s_ovfl) <= '0';
-                          r_in.status(s_div) <= r.tos(r.tos'high);
-                          r_in.status(s_den) <= r.nos(r.nos'high);
-                       END IF;
+      WHEN op_SDIVS => IF  with_SDIV  THEN
+      -- first signed division step with signed divisor
+      -- ( dividend.low dividend.high divisor -- divisor dividend.low dividend.high )
+      -- dup >r   abs >r   dup 0< IF  r@ +  THEN  r> um/mod    \ 'r@ +' is wrong if the sum produces a div_sign bit
+      -- r@ 0< IF  negate over IF  swap r@ + swap 1-  THEN THEN  rdrop
+         add_x <= unsigned(abs(signed(r.tos)));
+         add_y <= r.nos;
+         cin <= '0';
+         IF  r.nos(r.nos'high) = '0'  THEN          -- positive dividend?
+            r_in.tos <= r.nos;                      -- dividend_high -> TOS
+         ELSE
+            r_in.tos <= sum;                        -- dividend_high with pre-distortion on negative
+         END IF;                                    --    divisor to produce a sign bit in the result
+         r_in.nos <= ds_rdata;                      -- dividend_low -> NOS
+         ds_wdata <= unsigned(abs(signed(r.tos)));  -- |divisor| -> ds_wdata
+         ds_wr <= '1';
+         r_in.status(s_c) <= '0';
+         r_in.status(s_ovfl) <= '0';
+         r_in.status(s_div) <= r.tos(r.tos'high);
+         r_in.status(s_den) <= r.nos(r.nos'high);
+      END IF;
 
-      WHEN op_SDIVL => -- last signed division step with signed divisor
-                       -- dup >r   abs >r   dup 0< IF  r@ +  THEN  r> um/mod
-                       -- r@ 0< IF  negate over IF  swap r@ + swap 1-  THEN THEN  rdrop
-                       -- IN  TOS: remainder NOS: quotient 3rd: abs(divisor)
-                       -- OUT TOS: quotient  NOS: remainder
-                       IF  EXTENDED  THEN
-                          pop_stack;
-                          ladd_x <= r.status(s_c) & r.tos;
-                          ladd_y <= NOT('0' & ds_rdata);
-                          cin <= '1';                                -- 2's complement's '+1'
-                          IF  div_carry = '1'  THEN
-                             temp := sum;                            -- sum = remainder - divisor
-                          ELSE
-                             temp := r.tos;                          -- dividend_high, now remainder
-                          END IF;
-                          r_in.nos <= temp;
-                          r_in.tos <= r.nos(r.nos'high-1 DOWNTO 0) & div_carry;
-                          IF  r.status(s_div) = '1'  THEN
-                             r_in.tos <= NOT (r.nos(r.nos'high-1 DOWNTO 0) & div_carry) + 1; -- 2s complement
-                             IF  temp /= 0  THEN
-                                r_in.tos <= NOT (r.nos(r.tos'high-1 DOWNTO 0) & div_carry);
-                                r_in.nos <= temp - ds_rdata;
-                             END IF;
-                          END IF;
-                          -- evaluate overflow status flag
-                          IF    ((r_in.tos(r.tos'high) XOR r.status(s_div) XOR r.status(s_den)) = '1'
-                                 AND (tos_zero = '0' OR nos_zero = '0')
-                                )
-                             OR (r.status(s_den) = '1' AND tos_zero = '1' AND nos_zero = '1')
-                             OR (r.nos(r.nos'high) = '1')
-                             OR (r.status(s_ovfl) = '1')
-                          THEN
-                             r_in.status(s_ovfl) <= '1';
-                          END IF;
-                       END IF;
+      WHEN op_SDIVL =>
+      IF  with_SDIV  THEN
+      -- last signed division step with signed divisor
+      -- dup >r   abs >r   dup 0< IF  r@ +  THEN  r> um/mod
+      -- r@ 0< IF  negate over IF  swap r@ + swap 1-  THEN THEN  rdrop
+      -- IN  TOS: remainder NOS: quotient 3rd: abs(divisor)
+      -- OUT TOS: quotient  NOS: remainder
+         pop_stack;
+         ladd_x <= r.status(s_c) & r.tos;
+         ladd_y <= NOT('0' & ds_rdata);
+         cin <= '1';                                -- 2's complement's '+1'
+         IF  div_carry = '1'  THEN
+            temp := sum;                            -- sum = remainder - divisor
+         ELSE
+            temp := r.tos;                          -- dividend_high, now remainder
+         END IF;
+         r_in.nos <= temp;
+         r_in.tos <= r.nos(r.nos'high-1 DOWNTO 0) & div_carry;
+         IF  r.status(s_div) = '1'  THEN
+            r_in.tos <= NOT (r.nos(r.nos'high-1 DOWNTO 0) & div_carry) + 1; -- 2s complement
+            IF  temp /= 0  THEN
+               r_in.tos <= NOT (r.nos(r.tos'high-1 DOWNTO 0) & div_carry);
+               r_in.nos <= temp - ds_rdata;
+            END IF;
+         END IF;
+         -- evaluate overflow status flag
+         IF    ((r_in.tos(r.tos'high) XOR r.status(s_div) XOR r.status(s_den)) = '1'
+                AND (tos_zero = '0' OR nos_zero = '0')
+               )
+            OR (r.status(s_den) = '1' AND tos_zero = '1' AND nos_zero = '1')
+            OR (r.nos(r.nos'high) = '1')
+            OR (r.status(s_ovfl) = '1')
+         THEN
+            r_in.status(s_ovfl) <= '1';
+         END IF;
+      END IF;
 
 -- : sqrt    ( u -- urem uroot )
 --    0 tuck   data_width 2/
@@ -1345,75 +1439,83 @@ BEGIN
 -- ;
 -- op_SQRTS       Op: sqrts   ( complex )        don't
 --             Macro: uroot   ( u -- rem root )   ?comp 0 lit, T tuck H data_width 2/ 0 DO T sqrts H LOOP T nip swap H ;
-      WHEN op_SQRTS => -- square root 2bits step
-                       -- root accumulated in ds_wdata
-                       -- square decimated in NOS
-                       -- remainder in TOS
-                       IF  EXTENDED  THEN
-                          add_x <= r.tos(data_width-3 DOWNTO 0) & r.nos(data_width-1 DOWNTO data_width-2);
-                          add_y <= NOT (ds_rdata(data_width-3 DOWNTO 0) & "01"); -- 2s complement subtract
-                          cin <= '1';
-                          IF  sum(data_width-1) = '1'  THEN
-                             r_in.tos <= r.tos(data_width-3 DOWNTO 0) & r.nos(data_width-1 DOWNTO data_width-2);
-                             ds_wdata <= ds_rdata(data_width-2 DOWNTO 0) & '0';
-                          ELSE
-                             r_in.tos <= sum;
-                             ds_wdata <= ds_rdata(data_width-2 DOWNTO 0) & '1';
-                          END IF;
-                          r_in.nos <= r.nos(data_width-3 DOWNTO 0) & "00";
-                          ds_wr <= core_en;
-                       END IF;
+      WHEN op_SQRTS =>
+      IF  with_SQRT  THEN
+      -- square root 2bits step
+      -- root accumulated in ds_wdata
+      -- square decimated in NOS
+      -- remainder in TOS
+         add_x <= r.tos(data_width-3 DOWNTO 0) & r.nos(data_width-1 DOWNTO data_width-2);
+         add_y <= NOT (ds_rdata(data_width-3 DOWNTO 0) & "01"); -- 2s complement subtract
+         cin <= '1';
+         IF  sum(data_width-1) = '1'  THEN
+            r_in.tos <= r.tos(data_width-3 DOWNTO 0) & r.nos(data_width-1 DOWNTO data_width-2);
+            ds_wdata <= ds_rdata(data_width-2 DOWNTO 0) & '0';
+         ELSE
+            r_in.tos <= sum;
+            ds_wdata <= ds_rdata(data_width-2 DOWNTO 0) & '1';
+         END IF;
+         r_in.nos <= r.nos(data_width-3 DOWNTO 0) & "00";
+         ds_wr <= core_en;
+      END IF;
 
-      WHEN op_SQRT0 => -- square root step for the first step of odd data_width designs
-                       -- root accumulated in ds_wdata
-                       -- square decimated in NOS
-                       -- remainder in TOS
-                       IF  EXTENDED AND to_unsigned(data_width, 8)(0) = '1' THEN
-                          add_x <= r.tos(data_width-2 DOWNTO 0) & r.nos(data_width-1);
-                          add_y <= NOT (ds_rdata(data_width-2 DOWNTO 0) & "1"); -- 2s complement subtract
-                          cin <= '1';
-                          IF  sum(data_width-1) = '1'  THEN
-                             r_in.tos <= r.tos(data_width-2 DOWNTO 0) & r.nos(data_width-1);
-                             ds_wdata <= ds_rdata(data_width-2 DOWNTO 0) & '0';
-                          ELSE
-                             r_in.tos <= sum;
-                             ds_wdata <= ds_rdata(data_width-2 DOWNTO 0) & '1';
-                          END IF;
-                          r_in.nos <= r.nos(data_width-2 DOWNTO 0) & '0';
-                          ds_wr <= core_en;
-                       END IF;
+      WHEN op_SQRT0 =>
+      IF  with_SQRT AND to_unsigned(data_width, 8)(0) = '1' THEN
+      -- square root step for the first step of odd data_width designs
+      -- root accumulated in ds_wdata
+      -- square decimated in NOS
+      -- remainder in TOS
+         add_x <= r.tos(data_width-2 DOWNTO 0) & r.nos(data_width-1);
+         add_y <= NOT (ds_rdata(data_width-2 DOWNTO 0) & "1"); -- 2s complement subtract
+         cin <= '1';
+         IF  sum(data_width-1) = '1'  THEN
+            r_in.tos <= r.tos(data_width-2 DOWNTO 0) & r.nos(data_width-1);
+            ds_wdata <= ds_rdata(data_width-2 DOWNTO 0) & '0';
+         ELSE
+            r_in.tos <= sum;
+            ds_wdata <= ds_rdata(data_width-2 DOWNTO 0) & '1';
+         END IF;
+         r_in.nos <= r.nos(data_width-2 DOWNTO 0) & '0';
+         ds_wr <= core_en;
+      END IF;
 
 -- ---------------------------------------------------------------------
--- flags
+-- status and user defined flags
 -- ---------------------------------------------------------------------
 
-      WHEN op_OVFLQ  => push_stack;
-                        r_in.tos <= (OTHERS => r.status(s_ovfl));
+      WHEN op_OVFLQ  =>
+         push_stack;
+         r_in.tos <= (OTHERS => r.status(s_ovfl));
 
-      WHEN op_CARRYQ => push_stack;
-                        r_in.tos <= (OTHERS => r.status(s_c));
+      WHEN op_CARRYQ =>
+         push_stack;
+         r_in.tos <= (OTHERS => r.status(s_c));
 
-      WHEN op_TIMEQ => add_x <= r.tos;
-                       add_y <= NOT time;
-                       cin <= '0';
-                       r_in.tos <= (OTHERS => add_sign);
+      WHEN op_TIMEQ =>
+         add_x <= r.tos;
+         add_y <= NOT time;
+         cin <= '0';
+         r_in.tos <= (OTHERS => add_sign);
 
-      WHEN op_LESS  => pop_stack;
-                       add_x <= NOT r.tos;
-                       add_y <= r.nos;
-                       r_in.tos <= sum;
-                       cin <= '1';
-                       r_in.status(s_c) <= add_carry;
-                       r_in.status(s_ovfl) <= add_ovfl;
-                       r_in.tos <= (OTHERS => (add_ovfl XOR sum(sum'high)));
+      WHEN op_LESS  =>
+      -- the primitive for <
+         pop_stack;
+         add_x <= NOT r.tos;
+         add_y <= r.nos;
+         r_in.tos <= sum;
+         cin <= '1';
+         r_in.status(s_c) <= add_carry;
+         r_in.status(s_ovfl) <= add_ovfl;
+         r_in.tos <= (OTHERS => (add_ovfl XOR sum(sum'high)));
 
-      WHEN op_FLAGQ  => IF  EXTENDED  THEN
-                           IF  (flags AND r.tos(flag_width-1 DOWNTO 0)) = 0  THEN
-                              r_in.tos <= (OTHERS => '0');
-                           ELSE
-                              r_in.tos <= (OTHERS => '1');
-                           END IF;
-                        END IF;
+      WHEN op_FLAGQ  =>
+      IF  with_FLAGQ  THEN
+         IF  (flags AND r.tos(flag_width-1 DOWNTO 0)) = 0  THEN
+            r_in.tos <= (OTHERS => '0');
+         ELSE
+            r_in.tos <= (OTHERS => '1');
+         END IF;
+      END IF;
 
 -- ---------------------------------------------------------------------
 -- floating point
@@ -1424,16 +1526,17 @@ BEGIN
 --    swap 2*    IF  1+   EXIT THEN   \ > 0.5
 --    dup 1 and +                     \ = 0.5, round to even
 -- ;
-      WHEN op_FMULT => -- fractional signed multiply with standard rounding towards even for .5
-                       IF  WITH_FLOAT AND WITH_MULT  THEN
-                          pop_stack;
-                          multiplicand <= r.nos(r.nos'high) & r.nos;
-                          multiplier <= '0' & r.tos;
-                          r_in.tos <= product(data_width*2-1 DOWNTO data_width);
-                          IF  product(data_width-1) = '1' AND (product(data_width-2 DOWNTO 0) /= 0  OR  product(data_width) = '1')  THEN  -- round 0.5 to even
-                             r_in.tos <= product(data_width*2-1 DOWNTO data_width) + 1;
-                          END IF;
-                       END IF;
+      WHEN op_FMULT =>
+      IF  WITH_MULT AND (WITH_fmult OR WITH_FLOAT)  THEN
+      -- fractional signed multiply with standard rounding towards even for .5
+         pop_stack;
+         multiplicand <= r.nos(r.nos'high) & r.nos;
+         multiplier <= '0' & r.tos;
+         r_in.tos <= product(data_width*2-1 DOWNTO data_width);
+         IF  product(data_width-1) = '1' AND (product(data_width-2 DOWNTO 0) /= 0  OR  product(data_width) = '1')  THEN  -- round 0.5 to even
+            r_in.tos <= product(data_width*2-1 DOWNTO data_width) + 1;
+         END IF;
+      END IF;
 
 -- : log2 ( frac -- log2[frac] )   \ Bit-wise Logarithm (K.Schleisiek/U.Lange)
 --    #delta_width 0 ?DO  2*  LOOP
@@ -1445,29 +1548,30 @@ BEGIN
 -- ;
 -- op_LOGS        Op: log2s   ( u  0  -- u' ld ) don't
 --             Macro: ulog    ( u -- ld )        ?comp 0 lit, data_width 0 DO T log2s H LOOP T nip H ;
-      WHEN op_LOGS  => -- log2 bit step
-                       IF  WITH_FLOAT AND WITH_MULT  THEN
-                          multiplicand <= '0' & r.nos;
-                          multiplier   <= '0' & r.nos;              -- nos ** 2
-                          IF  product(data_width*2-1) = '0'  THEN   -- then shift nos left
-                             temp := product(data_width*2-2 DOWNTO data_width-1);
-                             r_in.nos <= temp;
-                             IF  product(data_width-2) = '1'  THEN  -- >= 0.5?
-                                IF  product(data_width-3 DOWNTO 0) /= 0 OR product(data_width-1) = '1'  THEN
-                                   r_in.nos <= temp + 1;            -- round towards even
-                                END IF;
-                             END IF;
-                          ELSE -- product(data_width*2-1) = '1'     -- don't shift nos
-                             temp := product(data_width*2-1 DOWNTO data_width);
-                             r_in.nos <= temp;
-                             IF  product(data_width-1) = '1'  THEN  -- >= 0.5?
-                                IF  product(data_width-2 DOWNTO 0) /= 0 OR product(data_width) = '1'  THEN
-                                   r_in.nos <= temp + 1;            -- round towards even
-                                END IF;
-                             END IF;
-                          END IF;
-                          r_in.tos <= r.tos(data_width-2 DOWNTO 0) & product(data_width*2-1);
-                       END IF;
+      WHEN op_LOGS  =>
+      IF  WITH_MULT AND (with_LOGS OR WITH_FLOAT)  THEN
+      -- log2 bit step
+         multiplicand <= '0' & r.nos;
+         multiplier   <= '0' & r.nos;              -- nos ** 2
+         IF  product(data_width*2-1) = '0'  THEN   -- then shift nos left
+            temp := product(data_width*2-2 DOWNTO data_width-1);
+            r_in.nos <= temp;
+            IF  product(data_width-2) = '1'  THEN  -- >= 0.5?
+               IF  product(data_width-3 DOWNTO 0) /= 0 OR product(data_width-1) = '1'  THEN
+                  r_in.nos <= temp + 1;            -- round towards even
+               END IF;
+            END IF;
+         ELSE -- product(data_width*2-1) = '1'     -- don't shift nos
+            temp := product(data_width*2-1 DOWNTO data_width);
+            r_in.nos <= temp;
+            IF  product(data_width-1) = '1'  THEN  -- >= 0.5?
+               IF  product(data_width-2 DOWNTO 0) /= 0 OR product(data_width) = '1'  THEN
+                  r_in.nos <= temp + 1;            -- round towards even
+               END IF;
+            END IF;
+         END IF;
+         r_in.tos <= r.tos(data_width-2 DOWNTO 0) & product(data_width*2-1);
+      END IF;
 
 -- : normalized?  ( m -- f )   dup #signbit and swap #signbit u2/ and 2* xor ;
 -- : normalize    ( m e -- m' e' )
@@ -1478,23 +1582,24 @@ BEGIN
 --    UNTIL
 -- ;
 -- op_NORM is an interruptible, multi-cycle instruction. The number of cycles depends on the mantissa argument
-      WHEN op_NORM  => -- normalize a 2s-complement matissa (NOS)/exponent(TOS) number pair on the stack
-                       IF  WITH_FLOAT  THEN
-                          IF  nos_zero = '1'  THEN
-                             r_in.tos <= exp_min; -- minimal exponent
-                          ELSIF  r.nos(data_width-1) /= r.nos(data_width-2) OR r.tos = exp_min  THEN     -- already properly formatted or minimum exponent reached
-                             NULL;
-                          ELSE
-                             r_in.tos <= r.tos - 1;
-                             r_in.nos <= r.nos(r.nos'high-1 DOWNTO 0) & '0';
-                             IF  r.nos(data_width-1) /= r.nos(data_width-3)
-                                OR (r.tos - 1) = exp_min  THEN -- finished?
-                                NULL;
-                             ELSE
-                                paddr <= prog_addr; -- repeat instruction
-                             END IF;
-                          END IF;
-                       END IF;
+      WHEN op_NORM  =>
+      IF  WITH_FLOAT  THEN
+      -- normalize a 2s-complement matissa (NOS)/exponent(TOS) number pair on the stack
+         IF  nos_zero = '1'  THEN
+            r_in.tos <= exp_min; -- minimal exponent
+         ELSIF  r.nos(data_width-1) /= r.nos(data_width-2) OR r.tos = exp_min  THEN     -- already properly formatted or minimum exponent reached
+            NULL;
+         ELSE
+            r_in.tos <= r.tos - 1;
+            r_in.nos <= r.nos(r.nos'high-1 DOWNTO 0) & '0';
+            IF  r.nos(data_width-1) /= r.nos(data_width-3)
+               OR (r.tos - 1) = exp_min  THEN -- finished?
+               NULL;
+            ELSE
+               paddr <= prog_addr; -- repeat instruction
+            END IF;
+         END IF;
+      END IF;
 
 -- : >float  ( m e -- r )   overflow off   underflow off
 --    normalize   swap #man_mask and swap
@@ -1511,39 +1616,40 @@ BEGIN
 --    dup 2* [ #signbit not #exp_mask not and ] Literal and
 --    swap 0< IF  #signbit or  THEN  or
 -- ;
-      WHEN op_FLOAT => -- convert 2s-complement mantissa(NOS)/exponent(TOS) pair to floating point number
-                       IF  WITH_FLOAT  THEN
-                          r_in.status(s_ovfl) <= '0';
-                          r_in.status(s_unfl) <= '0';
-                          pop_stack;
-                          IF  r.nos = zero_pos OR (r.nos = zero_neg AND r.tos = exp_min)  THEN
-                             r_in.tos <= r.nos(data_width-1 DOWNTO exp_width) & slice('0', exp_width);             -- leave floating +/-zero. For +zero irrespective of exponent
-                          -- exponent within range?
-                          ELSIF  signed(r.tos(data_width-1 DOWNTO exp_width-1)) = -1
-                                OR r.tos(data_width-1 DOWNTO exp_width-1) = 0
-                             THEN
-                             IF  r.tos = exp_min   THEN                                                            -- minimum exponent?
-                                r_in.tos <= r.nos(data_width-1 DOWNTO exp_width) & slice('0', exp_width);          -- denormalized number
-                             ELSE
-                                r_in.tos <= r.nos(data_width-1) & r.nos(data_width-3 DOWNTO exp_width-1) & fexp;   -- normalized number
-                             END IF;
-                          -- exponent out of range
-                          ELSIF  r.tos(data_width-1) = '0'  THEN  -- positiv exponent?
-                             r_in.status(s_ovfl) <= '1';
-                             IF  r.nos(data_width-1) = '0'  THEN  -- positiv mantissa?
-                                r_in.tos <= fmax_pos;
-                             ELSE
-                                r_in.tos <= fmax_neg;
-                             END IF;
-                          ELSE                                    -- negative exponent
-                             r_in.status(s_unfl) <= '1';
-                             IF  r.nos(data_width-1) = '0'  THEN  -- positiv mantissa?
-                                r_in.tos <= zero_pos;
-                             ELSE
-                                r_in.tos <= zero_neg;
-                             END IF;
-                          END IF;
-                       END IF;
+      WHEN op_FLOAT =>
+      IF  WITH_FLOAT  THEN
+      -- convert 2s-complement mantissa(NOS)/exponent(TOS) pair to floating point number
+         r_in.status(s_ovfl) <= '0';
+         r_in.status(s_unfl) <= '0';
+         pop_stack;
+         IF  r.nos = zero_pos OR (r.nos = zero_neg AND r.tos = exp_min)  THEN
+            r_in.tos <= r.nos(data_width-1 DOWNTO exp_width) & slice('0', exp_width);             -- leave floating +/-zero. For +zero irrespective of exponent
+         -- exponent within range?
+         ELSIF  signed(r.tos(data_width-1 DOWNTO exp_width-1)) = -1
+               OR r.tos(data_width-1 DOWNTO exp_width-1) = 0
+            THEN
+            IF  r.tos = exp_min   THEN                                                            -- minimum exponent?
+               r_in.tos <= r.nos(data_width-1 DOWNTO exp_width) & slice('0', exp_width);          -- denormalized number
+            ELSE
+               r_in.tos <= r.nos(data_width-1) & r.nos(data_width-3 DOWNTO exp_width-1) & fexp;   -- normalized number
+            END IF;
+         -- exponent out of range
+         ELSIF  r.tos(data_width-1) = '0'  THEN  -- positiv exponent?
+            r_in.status(s_ovfl) <= '1';
+            IF  r.nos(data_width-1) = '0'  THEN  -- positiv mantissa?
+               r_in.tos <= fmax_pos;
+            ELSE
+               r_in.tos <= fmax_neg;
+            END IF;
+         ELSE                                    -- negative exponent
+            r_in.status(s_unfl) <= '1';
+            IF  r.nos(data_width-1) = '0'  THEN  -- positiv mantissa?
+               r_in.tos <= zero_pos;
+            ELSE
+               r_in.tos <= zero_neg;
+            END IF;
+         END IF;
+      END IF;
 
 -- : float>  ( r -- m e )
 --    dup #exp_mask and   ?dup 0= IF  #exp_min  EXIT THEN                                \ de-normalized
@@ -1552,26 +1658,29 @@ BEGIN
 --         ELSE  #man_mask   and u2/ [ #signbit #exp_sign or u2/         ] Literal or    \ add 0.5 for better rounding
 --         THEN  swap
 -- ;
-      WHEN op_INTEG => -- convert floating point number to 2s-complement mantissa(NOS)/exponent(TOS) pair
-                       IF  WITH_FLOAT  THEN
-                          push_stack;
-                          r_in.tos <= slice(fexp(fexp'high), data_width - exp_width) & fexp;
-                          IF  r.tos(exp_width-1 DOWNTO 0) = 0  THEN  -- de-normalized or zero
-                             r_in.nos <= r.tos;
-                          ELSIF  r.tos(data_width-1) = '0'  THEN
-                             r_in.nos <= "01" & r.tos(data_width-2 DOWNTO exp_width) & '1' & slice('0', exp_width-2);  -- add 0.5 for rounding
-                          ELSE
-                             r_in.nos <= "10" & r.tos(data_width-2 DOWNTO exp_width) & '0' & slice('1', exp_width-2);  -- add 0.5 for rounding
-                          END IF;
-                       END IF;
+      WHEN op_INTEG =>
+      IF  WITH_FLOAT  THEN
+      -- convert floating point number to 2s-complement mantissa(NOS)/exponent(TOS) pair
+         push_stack;
+         r_in.tos <= slice(fexp(fexp'high), data_width - exp_width) & fexp;
+         IF  r.tos(exp_width-1 DOWNTO 0) = 0  THEN  -- de-normalized or zero
+            r_in.nos <= r.tos;
+         ELSIF  r.tos(data_width-1) = '0'  THEN
+            r_in.nos <= "01" & r.tos(data_width-2 DOWNTO exp_width) & '1' & slice('0', exp_width-2);  -- add 0.5 for rounding
+         ELSE
+            r_in.nos <= "10" & r.tos(data_width-2 DOWNTO exp_width) & '0' & slice('1', exp_width-2);  -- add 0.5 for rounding
+         END IF;
+      END IF;
 
 -- ---------------------------------------------------------------------
 -- user trap instructions of otherwise unused opcodes
 -- ---------------------------------------------------------------------
 
-      WHEN OTHERS   => IF  instruction(6 DOWNTO 5) = op_USR(6 DOWNTO 5)  THEN
-                          call_trap;
-                       END IF;
+      WHEN OTHERS   =>
+         IF  instruction(6 DOWNTO 5) = op_USR(6 DOWNTO 5)  THEN
+            call_trap;
+         END IF;
+
       END CASE;
 
    END IF;

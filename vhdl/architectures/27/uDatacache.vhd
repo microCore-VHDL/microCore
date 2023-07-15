@@ -2,7 +2,7 @@
 -- @file : uDatacache_cell.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 01.11.2022 19:01:28
+-- Last change: KS 15.07.2023 12:03:14
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -69,7 +69,7 @@ enable <= clk_en AND mem_en;
 make_sim_mem: IF  SIMULATION  GENERATE
 
    internal_data_mem: internal_dpram
-   GENERIC MAP (data_width, cache_size, "rw_check", DMEM_file)
+   GENERIC MAP (data_width, cache_size, "no_rw_check", DMEM_file)
    PORT MAP (
       clk     => clk,
       ena     => enable,
@@ -89,7 +89,7 @@ END GENERATE make_sim_mem; make_syn_mem: IF  NOT SIMULATION  GENERATE
 -- instantiate FPGA specific IP for cell addressed memory here:
 
    internal_data_mem: internal_dpram
-   GENERIC MAP (data_width, cache_size, "rw_check")
+   GENERIC MAP (data_width, cache_size, "no_rw_check")
    PORT MAP (
       clk     => clk,
       ena     => enable,

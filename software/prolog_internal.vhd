@@ -11,7 +11,7 @@ ENTITY internal_program IS PORT (
    clk   : IN    STD_LOGIC;
    en    : IN    STD_LOGIC;
    we    : IN    STD_LOGIC;
-   addr  : IN    prog_addr;
+   addr  : IN    program_addr;
    di    : IN    inst_bus;
    do    : OUT   inst_bus
 );

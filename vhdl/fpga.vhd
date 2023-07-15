@@ -2,7 +2,7 @@
 -- @file : fpga.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 31.10.2022 19:11:44
+-- Last change: KS 15.07.2023 19:34:54
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -146,7 +146,7 @@ clk_en <= '1' WHEN  delay = '0' AND cycle_ctr = 0  ELSE '0';
 
 reset_a <= NOT reset_n;
 synch_reset: synchronize PORT MAP(clk, reset_a, reset_s);
-reset <= reset_a OR reset_s;
+reset <= reset_a OR reset_s; -- this is an instantaneous and metastable safe reset
 
 synch_dsu_rxd:   synchronize   PORT MAP(clk, dsu_rxd, dsu_rxd_s);
 synch_interrupt: synchronize_n PORT MAP(clk, int_n,   flags(i_ext));
@@ -280,7 +280,7 @@ memaddr_proc : PROCESS (clk)
 BEGIN
    IF  rising_edge(clk)  THEN
       IF  (clk_en AND core.mem_en) = '1'  THEN
-         cache_addr <= memory.addr; -- state of the internal blockRAM address register for simulation
+         cache_addr <= memory.addr; -- state of the internal blockRAM address register while simulating
       END IF;
 END IF;
 END PROCESS memaddr_proc;

@@ -2,7 +2,7 @@
 -- @file : architecture_pkg_12.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 10.11.2022 16:29:48
+-- Last change: KS 15.07.2023 19:50:33
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -37,7 +37,7 @@ USE work.functions_pkg.ALL;
 PACKAGE architecture_pkg IS
 --~--  \ when loaded by the microForth cross-compiler, code between "--~" up to "--~--" will be skipped.
 
-CONSTANT version            : NATURAL := 2410; -- <major_release> <functionality_added> <HW_fix> <SW_fix> <pre-release#>
+CONSTANT version            : NATURAL := 2500; -- <major_release> <functionality_added> <HW_fix> <SW_fix> <pre-release#>
 
 -- ---------------------------------------------------------------------
 -- Configuration flags
@@ -45,12 +45,11 @@ CONSTANT version            : NATURAL := 2410; -- <major_release> <functionality
 -- ASYNC_RESET is defined in functions_pkg.vhd, because that is the first file to load
 -- CONSTANT ASYNC_RESET     : BOOLEAN := false; -- true = async reset, false = synchronous reset
 
-CONSTANT SIMULATION         : BOOLEAN := false ; -- will e.g. increase the frequency of timers to make them observable in simulation
-CONSTANT COLDBOOT           : BOOLEAN := false ; -- cold boot on reset when true, else warmboot
-CONSTANT EXTENDED           : BOOLEAN := true  ; -- false -> core instruction set, true -> extended instruction set
-CONSTANT WITH_MULT          : BOOLEAN := true  ; -- true when FPGA has hardware multiply resources
-CONSTANT WITH_FLOAT         : BOOLEAN := false ; -- floating point instructions?
-CONSTANT WITH_UP_DOWNLOAD   : BOOLEAN := false ; -- up/download via umbilical?
+CONSTANT SIMULATION         : BOOLEAN := false; -- will e.g. increase the frequency of timers to make them observable in simulation
+CONSTANT COLDBOOT           : BOOLEAN := false; -- cold boot on reset when true, else warmboot
+CONSTANT WITH_MULT          : BOOLEAN := true ; -- true when FPGA has hardware multiply resources
+CONSTANT WITH_FLOAT         : BOOLEAN := false; -- floating point instructions?
+CONSTANT WITH_UP_DOWNLOAD   : BOOLEAN := true ; -- up/download via umbilical?
 
 -- ---------------------------------------------------------------------
 -- Hardware definitions
@@ -74,19 +73,19 @@ CONSTANT DMEM_file          : string  := ""; -- ../software/data.mem";
 CONSTANT data_width         : NATURAL := 12; -- data bus width
 CONSTANT exp_width          : NATURAL :=  8; -- floating point exponent width
 
-CONSTANT data_addr_width    : NATURAL := 12; -- data memory address width, cell sized, large enough for cache and external data memory
-CONSTANT cache_addr_width   : NATURAL := 12; -- data cache memory address width, cell sized
-CONSTANT cache_size         : NATURAL := 16#1000#;  -- number of cells.
+CONSTANT data_addr_width    : NATURAL := 12; -- data memory cell address width, for cache and external data memory
+CONSTANT cache_addr_width   : NATURAL := 12; -- data cache memory cell address width
+CONSTANT cache_size         : NATURAL := 16#1000#; -- number of cells.
 CONSTANT byte_addr_width    : NATURAL :=  0; -- least significant bits used for byte adressed data memory. 0 => no byte adressing.
 --~
 CONSTANT addr_extern        : NATURAL := 2 ** cache_addr_width; -- start address of external memory
 CONSTANT WITH_EXTMEM        : BOOLEAN := data_addr_width /= cache_addr_width;
 --~--
 CONSTANT ram_data_width     : NATURAL :=  8; -- external memory word width
+CONSTANT ram_addr_width     : NATURAL := 12; -- external memory, virtually data_width wide
 --~
 CONSTANT ram_chunks         : NATURAL := ceiling(data_width, ram_data_width);
 CONSTANT ram_subbits        : NATURAL := log2(ram_chunks);
-CONSTANT ram_addr_width     : NATURAL := 12 + ram_subbits; -- external memory, virtually data_width wide
 --~--
 -- ---------------------------------------------------------------------
 -- program memory parameters:
@@ -105,8 +104,8 @@ CONSTANT trap_width         : NATURAL :=  3; -- each vector has room for 2**trap
 
 CONSTANT tasks_addr_width   : NATURAL :=  3; -- 2**tasks_addr_width copies of the stack areas will be provided
 CONSTANT ds_addr_width      : NATURAL :=  7; -- data stack pointer width, cell address
-CONSTANT rs_addr_width      : NATURAL :=  7; -- return stack pointer, cell address
-CONSTANT addr_rstack        : NATURAL := 16#C00#; -- beginning of the return stack, cell size, must be a multiple of 2**rsp_width
+CONSTANT rs_addr_width      : NATURAL :=  7; -- return stack pointer cell address width
+CONSTANT addr_rstack        : NATURAL := 16#C00#; -- cell size beginning of the return stack, must be a multiple of 2**rsp_width
 --~
 CONSTANT addr_rstack_v      : UNSIGNED(data_width-1 DOWNTO 0) := to_unsigned(addr_rstack, data_width);
 CONSTANT dsp_width          : NATURAL := ds_addr_width + tasks_addr_width;
@@ -174,6 +173,7 @@ SUBTYPE byte                IS UNSIGNED ( 7 DOWNTO 0);
 SUBTYPE word                IS UNSIGNED (15 DOWNTO 0);
 SUBTYPE data_bus            IS UNSIGNED (data_width-1 DOWNTO 0);
 SUBTYPE data_addr           IS UNSIGNED (data_addr_width-1 DOWNTO 0);
+SUBTYPE ram_data_bus        IS UNSIGNED (ram_data_width-1 DOWNTO 0);
 SUBTYPE byte_addr           IS UNSIGNED (bytes_per_cell-1 DOWNTO 0);
 SUBTYPE byte_type           IS NATURAL RANGE 0 TO bytes_per_cell-1;
 SUBTYPE cache_addr          IS UNSIGNED (cache_addr_width-1 DOWNTO 0);
@@ -307,7 +307,7 @@ COMPONENT semaphor PORT (
 --  0   00 noop       -0 drop          +0 dup           00 not
 --  1   00 rot        -0 branch                         00 0=
 --  2                 -0 z-branch                       00 0<
---  3   00 swap                        +0 over          00 time?
+--  3   00 swap       -0 +loop         +0 over          00 time?
 --  4                 -0 less          +0 ovfl?         00 flag?
 --  5                 -0 st-set        +0 carry?        00 norm
 --  6   00 PRG2NOS    -? nz-exit
@@ -328,8 +328,8 @@ COMPONENT semaphor PORT (
 --  1   00 MEM2TOR    -0 pST           +0 pLD
 --  2   00 MEM2TOS    -0 cST           +0 cLD           00 c@
 --  3   00 MEM2NOS    -0 float         +0 integ
---  4   00 LOCAL      -0 PLUSST2       +0 index         0- rdrop
---  5                 -0 wST           +0 wLD           0- exit
+--  4   00 LOCAL      -0 PLUSST2       +0 index         0- di]
+--  5   0+ [di        -0 wST           +0 wLD           0- exit
 --  6   -+ call                                         -- iret
 --  7   -+ >r                          +0 r@            +- r>
 -- ---------------------------------------------------------------------
@@ -344,6 +344,25 @@ COMPONENT semaphor PORT (
 --  7
 -- ---------------------------------------------------------------------
 --~--
+CONSTANT with_INDEX  : BOOLEAN := true ; -- I
+CONSTANT with_PLOOP  : BOOLEAN := true ; -- +loop
+CONSTANT with_FETCH  : BOOLEAN := true ; -- @
+CONSTANT with_CFETCH : BOOLEAN := false; -- c@
+CONSTANT with_PLUSST : BOOLEAN := false; -- +!
+CONSTANT with_NZEXIT : BOOLEAN := false; -- ?EXIT
+CONSTANT with_ADDSAT : BOOLEAN := false; -- +sat
+CONSTANT with_PADD   : BOOLEAN := false; -- 2dup +
+CONSTANT with_PADC   : BOOLEAN := false; -- 2dup +c
+CONSTANT with_PSUB   : BOOLEAN := false; -- 2dup -
+CONSTANT with_PAND   : BOOLEAN := false; -- 2dup and
+CONSTANT with_POR    : BOOLEAN := false; -- 2dup or
+CONSTANT with_PXOR   : BOOLEAN := false; -- 2dup xor
+CONSTANT with_SDIV   : BOOLEAN := false; -- m/mod    not yet tested in coretest
+CONSTANT with_SQRT   : BOOLEAN := false; -- sqrt
+CONSTANT with_FLAGQ  : BOOLEAN := false; -- flag?
+CONSTANT with_LOGS   : BOOLEAN := false; -- log2
+CONSTANT with_FMULT  : BOOLEAN := false; -- *.
+
 -- BRA NONE
 CONSTANT op_NOOP     : byte := "00000000";
 CONSTANT op_ROT      : byte := "00000001";
@@ -352,16 +371,16 @@ CONSTANT op_SWAP     : byte := "00000011";
 
 
 CONSTANT op_PRG2NOS  : byte := "00000110"; -- program memory load
-CONSTANT op_SUM2TOS  : byte := "00000111"; -- Extended instruction set
+CONSTANT op_SUM2TOS  : byte := "00000111";
 
 -- BRA POP
 CONSTANT op_DROP     : byte := "00001000";
 CONSTANT op_BRANCH   : byte := "00001001";
 CONSTANT op_QBRANCH  : byte := "00001010";
-
+CONSTANT op_PLOOP    : byte := "00001011";
 CONSTANT op_LESS     : byte := "00001100";
 CONSTANT op_STSET    : byte := "00001101";
-CONSTANT op_NZEXIT   : byte := "00001110"; -- Extended instruction set
+CONSTANT op_NZEXIT   : byte := "00001110";
 CONSTANT op_NEXT     : byte := "00001111";
 
 -- BRA PUSH
@@ -379,7 +398,7 @@ CONSTANT op_NOT      : byte := "00011000";
 CONSTANT op_ZEQU     : byte := "00011001";
 CONSTANT op_ZLESS    : byte := "00011010";
 CONSTANT op_TIMEQ    : byte := "00011011";
-CONSTANT op_FLAGQ    : byte := "00011100"; -- Extended instruction set
+CONSTANT op_FLAGQ    : byte := "00011100";
 CONSTANT op_NORM     : byte := "00011101"; -- WITH_FLOAT
 
 
@@ -389,10 +408,10 @@ CONSTANT op_MSHIFT   : byte := "00100000";
 CONSTANT op_MASHIFT  : byte := "00100001";
 CONSTANT op_SRC      : byte := "00100010"; -- WITHOUT_MULT: shift right through carry
 CONSTANT op_SLC      : byte := "00100011"; -- WITHOUT_MULT: shift left through carry
-CONSTANT op_SDIVL    : byte := "00100100"; -- Extended instruction set
+CONSTANT op_SDIVL    : byte := "00100100";
 CONSTANT op_UDIVL    : byte := "00100101";
 CONSTANT op_MULTL    : byte := "00100110";
-CONSTANT op_FMULT    : byte := "00100111"; -- WITH_MULT and WITH_FLOAT
+CONSTANT op_FMULT    : byte := "00100111"; -- WITH_MULT and (WITH_FLOAT or with_FMULT)
 
 -- ALU POP
 CONSTANT op_ADD      : byte := "00101000";
@@ -402,35 +421,35 @@ CONSTANT op_SSUB     : byte := "00101011";
 CONSTANT op_AND      : byte := "00101100";
 CONSTANT op_OR       : byte := "00101101";
 CONSTANT op_XOR      : byte := "00101110";
-CONSTANT op_ADDSAT   : byte := "00101111"; -- Extended instruction set
+CONSTANT op_ADDSAT   : byte := "00101111";
 
 -- ALU PUSH
-CONSTANT op_PADD     : byte := "00110000"; -- Extended instruction set
-CONSTANT op_PADC     : byte := "00110001"; -- Extended instruction set
-CONSTANT op_PSUB     : byte := "00110010"; -- Extended instruction set
-CONSTANT op_PSSUB    : byte := "00110011"; -- Extended instruction set
-CONSTANT op_PAND     : byte := "00110100"; -- Extended instruction set
-CONSTANT op_POR      : byte := "00110101"; -- Extended instruction set
-CONSTANT op_PXOR     : byte := "00110110"; -- Extended instruction set
+CONSTANT op_PADD     : byte := "00110000";
+CONSTANT op_PADC     : byte := "00110001";
+CONSTANT op_PSUB     : byte := "00110010";
+CONSTANT op_PSSUB    : byte := "00110011";
+CONSTANT op_PAND     : byte := "00110100";
+CONSTANT op_POR      : byte := "00110101";
+CONSTANT op_PXOR     : byte := "00110110";
 
 
 -- ALU BOTH
 CONSTANT op_UMULT    : byte := "00111000";
 CONSTANT op_SMULT    : byte := "00111001"; -- WITH_MULT
 CONSTANT op_DIV      : byte := "00111010";
-CONSTANT op_SDIVS    : byte := "00111011"; -- Extended instruction set
+CONSTANT op_SDIVS    : byte := "00111011";
 CONSTANT op_UDIVS    : byte := "00111100";
-CONSTANT op_LOGS     : byte := "00111101"; -- WITH_FLOAT and WITH_MULT
-CONSTANT op_SQRTS    : byte := "00111110"; -- Extended instruction set
-CONSTANT op_SQRT0    : byte := "00111111"; -- Extended instruction set
+CONSTANT op_LOGS     : byte := "00111101"; -- WITH_MULT and (WITH_FLOAT or with_LOGS)
+CONSTANT op_SQRTS    : byte := "00111110";
+CONSTANT op_SQRT0    : byte := "00111111";
 
 -- MEM NONE
-CONSTANT op_PLUSST   : byte := "01000000"; -- Extended instruction set
+CONSTANT op_PLUSST   : byte := "01000000";
 CONSTANT op_MEM2TOR  : byte := "01000001";
-CONSTANT op_MEM2TOS  : byte := "01000010"; -- Extended instruction set
+CONSTANT op_MEM2TOS  : byte := "01000010";
 CONSTANT op_MEM2NOS  : byte := "01000011";
 CONSTANT op_LOCAL    : byte := "01000100";
-
+CONSTANT op_DIPUSH   : byte := "01000101";
 CONSTANT op_CALL     : byte := "01000110";
 CONSTANT op_RPUSH    : byte := "01000111";
 
@@ -439,7 +458,7 @@ CONSTANT op_STORE    : byte := "01001000";
 CONSTANT op_PSTORE   : byte := "01001001"; -- program memory store
 CONSTANT op_CSTORE   : byte := "01001010"; -- byte_addr_width /= 0
 CONSTANT op_FLOAT    : byte := "01001011"; -- WITH_FLOAT
-CONSTANT op_PLUSST2  : byte := "01001100"; -- Extended instruction set
+CONSTANT op_PLUSST2  : byte := "01001100";
 CONSTANT op_WSTORE   : byte := "01001101";
 
 
@@ -449,17 +468,17 @@ CONSTANT op_LOAD     : byte := "01010000";
 CONSTANT op_PLOAD    : byte := "01010001"; -- program memory load
 CONSTANT op_CLOAD    : byte := "01010010"; -- byte_addr_width /= 0
 CONSTANT op_INTEG    : byte := "01010011"; -- WITH_FLOAT
-CONSTANT op_INDEX    : byte := "01010100"; -- Extended instruction set
+CONSTANT op_INDEX    : byte := "01010100";
 CONSTANT op_WLOAD    : byte := "01010101";
 
 CONSTANT op_RTOR     : byte := "01010111";
 
 -- MEM BOTH
-CONSTANT op_FETCH    : byte := "01011000"; -- Extended instruction set
+CONSTANT op_FETCH    : byte := "01011000"; -- with_FETCH
 
-CONSTANT op_CFETCH   : byte := "01011010"; -- byte_addr_width /= 0
+CONSTANT op_CFETCH   : byte := "01011010"; -- with_CFETCH and byte_addr_width /= 0
 
-CONSTANT op_RDROP    : byte := "01011100"; -- Extended instruction set
+CONSTANT op_DIPOP    : byte := "01011100";
 CONSTANT op_EXIT     : byte := "01011101";
 CONSTANT op_IRET     : byte := "01011110";
 CONSTANT op_RPOP     : byte := "01011111";

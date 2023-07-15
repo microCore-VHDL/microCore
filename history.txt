@@ -1,4 +1,17 @@
 ************************************************************************
+*** uCore 2.500  15-Jul-2023 ks
+************************************************************************
+
+Developments back-annotated, which first appeared on the Cyclone IV proto-
+typing board EP4CE6_V_1.310.
+
+Compiler switch EXTENDED has been deleted. Instead, explicit single
+instructions can be activated setting with_CCCC := true. A list of these
+switches is located after the instruction set table.
+
+Three new instructions added: [di, di], and (+löop.
+
+************************************************************************
 *** uCore 2.410  10-Nov-2022 ks
 ************************************************************************
 

@@ -2,7 +2,7 @@
 \ @file : library.fs
 \ ----------------------------------------------------------------------
 \
-\ Last change: KS 03.08.2022 18:05:44
+\ Last change: KS 12.07.2023 20:25:52
 \ @project: microForth/microCore
 \ @language: gforth_0.6.2
 \ @copyright (c): Free Software Foundation
@@ -194,10 +194,28 @@ Predefined definitions Forth
 ' or                 Alias or
 
 ' SIMULATION         Alias SIMULATION     \ simulating?
-' EXTENDED           Alias EXTENDED       \ extended instruction set?
 ' WITH_MULT          Alias WITH_MULT      \ hardware multiply available?
 ' WITH_FLOAT         Alias WITH_FLOAT
 ' WITH_UP_DOWNLOAD   Alias WITH_UP_DOWNLOAD
+' with_INDEX         Alias with_INDEX
+' with_PLOOP         Alias with_PLOOP
+' with_FETCH         Alias with_FETCH
+' with_CFETCH        Alias with_CFETCH
+' with_PLUSST        Alias with_PLUSST
+' with_NZEXIT        Alias with_NZEXIT
+' with_ADDSAT        Alias with_ADDSAT
+' with_PADD          Alias with_PADD
+' with_PADC          Alias with_PADC
+' with_PSUB          Alias with_PSUB
+' with_PAND          Alias with_PADC
+' with_POR           Alias with_POR
+' with_PXOR          Alias with_PXOR
+' with_SDIV          Alias with_SDIV
+' with_SQRT          Alias with_SQRT
+' with_FLAGQ         Alias with_FLAGQ
+' with_LOGS          Alias with_LOGS
+' with_FMULT         Alias with_FMULT
+
 byte_addr_width 0<>  Constant WITH_BYTES
 data_width 1 and 0<> Constant ODD_DATA_WIDTH
 

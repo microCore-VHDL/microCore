@@ -1,5 +1,5 @@
 \ 
-\ Last change: KS 02.10.2022 16:32:02
+\ Last change: KS 10.05.2023 21:41:20
 \
 \ MicroCore load screen for simulating the host <-> target synchronization.
 \ Constant handshake has to be set to '1' in bench.vhd.
@@ -21,6 +21,7 @@ Target new                      \ go into target compilation mode and initialize
           0 data-origin
 
 include constants.fs            \ microCore Register addresses and bits
+library forth_lib.fs
 
 Variable extern
 

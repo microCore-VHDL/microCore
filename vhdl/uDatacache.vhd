@@ -66,7 +66,7 @@ BEGIN
 
 enable <= clk_en AND mem_en;
 
-byte_access_proc : PROCESS(uBus, mem_rdata, addr, dma_mem, dma_mem_rdata, dma_addr, bytes)
+byte_access_proc : PROCESS(uBus, mem_rdata, dma_mem, dma_mem_rdata)
 BEGIN
 
    mem_wdata <= wdata;
@@ -147,7 +147,7 @@ END PROCESS byte_access_proc;
 make_sim_mem: IF  SIMULATION  GENERATE
 
    internal_data_mem: internal_dpbram
-   GENERIC MAP (data_width, cache_size, byte_addr_width, "rw_check", DMEM_file)
+   GENERIC MAP (data_width, cache_size, byte_addr_width, "no_rw_check", DMEM_file)
    PORT MAP (
       clk     => clk,
       ena     => enable,
@@ -169,7 +169,7 @@ END GENERATE make_sim_mem; make_syn_mem: IF  NOT SIMULATION  GENERATE
 -- instantiate FPGA specific IP for byte addressed memory here:
 
    internal_data_mem: internal_dpbram
-   GENERIC MAP (data_width, cache_size, byte_addr_width, "rw_check")
+   GENERIC MAP (data_width, cache_size, byte_addr_width, "no_rw_check")
    PORT MAP (
       clk     => clk,
       ena     => enable,

@@ -80,8 +80,8 @@ COMPONENT program_rom PORT (
 SIGNAL debug_data   : inst_bus;
 SIGNAL debug_addr   : program_addr;
 
-SIGNAL dsu_rxd      : STD_LOGIC;
-SIGNAL dsu_txd      : STD_LOGIC;
+SIGNAL host_rxd     : STD_LOGIC;
+SIGNAL host_txd     : STD_LOGIC;
 SIGNAL tx_buf       : byte;
 SIGNAL send_byte    : STD_LOGIC;
 SIGNAL sending      : STD_LOGIC;
@@ -373,7 +373,7 @@ END PROCESS umbilical_proc;
 to_target_proc: PROCESS
    VARIABLE number : byte := (OTHERS => 'Z');
 BEGIN
-   dsu_txd <= '1';
+   host_txd <= '1';
    sending <= '0';
    WAIT FOR 980 ns;
    LOOP
@@ -384,13 +384,13 @@ BEGIN
       ELSE
          number := tx_buf;
       END IF;
-      dsu_txd <= '0';  -- start bit
+      host_txd <= '0';  -- start bit
       WAIT FOR baud;
       FOR  i IN 0 TO 7  LOOP
-        dsu_txd <= number(i);
+        host_txd <= number(i);
         WAIT FOR baud;
       END LOOP;
-      dsu_txd <= '1';  -- stop bit
+      host_txd <= '1';  -- stop bit
       sending <= '0';
       WAIT FOR baud;   -- wait for full stop bit
    END LOOP;
@@ -400,11 +400,11 @@ from_target_proc : PROCESS
 
    PROCEDURE rx_uart IS
    BEGIN
-     WHILE  dsu_rxd /= '0'  LOOP WAIT FOR cycle/2; END LOOP;
+     WHILE  host_rxd /= '0'  LOOP WAIT FOR cycle/2; END LOOP;
      WAIT FOR baud/2;
      FOR  i IN 0 TO 7  LOOP
         WAIT FOR baud;
-        host_buf(i) <= dsu_rxd;
+        host_buf(i) <= host_rxd;
      END LOOP;
      WAIT FOR baud/2;
    END rx_uart;
@@ -416,7 +416,7 @@ BEGIN
    LOOP
       WAIT FOR cycle;
       host_full <= '0';
-      WHILE  dsu_rxd = '1'  LOOP WAIT FOR cycle;  END LOOP;
+      WHILE  host_rxd = '1'  LOOP WAIT FOR cycle;  END LOOP;
       IF  downloading = '1'  THEN
          IF  byte_addr_width = 0  THEN
             FOR i IN octetts-1 DOWNTO 0 LOOP
@@ -490,8 +490,8 @@ myFPGA: fpga PORT MAP (
    addr       => ext_addr,
    data       => ext_data,
 -- umbilical port for debugging
-   dsu_rxd    => dsu_txd, -- incoming data stream
-   dsu_txd    => dsu_rxd  -- outgoing data stream
+   dsu_rxd    => host_txd, -- host -> target
+   dsu_txd    => host_rxd  -- target -> host
 );
 
 END testbench;

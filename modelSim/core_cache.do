@@ -36,8 +36,10 @@ add wave -noupdate /bench/myFPGA/uCore/uCntrl/mem_en
 add wave -noupdate /bench/myFPGA/internal_data_mem/bytes
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/bytes_d
 add wave -noupdate -radix binary /bench/myFPGA/internal_data_mem/bytes_en
+add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/bytea_i
 add wave -noupdate /bench/myFPGA/uBus.addr
-add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/addra
+add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/addra_i
+add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/addra_d
 add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/ena
 add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/wea
 add wave -noupdate /bench/myFPGA/uCore/uCntrl/mem_wdata
@@ -46,8 +48,8 @@ add wave -noupdate /bench/myFPGA/uCore/uCntrl/mem_rdata
 add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/doa
 add wave -noupdate /bench/myFPGA/internal_data_mem/make_sim_mem/internal_data_mem/ram(0)
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {245498 ns} 0} {{Cursor 2} {5140 ns} 0}
-quietly wave cursor active 1
+WaveRestoreCursors {{Cursor 1} {1727 ns} 0} {{Cursor 2} {1790 ns} 0}
+quietly wave cursor active 2
 configure wave -namecolwidth 134
 configure wave -valuecolwidth 68
 configure wave -justifyvalue left
@@ -62,4 +64,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {0 ns} {136500 ns}
+WaveRestoreZoom {1255 ns} {2831 ns}
