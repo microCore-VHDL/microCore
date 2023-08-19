@@ -2,7 +2,7 @@
 -- @file : architecture_pkg_32b_sim.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 15.07.2023 19:44:07
+-- Last change: KS 19.08.2023 18:52:01
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -37,7 +37,7 @@ USE work.functions_pkg.ALL;
 PACKAGE architecture_pkg IS
 --~--  \ when loaded by the microForth cross-compiler, code between "--~" up to "--~--" will be skipped.
 
-CONSTANT version            : NATURAL := 2500; -- <major_release> <functionality_added> <HW_fix> <SW_fix> <pre-release#>
+CONSTANT version            : NATURAL := 2510; -- <major_release> <functionality_added> <HW_fix> <SW_fix> <pre-release#>
 
 -- ---------------------------------------------------------------------
 -- Configuration flags
@@ -73,7 +73,7 @@ CONSTANT DMEM_file          : string  := ""; -- ../software/data.mem";
 CONSTANT data_width         : NATURAL := 32; -- data bus width
 CONSTANT exp_width          : NATURAL :=  8; -- floating point exponent width
 
-CONSTANT data_addr_width    : NATURAL := 14; -- data memory byte address width, for cache and external data memory
+CONSTANT data_addr_width    : NATURAL := 16; -- data memory byte address width, for cache and external data memory
 CONSTANT cache_addr_width   : NATURAL := 14; -- data cache memory byte address width
 CONSTANT cache_size         : NATURAL := 16#4000#; -- number of bytes.
 CONSTANT byte_addr_width    : NATURAL :=  2; -- least significant bits used for byte adressed data memory. 0 => no byte adressing.
@@ -82,7 +82,6 @@ CONSTANT addr_extern        : NATURAL := 2 ** cache_addr_width; -- start address
 CONSTANT WITH_EXTMEM        : BOOLEAN := data_addr_width /= cache_addr_width;
 --~--
 CONSTANT ram_data_width     : NATURAL :=  8; -- external memory word width
-CONSTANT ram_addr_width     : NATURAL := 14; -- external memory, virtually data_width wide
 --~
 CONSTANT ram_chunks         : NATURAL := ceiling(data_width, ram_data_width);
 CONSTANT ram_subbits        : NATURAL := log2(ram_chunks);

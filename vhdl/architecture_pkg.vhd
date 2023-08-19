@@ -2,7 +2,7 @@
 -- @file : architecture_pkg_32b.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 15.07.2023 19:56:45
+-- Last change: KS 19.08.2023 18:52:09
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -37,7 +37,7 @@ USE work.functions_pkg.ALL;
 PACKAGE architecture_pkg IS
 --~--  \ when loaded by the microForth cross-compiler, code between "--~" up to "--~--" will be skipped.
 
-CONSTANT version            : NATURAL := 2500; -- <major_release> <functionality_added> <HW_fix> <SW_fix> <pre-release#>
+CONSTANT version            : NATURAL := 2510; -- <major_release> <functionality_added> <HW_fix> <SW_fix> <pre-release#>
 
 -- ---------------------------------------------------------------------
 -- Configuration flags
@@ -82,7 +82,6 @@ CONSTANT addr_extern        : NATURAL := 2 ** cache_addr_width; -- start address
 CONSTANT WITH_EXTMEM        : BOOLEAN := data_addr_width /= cache_addr_width;
 --~--
 CONSTANT ram_data_width     : NATURAL :=  8; -- external memory word width
-CONSTANT ram_addr_width     : NATURAL := 14; -- external memory, virtually data_width wide
 --~
 CONSTANT ram_chunks         : NATURAL := ceiling(data_width, ram_data_width);
 CONSTANT ram_subbits        : NATURAL := log2(ram_chunks);

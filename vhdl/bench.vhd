@@ -2,7 +2,7 @@
 -- @file : bench.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 03.11.2022 18:58:14
+-- Last change: KS 19.08.2023 18:40:27
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -60,8 +60,8 @@ COMPONENT fpga PORT (
    ce_n        : OUT   STD_LOGIC;
    oe_n        : OUT   STD_LOGIC;
    we_n        : OUT   STD_LOGIC;
-   addr        : OUT   UNSIGNED(ram_addr_width-1 DOWNTO 0);
-   data        : INOUT UNSIGNED(ram_data_width-1 DOWNTO 0);
+   addr        : OUT   UNSIGNED(data_addr_width-1 DOWNTO 0);
+   data        : INOUT UNSIGNED( ram_data_width-1 DOWNTO 0);
 -- umbilical port for debugging
    dsu_rxd     : IN    STD_LOGIC;  -- incoming asynchronous data stream
    dsu_txd     : OUT   STD_LOGIC   -- outgoing data stream
@@ -101,8 +101,8 @@ CONSTANT int_time   : TIME := 29 us + 6 * 80 ns;
 SIGNAL ext_ce_n     : STD_LOGIC;
 SIGNAL ext_oe_n     : STD_LOGIC;
 SIGNAL ext_we_n     : STD_LOGIC;
-SIGNAL ext_addr     : UNSIGNED(ram_addr_width-1 DOWNTO 0);
-SIGNAL ext_data     : UNSIGNED(ram_data_width-1 DOWNTO 0);
+SIGNAL ext_addr     : UNSIGNED(data_addr_width-1 DOWNTO 0);
+SIGNAL ext_data     : UNSIGNED( ram_data_width-1 DOWNTO 0);
 
 BEGIN
 
@@ -465,7 +465,7 @@ END PROCESS xtal_clock;
 -- ---------------------------------------------------------------------
 
 ext_SRAM: external_ram
-GENERIC MAP (ram_data_width, ram_addr_width)
+GENERIC MAP (data_addr_width, ram_data_width)
 PORT MAP (
    ce_n   => ext_ce_n,
    oe_n   => ext_oe_n,

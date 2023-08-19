@@ -374,7 +374,7 @@ SIMULATION [IF]
 ;
 Variable Intvar
 
-HAVE #i-ext [IF]
+HAVE #i-ext SIMULATION AND [IF]
 
 : test-interrupt ( -- )   1 Intvar !   ei   #i-ext int-enable ;
 

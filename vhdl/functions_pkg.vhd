@@ -2,7 +2,7 @@
 -- @file : functions_pkg.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 15.07.2023 11:56:22
+-- Last change: KS 19.08.2023 18:39:33
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -187,8 +187,8 @@ COMPONENT internal_dpbram GENERIC (
 ); END COMPONENT;
 
 COMPONENT external_ram GENERIC (
-   data_width : INTEGER;
    addr_width : INTEGER;
+   data_width : INTEGER;
    init_file  : STRING := ""
 ); PORT (
    ce_n   : IN    STD_LOGIC;
@@ -1132,8 +1132,8 @@ USE STD.TEXTIO.ALL;
 USE work.functions_pkg.ALL;
 
 ENTITY external_ram IS
-GENERIC (data_width  : INTEGER;
-         addr_width  : INTEGER;
+GENERIC (addr_width  : INTEGER;
+         data_width  : INTEGER;
          init_file   : STRING := "");
 PORT (ce_n   : IN    STD_LOGIC;
       oe_n   : IN    STD_LOGIC;

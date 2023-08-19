@@ -2,7 +2,7 @@
 -- @file : fpga.vhd
 -- ---------------------------------------------------------------------
 --
--- Last change: KS 15.07.2023 19:34:54
+-- Last change: KS 19.08.2023 18:34:50
 -- @project: microCore
 -- @language: VHDL-93
 -- @copyright (c): Klaus Schleisiek, All Rights Reserved.
@@ -41,8 +41,8 @@ ENTITY fpga IS PORT (
    ce_n        : OUT   STD_LOGIC;
    oe_n        : OUT   STD_LOGIC;
    we_n        : OUT   STD_LOGIC;
-   addr        : OUT   UNSIGNED(ram_addr_width-1 DOWNTO 0);
-   data        : INOUT UNSIGNED(ram_data_width-1 DOWNTO 0);
+   addr        : OUT   UNSIGNED(data_addr_width-1 DOWNTO 0);
+   data        : INOUT UNSIGNED( ram_data_width-1 DOWNTO 0);
 -- umbilical uart for debugging
    dsu_rxd     : IN    STD_LOGIC;  -- incoming asynchronous data stream
    dsu_txd     : OUT   STD_LOGIC   -- outgoing data stream
@@ -54,6 +54,7 @@ SIGNAL uBus       : uBus_port;
 ALIAS  reset      : STD_LOGIC IS uBus.reset;
 ALIAS  clk        : STD_LOGIC IS uBus.clk;
 ALIAS  clk_en     : STD_LOGIC IS uBus.clk_en;
+ALIAS  wdata      : data_bus  IS uBus.wdata;
 ALIAS  delay      : STD_LOGIC IS uBus.delay;
 
 SIGNAL reset_a    : STD_LOGIC; -- asynchronous reset positive logic
@@ -173,9 +174,9 @@ BEGIN
       ctrl <= (OTHERS => '0');
    ELSIF  rising_edge(clk)  THEN
       IF  uReg_write(uBus, CTRL_REG)  THEN
-         IF  uBus.wdata(signbit) = '0'  THEN
-               ctrl <= ctrl OR  uBus.wdata(ctrl'range);
-         ELSE  ctrl <= ctrl AND uBus.wdata(ctrl'range);
+         IF  wdata(signbit) = '0'  THEN
+               ctrl <= ctrl OR  wdata(ctrl'range);
+         ELSE  ctrl <= ctrl AND wdata(ctrl'range);
          END IF;
       END IF;
       IF  reset = '1' AND NOT ASYNC_RESET  THEN
@@ -194,8 +195,8 @@ BEGIN
       flag_sema <= '0';
    ELSIF  rising_edge(clk)  THEN
       IF  uReg_write(uBus, FLAG_REG)  THEN
-         IF  (uBus.wdata(signbit) XOR uBus.wdata(f_sema)) = '1'  THEN
-            flag_sema <= uBus.wdata(f_sema);
+         IF  (wdata(signbit) XOR wdata(f_sema)) = '1'  THEN
+            flag_sema <= wdata(f_sema);
          END IF;
       END IF;
       IF  reset = '1' AND NOT ASYNC_RESET  THEN
@@ -204,8 +205,8 @@ BEGIN
    END IF;
 END PROCESS sema_proc;
 
-flags_pause <= '1' WHEN  uReg_write(uBus, FLAG_REG) AND uBus.wdata(signbit) = '0' AND
-                         unsigned(uBus.wdata(flag_width-1 DOWNTO 0) AND flags) /= 0
+flags_pause <= '1' WHEN  uReg_write(uBus, FLAG_REG) AND wdata(signbit) = '0' AND
+                         unsigned(wdata(flag_width-1 DOWNTO 0) AND flags) /= 0
                ELSE  '0';
 
 -- ---------------------------------------------------------------------
@@ -292,7 +293,7 @@ END PROCESS memaddr_proc;
 with_external_mem: IF  WITH_EXTMEM  GENERATE
 
    SRAM: external_SRAM
-   GENERIC MAP (ram_addr_width, ram_data_width, 2)
+   GENERIC MAP (data_addr_width, ram_data_width, 2)
    PORT MAP (
       uBus        => uBus,
       ext_rdata   => ext_rdata,
