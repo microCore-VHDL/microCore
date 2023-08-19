@@ -1,0 +1,257 @@
+************************************************************************
+*** uCore 2.510  15-Jul-2023 ks
+************************************************************************
+
+fpga.vhd, bench.vhd: ram_addr_width replaced by data_addr_width for external_SRAM.
+functions_pkg.vhd: Generics ram_data_width and data_addr_width exchanged for 
+   compatibility with other memory models.
+
+************************************************************************
+*** uCore 2.500  15-Jul-2023 ks
+************************************************************************
+
+Developments back-annotated, which first appeared on the Cyclone IV proto-
+typing board EP4CE6_V_1.310.
+
+Compiler switch EXTENDED has been deleted. Instead, explicit single
+instructions can be activated setting with_CCCC := true. A list of these
+switches is located after the instruction set table.
+
+Three new instructions added: [di, di], and (+löop.
+
+************************************************************************
+*** uCore 2.410  10-Nov-2022 ks
+************************************************************************
+
+Update of all documents.
+
+architecture_pkg.vhd: reg_addr_width computed automatically from min_registers.
+
+************************************************************************
+*** uCore 2.400   3-Nov-2022 ks
+************************************************************************
+
+Functional enhancement:
+   Byte addressing implemented using constant byte_addr_width. This only
+   makes sense for 16 and 32 bit data_width. 
+   New instructions when byte_addr_width /= 0: 
+   cST (c-STORE), cLD (c-LOAD), c@, wST (w-STORE), wLD (w-LOAD),
+   ALIGN, #CELL, CELLS, CELL+, and CELL-.
+
+   See vhdl/architectures for a collection of various architecture_pkg 
+   and uDatachache files.
+
+functions_pkg.vhd:
+   New internal_dpbram entity defined. Synplify will infer byte 
+   addressable dual port memory.
+   
+Bugfix and changes of uCtrl.vhd:
+   Overflow generation of the last signed division step op_SDIVL.
+   Now a complete testbench exists for signed and unsigned divison/
+   multiplication. On a 10 bit system it takes about 4 hours.
+   See: software/test/division directory.   
+   -rot, nip, tuck, and under deprecated, because they can be realized 
+   as two instruction macros.
+   
+bench.vhd
+   Several bugfixes in the umbilical interface tests.
+   
+task_lib.fs:
+   It has been split into two files: multitask.vhd which can be included
+   with definitions that will always be needed. At the very end of 
+   multitask.fs, library task_lib.fs will be loaded.
+
+************************************************************************
+*** uCore 2.354   4-Jun-2022 ks
+************************************************************************
+
+Bugfix in uCtrl:
+   dcache was always false when data_addr_width = cache_addr_width
+   and therefore, @ and ! would not work.
+
+Bugfix in constant.fs and various .fs files:
+   Flag-reg replaced by Flags, Int-reg replaced by Intflags.
+
+Bugfix in microcross.fs:
+   Create ... Does> now allows multiple data object definitions.
+   Additional data objects can be defined while debugging interactively.
+
+forth_lib.fs, debugger.fs, and messages.fs:
+   The target's , moved from forth_lib to debugger and messages and
+   therefore, it will be permanently present outside of the library.
+
+************************************************************************
+*** uCore 2.342  13-Apr-2022 ks
+************************************************************************
+
+Bugfix in semaphor_proc in architecture_pkg.vhd
+Moved enable_proc for clk_en generation from uCore.vhd to fpga.vhd
+1+ / 1- replaced by cell+ / cell- in various places in preparation
+for byte addressed memory.
+
+************************************************************************
+*** uCore 2.331   5-Nov-2021 ks
+************************************************************************
+
+uCntrl.vhd: Bugfix in 'WHEN op_STORE'. Code for RSP_REG simplified.
+
+uCore.vhd: Bugfix in core.mem_en
+
+debugger.fs: Synchronising Tdp (data memory pointer in the host) and
+   Dp (data memory pointer in the target) if the latter has been
+   defined.
+   Saving/Restoring TOR during breakpoint debugging.
+   Order of input-arguments changed for dtarget and udtarget.
+
+library.fs: Major bugfixes. 'preload' added to the wordset in order
+   to load a library definition explicitly before using it.
+
+microcross.fs: Data memory initialization optimized by not storing 0.
+   This assumes that at first the used data memory is zeroed during
+   reset.
+   UNTIL will now resolve a preceeding WHILE. (BEGIN .. WHILE .. UNTIL)
+
+task_lib.fs: Bugfix in do-poll.
+
+************************************************************************
+*** uCore 2.320   1-Apr-2021 ks
+************************************************************************
+
+Rewriting the VHDL code for VHDL-93 instead of VHDL-2008
+Some additional modifications to make it synthesizable by XST.
+
+Moving the data cache memory interface from uCore.vhd to fpga.vhd.
+
+architecture_pkg.vhd: New parameters cache_size and prog_size, because
+   those may be smaller than 2**cache_addr_width or 2**prog_addr_width
+   respectively.
+
+functions_pkg.vhd: All internal memory components now take the actual
+   RAM size as generic instead of the addr_width.
+   
+************************************************************************
+*** uCore 2.310  23-Mar-2021 ks
+************************************************************************
+
+Architecture_pkg(_sim).vhd: A few renames of constants.
+   Both types uBus_port and core_signals now include the full set of
+   memory enable signals: reg_en, mem_en, and ext_en.
+
+functions_pkg.vhd: "none" for "no file" replaced by "", the empty
+   string.
+
+uCore.vhd: Restructuring memory enable control and rdata source
+   selection.
+
+external_SRAM.vhd: Bugfix in data_mux_proc.
+
+extensions.fs: Bugfix in [IF] structure for loading RS232_linux.fs.
+
+************************************************************************
+*** uCore 2.300   8-Mar-2021 ks
+************************************************************************
+
+Libraries IEEE.STD_LOGIC_SIGNED/UNSIGNED replaced by IEEE.NUMERIC_STD.
+ALL STD_LOGIC_VECTOR data types have been replaced by UNSIGNED.
+The remaining conversions and casts have been converted to NUMERIc_STD.
+
+In architecture_pkg.vhd and architecture_pkg_sim.vhd:
+Compiler switch WITH_PROG_RW eliminated. The program memory can only
+be written when simulating or during boot load (warmboot = '0').
+It can always be read.
+
+In uCore.vhd: WITH_PROG_RW eliminated.
+
+In uCntrl.vhd: Bugfix in op_PLUSST, op_PLUSST2
+   reg_addr now defined as SIGNED(reg_addr_width DOWNTO 0) so that
+   it can handle the negatve register addresses.
+   uAdd.vhd and uMult.vhd merged into uArithmetic.vhd.
+
+objects.fs: New file with OOP mechanism.
+See uForth.pdf chapter 9.5. OOP code integrated into microcross.fs.
+
+In image.fs: CRC-file modified for variable data_width, but at
+least 16 bits.
+
+************************************************************************
+*** uCore 2.200  21-Jan-2021 ks
+************************************************************************
+
+First release on GitHub.
+
+New Version number structure:
+<4 digit version>_<2 digit data_width>
+<major_release><functionality_added><HW_fix><SW_fix>_<data_width>
+Use .version to display while debugging.
+
+In architecture_pkg.vhd and architecture_pkg_sim.vhd:
+- Simplification and re-arrangment of the architecture Constants.
+- Additional number formats implemented in vhdl.fs e.g. 16#C00#.
+- data_nibbles renamed octetts.
+- dcache_addr_width renamed cache_addr_width.
+- pcache_addr_width deleted, its now always equal to prog_addr_width.
+  The notion that there may be external program memory available has
+  been given up.
+
+In uCntrl.vhd:
+- The return stack may now reside in external memory.
+  Its base address is defined by constant addr_rstack.
+- op_WLOCAL and op_RLOCAL have been abandoned for op_LOCAL, which
+  only computes the absolute memory address from a relative return
+  stack addr.
+- Overflow bugfix in op_SDIVS.
+
+In constants.fs: Compound names in uForth did use the _ character as
+separator. This has been replaced by the - character unless a name has
+been imported from VHDL verbatim. Example: #c_bitout renamed #c-bitout.
+
+Library.fs: New file that implements uForth's library mechanism.
+See uForth.pdf chapter 9.6 "Libraries". Library code integrated into
+microcross.fs.
+
+************************************************************************
+*** uCore 2.10  17-Jun-2020 ks
+************************************************************************
+
+First release (CERN and DESY).
+
+During documentation, several changes have been made to the design.
+And a new version identification when displaying
+
+.version: 2<2-digit-design#>_<data_width> e.g. 210_32
+
+************************************************************************
+*** uCore 2.02  07-Jan-2020 ks
+************************************************************************
+
+Shift instructions unified:
+WITH_MULT: MSHIFT, MASHIFT, WITHOUT_MULT: SHIFT, ASHIFT, C2/, C2*
+WITH_TASKS, TASK_REG, tld, t@, tst, and t! eliminated.
+Upload bug fixed.
+status, dsp, rsp became registers. Special purpose instructions
+status@/!, dsp@/!, and rsp@/! eliminated.
++sat instruction added.
+
+************************************************************************
+*** uCore 2.01  09-Aug-2019 ks
+************************************************************************
+
+Changes made in A3PE_1500_1003 ported back to uCore_2
+Floating point ported and included in coretest.fs
+
+************************************************************************
+*** uCore 2.00  06-Jun-2019 ks
+************************************************************************
+
+Float not yet ported to 2.00
+Debugger revisited: Temporary code sequences (without reset) transferred
+with program memory cycle stealing.
+>FOR <NEXT removed, replaced by ?FOR ... NEXT
+Starting uCore 2.00.
+At first producing a minimum code version of uCore 1.98.
+
+************************************************************************
+*** uCore 1.98  29-Dec-2018 ks
+************************************************************************
+
+Changes imported from Merlin Project
